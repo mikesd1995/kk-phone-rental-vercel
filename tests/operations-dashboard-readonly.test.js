@@ -138,7 +138,18 @@ test('Core closed event cannot advertise phone ready on contradictory derived sh
 });
 test('Core event date mismatch is visibly flagged and blocks post draft gate',()=>{
  const d=mk();d.data.events[0].event_date='2026-12-04';
+ d.data.web_ready[0].available_phone_count=2;
+ d.data.web_packages[0].available_count=2;d.data.web_packages[0].package_status='available';
  const x=Ops.normalize(d,NOW).records[0];
+ assert.equal(x.phoneReady,false);
  assert.ok(x.qa.some(y=>y.includes('วันที่/สถานที่')));
  assert.ok(x.gate.includes('โปสเตอร์/วันที่'));
+});
+
+test('Core venue drift cannot look rent-ready with positive package stock',()=>{
+ const d=mk();d.data.events[0].venue='Different Venue';d.data.web_ready[0].venue='Rajamangala';
+ d.data.web_ready[0].available_phone_count=2;d.data.web_packages[0].available_count=2;d.data.web_packages[0].package_status='available';
+ const x=Ops.normalize(d,NOW).records[0];
+ assert.equal(x.phoneReady,false);
+ assert.ok(x.qa.some(v=>v.includes('วันที่/สถานที่')));
 });
