@@ -79,3 +79,27 @@ test('fractional, negative and unsafe stock counts are HOLD',()=>{
     assert.equal(Ops.normalize(y,NOW).records[0].stock,null);
   }
 });
+
+// Regression: package stock alone cannot override 08_Web_Ready phone inventory.
+test('positive bundle stock with zero Web Ready phone count stays unavailable',()=>{
+  const x=mk();
+  x.data.web_packages[0].available_count=2;x.data.web_packages[0].package_status='available';
+  x.data.web_packages[1].available_count=2;x.data.web_packages[1].package_status='available';
+  const row=Ops.normalize(x,NOW).records[0];
+  assert.equal(row.stock,0);assert.equal(row.phoneReady,false);assert.equal(row.bundleReady,false);
+  assert.ok(row.gate.includes('มือถือ/แพ็กเกจไม่พร้อม'));
+});
+
+test('primary Apps Script lacking Owner Locks can show read-only rows, but each row is HOLD',()=>{
+  const x=mk();delete x.data.visibility_locks;
+  const output=Ops.normalize(x,NOW);
+  assert.equal(output.records.length,1);
+  assert.equal(output.meta.locksAvailable,false);
+  assert.equal(output.records[0].lock,'UNKNOWN');
+  assert.ok(output.records[0].gate.includes('Owner Locks ไม่มีหลักฐาน'));
+});
+test('timezone-less Apps Script generated_at is interpreted in Bangkok time, not browser timezone',()=>{
+  const output=Ops.normalize(mk({generated_at:'2026-11-07T16:00:00'}),NOW);
+  assert.equal(output.meta.fresh,true);
+  assert.equal(output.meta.generatedAt,'2026-11-07T09:00:00.000Z');
+});
