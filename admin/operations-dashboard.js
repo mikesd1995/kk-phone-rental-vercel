@@ -46,8 +46,8 @@ function normalize(source,now=new Date()){
  if(missing.length)throw new Error('SOURCE_INCOMPLETE:'+missing.join(','));
  if(!d.web_ready.length||!d.web_packages.length||!d.events.length)throw new Error('SOURCE_EMPTY');
  const sourceTime=String(d.generated_at||'').trim();
- // The canonical Apps Script formats generated_at in the spreadsheet's Bangkok timezone
- // without any UTC offset; use +07:00 rather than the viewer's browser timezone.
+ // The Apps Script formatter uses Session.getScriptTimeZone(); owner evidence previously
+ // confirmed Asia/Bangkok. The returned timestamp has no UTC offset.
  const localBangkokTime=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(sourceTime);
  const fetched=Date.parse(localBangkokTime?sourceTime+'+07:00':sourceTime);
  const fresh=Number.isFinite(fetched)&&fetched<=+now+15000&&(+now-fetched)<=MAX_AGE_MS;
