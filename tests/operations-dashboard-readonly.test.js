@@ -45,6 +45,7 @@ test('unknown booking status cannot imply zero active customers',()=>{
   assert.ok(x.gate.includes('Booking ไม่ครบ/ID ซ้ำ/สถานะไม่รู้จัก'));
 });
 
+
 test('empty lock state is HOLD rather than falsely permitted',()=>{
   const row=Ops.normalize(mk({visibility_locks:[{event_id:'EVT-20261203-BTS-ARIRANG',lock_state:''}]}),NOW).records[0];
   assert.ok(row.gate.includes('Owner Locks ไม่มีหลักฐาน'));
