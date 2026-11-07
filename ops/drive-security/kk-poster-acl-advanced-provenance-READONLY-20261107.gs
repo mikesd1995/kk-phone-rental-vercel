@@ -62,8 +62,8 @@ function kkProvInspect_20261107(){
     .concat(roster.map(id=>({id,depth:0,kind:'image'})));
   const visited=new Set();
   let imageCount=0,folderCount=0,parentCount=0,directWriter=0,
-      inheritedWriter=0,unresolvedSource=0,publicWriterItems=0,anyoneReaderItems=0;
-  const evidence=[];
+      inheritedWriter=0,publicWriterItems=0,anyoneReaderItems=0;
+  const sharedDriveIds=new Set();
   while(queue.length){
     const work=queue.shift();
     if(work.depth>KKPROV_MAX_DEPTH||visited.size>=KKPROV_MAX_ITEMS)
@@ -88,7 +88,6 @@ function kkProvInspect_20261107(){
       if(!['writer','reader','commenter'].includes(String(p.role)))
         throw Error('ADVANCED_ANYONE_ROLE_UNRECOGNIZED');
       if(!Array.isArray(p.permissionDetails)||!p.permissionDetails.length){
-        unresolvedSource++;
         throw Error('ADVANCED_ANYONE_PERMISSION_ORIGIN_MISSING');
       }
       let maxWriter=false;
@@ -105,7 +104,7 @@ function kkProvInspect_20261107(){
           else directWriter++;
         }
       }
-      if(p.role==='writer'&&!maxWriter)
+      if((p.role==='writer')!==maxWriter)
         throw Error('ADVANCED_ROLE_DETAILS_DIVERGED');
       if(p.role==='writer')hasWriter=true;
       if(p.role==='reader')hasReader=true;
@@ -114,8 +113,6 @@ function kkProvInspect_20261107(){
     if(hasReader)anyoneReaderItems++;
     // Audit summary only. Never serialize identifying IDs, names, emails,
     // signed URLs, account details or OAuth tokens into Logger output.
-    evidence.push({kind:work.kind,depth:work.depth,public_writer:hasWriter,
-      public_reader:hasReader,has_explicit_source:publicPerms.length>0});
     const parents=Array.isArray(metadata.parents)?metadata.parents:[];
     if(work.kind!=='image'){
       for(const parentId of parents){
@@ -126,10 +123,10 @@ function kkProvInspect_20261107(){
       }
     }
     if(metadata.driveId && typeof metadata.driveId==='string'){
-      // A shared drive's membership can add role grants independent of files.
-      // The organizer must inspect its own ACL separately. Never claim
-      // approval complete from the folder-only Permissions.list census.
-      unresolvedSource++;
+      // Shared-drive membership grants can arise separately from item ACLs.
+      // Owner review of the drive-level ACL is still required. Count only
+      // distinct shared drives rather than calling every item unresolved.
+      sharedDriveIds.add(metadata.driveId);
     }
   }
   if(imageCount!==45||folderCount!==4)
@@ -137,7 +134,9 @@ function kkProvInspect_20261107(){
   const report={audit_only:true,changed:0,images:imageCount,asset_folders:folderCount,
     upstream_parents:parentCount,public_writer_items:publicWriterItems,
     direct_public_writer_details:directWriter,inherited_public_writer_details:inheritedWriter,
-    public_reader_items:anyoneReaderItems,unresolved_permission_origins:unresolvedSource,
+    public_reader_items:anyoneReaderItems,
+    shared_drive_ids_seen:sharedDriveIds.size,
+    shared_drive_membership_review_required:sharedDriveIds.size>0,
     owner_origin_review_required:true,ready_for_acl_write:false};
   Logger.log(JSON.stringify(report));
   return report;
