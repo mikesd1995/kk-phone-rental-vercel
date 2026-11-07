@@ -29,7 +29,7 @@ function build(opts={}){
       'IF(MAX(G'+row+',H'+row+')>0,"show","show_full")');
     state.ids.push([id]);
     state.formulas.push(i===totalRows-1&&opts.lastBlank!==false?['','']:[status,action]);
-    state.display.push([id,'synthetic event','03/12/2026','mock venue','mock poster','','0','1',i===totalRows-1?'':'เปิดจอง',i===totalRows-1?'':'show']);
+    state.display.push([id,'synthetic event','03/12/2026','mock venue','mock poster','',i<2?'0':'1','1',i===totalRows-1?'':'เปิดจอง',i===totalRows-1?'':'show']);
   }
   function range(row,col,numRows,numCols){
     const first=row-firstRow,last=first+numRows;
@@ -104,6 +104,13 @@ test('owner preflight recognizes 995 exact old I/J pairs and one truly blank row
   assert.equal(r.blank_rows,558);
   assert.equal(r.legacy_rows,438);
   assert.equal(r.unexpected_count,0);
+  assert.equal(r.blank_formula_rows,557);
+  assert.equal(r.blank_without_formula_rows,1);
+  assert.equal(r.planned_change_rows,995);
+  assert.equal(r.planned_change_cells,1990);
+  assert.equal(r.safe_formula_pairs_all,0);
+  assert.equal(r.phone_zero_marked_open,2);
+  assert.equal(r.phone_zero_lens_positive_marked_open,2);
   assert.equal(f.calls.write.length,0);
   assert.equal(f.calls.packageWrites,0);
 });
@@ -139,6 +146,10 @@ test('owner repair uses one bounded I:J span and never touches Web Packages',()=
   const after=f.preflight();
   assert.equal(after.legacy_rows,0);
   assert.equal(after.already_safe_rows,438);
+  assert.equal(after.safe_formula_pairs_all,995);
+  assert.equal(after.planned_change_rows,0);
+  assert.equal(after.planned_change_cells,0);
+  assert.equal(after.blank_formula_rows,557);
 });
 test('readback-repair is idempotent and makes zero writes a second time',()=>{
   const f=build();
@@ -182,4 +193,29 @@ test('no accidental install / deploy / trigger in scoped source',()=>{
   assert.equal(selected.includes('ScriptApp.newTrigger('),false);
   assert.equal(selected.includes('DriveApp.'),false);
   assert.equal(selected.includes('UrlFetchApp.'),false);
+});
+
+test('partial owner cutover reports exact remaining formula pair and cell count',()=>{
+  const f=build();
+  f.state.formulas[10][0]=f.genI(15); // one safe I, legacy J: still two-cell change
+  f.state.formulas[11]=[f.genI(16),f.genA(16)]; // fully safe
+  let result=f.preflight();
+  assert.equal(result.pass,true);
+  assert.equal(result.planned_change_rows,994);
+  assert.equal(result.planned_change_cells,1988);
+  assert.equal(result.safe_formula_pairs_all,1);
+  assert.equal(result.already_safe_rows,1);
+  assert.equal(result.legacy_rows,437);
+  assert.equal(f.calls.write.length,0);
+});
+
+test('blank-event fill-down pairs are part of dry-run planned writes',()=>{
+  const f=build();
+  const r=f.preflight();
+  assert.equal(r.populated_rows,438);
+  assert.equal(r.legacy_rows,438);
+  assert.equal(r.planned_change_rows,995);
+  assert.equal(r.blank_formula_rows,557);
+  assert.equal(r.blank_rows,558);
+  assert.equal(r.blank_without_formula_rows,1);
 });
