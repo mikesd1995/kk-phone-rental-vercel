@@ -29,7 +29,7 @@ function build(opts={}){
       'IF(MAX(G'+row+',H'+row+')>0,"show","show_full")');
     state.ids.push([id]);
     state.formulas.push(i===totalRows-1&&opts.lastBlank!==false?['','']:[status,action]);
-    state.display.push([id,'synthetic event','03/12/2026','mock venue','mock poster','','0','1','เปิดจอง','show']);
+    state.display.push([id,'synthetic event','03/12/2026','mock venue','mock poster','','0','1',i===totalRows-1?'':'เปิดจอง',i===totalRows-1?'':'show']);
   }
   function range(row,col,numRows,numCols){
     const first=row-firstRow,last=first+numRows;
