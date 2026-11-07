@@ -7,6 +7,7 @@ const AdminSecurity = require('../server/admin-session.js');
 const AdminMakeGate = require('../server/admin-make-gate.js');
 const AdminWriteControl = require('../server/admin-write-control-oidc.js');
 const AdminGoogleWriter = require('./lib/admin-google-sheets-writer.js');
+const OpsProjection = require('../server/kk-admin-ops-projection.js');
 
 const ADAPTER_VERSION = 'admin-snapshot-contract-repair-v6';
 const REQUIRED = ['events','bookings','current_bookings','assets'];
@@ -86,6 +87,52 @@ function enrich(body){
   return body;
 }
 
+// Private, read-only Operations response: retain existing signed-session gate and
+// V5 private snapshot reader, but strip customer data on the server *before* response.
+async function handleOperationsSnapshot(req,res){
+  // Legacy PIN alone is NOT sufficient for the dedicated Operations surface.
+  if(!AdminSecurity.hasValidSession(req)){
+    return replyJson(res,401,{ok:false,error_code:'OPS_SESSION_REQUIRED'});
+  }
+  const originalUrl=req.url;
+  const originalEnd=res.end.bind(res);
+  let finished=false;
+  const finish=(status,body)=>{
+    if(finished) return;
+    finished=true;
+    res.statusCode=status;
+    res.setHeader('Content-Type','application/json; charset=utf-8');
+    res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, max-age=0');
+    res.setHeader('X-Content-Type-Options','nosniff');
+    res.setHeader('X-KK-Ops-Projection-Version',OpsProjection.VERSION);
+    return originalEnd(JSON.stringify(body));
+  };
+  try{
+    // V5 recognizes only action=snapshot; this internal rewrite never leaves the
+    // request and is restored after the awaited reader finishes.
+    const url=new URL(originalUrl||'/api/kk-admin','http://localhost');
+    url.searchParams.set('action','snapshot');
+    req.url=url.pathname+url.search;
+    res.end=chunk=>{
+      if(res.statusCode!==200) return finish(503,{ok:false,error_code:'OPS_SOURCE_UNAVAILABLE'});
+      try{
+        const parsed=JSON.parse(String(chunk??''));
+        const safe=OpsProjection.project(parsed);
+        return finish(200,safe);
+      }catch(_){
+        return finish(503,{ok:false,error_code:'OPS_PROJECTION_REJECTED'});
+      }
+    };
+    await V5(req,res);
+    if(!finished) return finish(503,{ok:false,error_code:'OPS_SOURCE_NO_RESPONSE'});
+  }catch(_){
+    return finish(503,{ok:false,error_code:'OPS_SOURCE_UNAVAILABLE'});
+  }finally{
+    req.url=originalUrl;
+    res.end=originalEnd;
+  }
+}
+
 module.exports=async function handler(req,res){
   const gate=AdminSecurity.gateMode(req);
   if(gate==='make-verify') return AdminMakeGate.handleVerify(req,res);
@@ -94,6 +141,9 @@ module.exports=async function handler(req,res){
   if(!AdminSecurity.authorizeApi(req,res)) return;
 
   const action=requestAction(req);
+  if(req.method==='GET'&&action==='operationsSnapshot'){
+    return handleOperationsSnapshot(req,res);
+  }
   if(req.method==='GET'&&action==='writeControlHealth'){
     return handleDirectWriterHealth(res);
   }
@@ -113,4 +163,4 @@ module.exports=async function handler(req,res){
   await V5(req,res);
 };
 
-module.exports._test={classifyHealth,enrich,requestAction,directWriterHealthPayload,handleDirectWriterHealth};
+module.exports._test={classifyHealth,enrich,requestAction,directWriterHealthPayload,handleDirectWriterHealth,handleOperationsSnapshot};
