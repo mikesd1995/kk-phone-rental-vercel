@@ -705,3 +705,140 @@ test('upstream private-to-public Writer drift invalidates previously owner-appro
   assert.throws(()=>f.api.apply(before.fingerprint),/ACL_CHANGED_SINCE_OWNER_APPROVAL/);
   assert.equal(f.getWrites(),0);
 });
+
+const advancedReadOnly = fs.readFileSync(
+  path.join(__dirname,'kk-poster-acl-advanced-provenance-READONLY-20261107.gs'),'utf8');
+
+function advancedProvenanceFixture(opts={}){
+  const root='KK_MOCK_SHARED_DRIVE_PARENT';
+  const ids=[...folderIDs,...expected];
+  const errors=[],logs=[];
+  let writes=0,metadataReads=0,permissionReads=0;
+  const folderParents=new Map([
+    [folderIDs[0],[root]],[folderIDs[1],[folderIDs[0]]],
+    [folderIDs[2],[folderIDs[0]]],[folderIDs[3],[root]],[root,[]]
+  ]);
+  const Drive={
+    Files:{
+      get:(id,o)=>{
+        metadataReads++;
+        assert.equal(o.supportsAllDrives,true);
+        if(opts.missingUpstream&&id===root)return null;
+        if(folderParents.has(id))
+          return {id,mimeType:'application/vnd.google-apps.folder',
+            parents:folderParents.get(id),
+            driveId:opts.sharedDrive?'KK_MOCK_SHARED_DRIVE_ID':undefined};
+        if(expected.includes(id))
+          return {id,mimeType:opts.nonImage&&id===expected[0]?'text/plain':'image/jpeg',
+            parents:[folderIDs[0]],driveId:opts.sharedDrive?'KK_MOCK_SHARED_DRIVE_ID':undefined};
+        assert.fail('unexpected provenance file target');
+      },
+      update:()=>{writes++;throw Error('UNSAFE_FILE_UPDATE')}
+    },
+    Permissions:{
+      list:(id,o)=>{
+        permissionReads++;
+        assert.equal(o.supportsAllDrives,true);
+        assert.ok(o.fields.includes('permissionDetails'));
+        if(opts.pageLoop)return {permissions:[],nextPageToken:'LOOP'};
+        const isRoot=id===root;
+        if(isRoot)return {permissions:[]};
+        const parent=folderParents.get(id)?.[0]??folderIDs[0];
+        const inherited=opts.inherited===true;
+        const details=opts.missingDetails&&id===folderIDs[0]?undefined:[
+          {permissionType:'file',inherited,role:'writer',
+           ...(inherited?{inheritedFrom:parent}:{})}
+        ];
+        return {permissions:[{id:'mock-perm',type:'anyone',role:'writer',
+          permissionDetails:details}]};
+      },
+      update:()=>{writes++;throw Error('UNSAFE_PERMISSION_UPDATE')},
+      delete:()=>{writes++;throw Error('UNSAFE_PERMISSION_DELETE')},
+      create:()=>{writes++;throw Error('UNSAFE_PERMISSION_CREATE')}
+    }
+  };
+  const PropertiesService={getScriptProperties:()=>({
+    getProperty:key=>{
+      assert.equal(key,'KKACL_OWNER_REVIEWED_ACTIVE_IDS_V20261107');
+      if(opts.missingRoster)return null;
+      return JSON.stringify(opts.rosterMismatch?[...expected.slice(0,-1),'OTHER_INVALID_ID']:expected);
+    }
+  })};
+  const sandbox={Drive,PropertiesService,Logger:{log:x=>logs.push(String(x))}};
+  vm.createContext(sandbox);
+  vm.runInContext(advancedReadOnly,sandbox,{timeout:2000});
+  const inspect=vm.runInContext('kkProvInspect_20261107',sandbox);
+  return {inspect,logs,errors,getWrites:()=>writes,
+    getMetadataReads:()=>metadataReads,getPermissionReads:()=>permissionReads};
+}
+test('advanced Drive permission-origin script is strictly read-only without write entrypoints',()=>{
+  for(const token of ['.setSharing(','.Permissions.update(','.Permissions.delete(',
+      '.Permissions.create(','.Files.update(','UrlFetchApp.fetch(','ScriptApp.newTrigger(']){
+    assert.equal(advancedReadOnly.includes(token),false,'forbidden '+token);
+  }
+  assert.ok(advancedReadOnly.includes('supportsAllDrives:true'));
+  assert.ok(advancedReadOnly.includes('permissionDetails(inherited,inheritedFrom,role,permissionType)'));
+});
+test('Advanced Drive provenance census reads 45 synthetic images, 4 folders, 1 root with no mutations',()=>{
+  const f=advancedProvenanceFixture();
+  const r=f.inspect();
+  assert.equal(r.audit_only,true);
+  assert.equal(r.images,45);
+  assert.equal(r.asset_folders,4);
+  assert.equal(r.upstream_parents,1);
+  assert.equal(r.public_writer_items,49);
+  assert.equal(r.direct_public_writer_details,49);
+  assert.equal(r.inherited_public_writer_details,0);
+  assert.equal(r.ready_for_acl_write,false);
+  assert.equal(r.changed,0);
+  assert.equal(f.getWrites(),0);
+  assert.equal(f.getMetadataReads(),50);
+  assert.equal(f.getPermissionReads(),50);
+  assert.equal(f.logs.length,1);
+  assert.ok(!f.logs[0].includes(expected[0]));
+  assert.ok(!f.logs[0].includes(folderIDs[0]));
+});
+test('advanced provenance counts inherited writer origin without granting write approval',()=>{
+  const f=advancedProvenanceFixture({inherited:true});
+  const r=f.inspect();
+  assert.equal(r.inherited_public_writer_details,49);
+  assert.equal(r.direct_public_writer_details,0);
+  assert.equal(r.owner_origin_review_required,true);
+  assert.equal(r.ready_for_acl_write,false);
+  assert.equal(f.getWrites(),0);
+});
+test('advanced provenance fails closed if permissionDetails are absent',()=>{
+  const f=advancedProvenanceFixture({missingDetails:true});
+  assert.throws(()=>f.inspect(),/ADVANCED_ANYONE_PERMISSION_ORIGIN_MISSING/);
+  assert.equal(f.getWrites(),0);
+});
+test('advanced provenance fails closed if shared-drive parent metadata cannot be read',()=>{
+  const f=advancedProvenanceFixture({missingUpstream:true});
+  assert.throws(()=>f.inspect(),/ADVANCED_FILE_METADATA_INCOMPLETE/);
+  assert.equal(f.getWrites(),0);
+});
+test('advanced provenance refuses unreviewed or missing private file manifest',()=>{
+  for(const opt of [{missingRoster:true},{rosterMismatch:true}]){
+    const f=advancedProvenanceFixture(opt);
+    assert.throws(()=>f.inspect(),/OWNER_PRIVATE_ROSTER_(NOT_CONFIGURED|INVALID)/);
+    assert.equal(f.getMetadataReads(),0);
+    assert.equal(f.getWrites(),0);
+  }
+});
+test('advanced provenance shared-drive membership remains independent owner review gate',()=>{
+  const f=advancedProvenanceFixture({sharedDrive:true});
+  const r=f.inspect();
+  assert.equal(r.unresolved_permission_origins,49);
+  assert.equal(r.ready_for_acl_write,false);
+  assert.equal(f.getWrites(),0);
+});
+test('advanced provenance aborts looping pagination before any writes',()=>{
+  const f=advancedProvenanceFixture({pageLoop:true});
+  assert.throws(()=>f.inspect(),/ADVANCED_PERMISSION_PAGINATION_LOOP/);
+  assert.equal(f.getWrites(),0);
+});
+test('advanced provenance rejects non-image media in private roster',()=>{
+  const f=advancedProvenanceFixture({nonImage:true});
+  assert.throws(()=>f.inspect(),/ADVANCED_ACTIVE_FILE_NOT_IMAGE/);
+  assert.equal(f.getWrites(),0);
+});
