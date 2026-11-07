@@ -81,3 +81,13 @@ After independent code logic review, the evaluator additionally requires:
 Isolated V8 execution of the actual branch evaluator and test source with compatible require/URL shims: **19/19 tests PASS, 0 FAIL**. Node exact-HEAD hosted CI, independent Reviewer and runtime test are **NOT** evidenced. No Github Actions workflow was manually dispatched and no paid provider was used.
 
 PR #850: https://github.com/mikesd1995/kk-phone-rental-vercel/pull/850 (Draft; no merge/deploy).
+
+
+## Second expanded source check — 2026-11-07 17:44 ICT
+Actual connected canonical read repeated with 10 candidate-day records including two newly discovered primary-source entries:
+- **MINDY THE VOYAGE FAN CONCERT**, Dec12 18:00–21:00 SiamPic Hall, authoritative ticketing https://www.eventpop.me/e/180979 , ticket sale Nov7, Persona Entertainment / BDLMD organizer. Core/Web Ready/Locks exact-name lookup: absent, no confirmed Dec12 booking. High-value fan concert; stage for Verifier only until poster, participant phone + lens rights, independently evidenced rental-fit score, V4 prices and canonical day-stock proof verified.
+- **Illust Fusion EXPO WINTER 2026**, Dec12 and Dec13 10:00–20:00 Paragon Hall, organizer https://if.enterdock.com/infoexpo/ . Core/Web Ready/Locks lookup: absent, no confirmed booking on either date. Artwork/merchandise fair, rental fit not established; no auto-publication.
+- Re-read 70 Core rows, 13 Dec booking rows, 44 Dec lock history rows.
+- Expanded actual-snapshot preflight results: **10 candidate-day records examined, 0 preflight passes, 10 HOLD, 0 production writes**. Two prohibited examples: PP KRIT Dec19 (one confirmed booking and two owner day-exclusive lock matches), Gulf Club Dec06 (two confirmed bookings). New MINDY and Illust rows have zero booking/duplicate/owner lock matches but are explicitly blocked on missing rights, stock proof, rental-fit and final prices.
+- The 10 entries are *leads*; total true distinct titles lower because Illust spans two days. Do not call this exhaustive source coverage; no source manifest/real full scanner execution receipts were obtained.
+- This expanding source check does not affect prior case test count, which remains **19/19 isolated V8 pass**. Hosted Node CI/independent reviewer remains outstanding.
