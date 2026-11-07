@@ -13,7 +13,7 @@ function candidate(overrides={}){
   primary_source_verified:true,
   poster_url:'https://example.org/images/suho-2026.jpg',poster_verified:true,
   access_type:'PUBLIC',photo_allowed:true,lens_allowed:true,bundle_requested:true,
-  rental_fit_score:8,
+  rental_fit_score:8,rental_fit_verified:true,rental_fit_evidence:'INDEPENDENT_VERIFIER_FIXTURE',
   pricing:Pricing.resolve({rental_fit_score:8,event_date:'2026-12-27'}),
   ...overrides
  };
@@ -22,6 +22,7 @@ function snapshot(overrides={}){
  return {
   snapshot_verified:true,checked_at:'2026-11-07T08:59:00.000Z',
   bookings:[],events:[],owner_locks:[],
+  stock_by_day:{'2026-12-27':{verified:true,source:'CANONICAL_ASSET_BOOKING_RECONCILIATION',phones_available:2,lenses_available:2}},
   candidates:[candidate()],...overrides
  };
 }
@@ -99,6 +100,7 @@ test('score fallback must match approved V4 price tier, without guessing a tier'
  bad.final_prices=bad.final_prices.map(row=>row.template_id==='TPL-VIVO-X300-PRO-PHONE'?{...row,override_price:590}:row);
  assert.ok(codes(snapshot({candidates:[candidate({pricing:bad})]})).includes('SCORE_FALLBACK_TIER_MISMATCH'));
  assert.ok(codes(snapshot({candidates:[candidate({rental_fit_score:null})]})).includes('RENTAL_FIT_NOT_VERIFIED_OR_BELOW_PUBLISH_GATE'));
+ assert.ok(codes(snapshot({candidates:[candidate({rental_fit_verified:false})]})).includes('RENTAL_FIT_NOT_VERIFIED_OR_BELOW_PUBLISH_GATE'));
  assert.ok(codes(snapshot({candidates:[candidate({rental_fit_score:6})]})).includes('RENTAL_FIT_NOT_VERIFIED_OR_BELOW_PUBLISH_GATE'));
 });
 test('Friday-Sunday unquoted fallback requires provisional price recheck',()=>{
@@ -118,4 +120,17 @@ test('invalid months and empty candidates cannot be mistaken for ready-to-publis
  const jan=snapshot({candidates:[candidate({event_date:'2027-01-01'})]});
  assert.ok(codes(jan).includes('DECEMBER_DATE_NOT_VERIFIED'));
  assert.equal(audit(snapshot({candidates:[]})).status,'HOLD');
+});
+
+test('phone zero with detachable lens still available is blocked as NO PHONE',()=>{
+ const stock_by_day={'2026-12-27':{verified:true,source:'CANONICAL_ASSET_BOOKING_RECONCILIATION',phones_available:0,lenses_available:1}};
+ assert.ok(codes(snapshot({stock_by_day})).includes('NO_AVAILABLE_PHONES_DAY_WIDE'));
+});
+test('bundle must have a free addon lens; phone-only still cannot advertise an active bundle',()=>{
+ const stock_by_day={'2026-12-27':{verified:true,source:'CANONICAL_ASSET_BOOKING_RECONCILIATION',phones_available:2,lenses_available:0}};
+ assert.ok(codes(snapshot({stock_by_day})).includes('NO_AVAILABLE_ADDON_LENS_DAY_WIDE'));
+});
+test('per-event Web Ready rows cannot substitute for verified canonical day-wide inventory',()=>{
+ const stock_by_day={'2026-12-27':{verified:false,source:'EVENT_WEB_READY',phones_available:2,lenses_available:2}};
+ assert.ok(codes(snapshot({stock_by_day})).includes('CANONICAL_DAY_STOCK_RECONCILIATION_MISSING'));
 });
