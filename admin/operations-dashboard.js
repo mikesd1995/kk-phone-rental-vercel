@@ -5,7 +5,7 @@
   else factory().mount(root.document,root);
 })(typeof window==='undefined'?globalThis:window,function(){
 'use strict';
-const AUTH='/api/kk-admin-auth', SNAPSHOT='/api/kk-admin?action=snapshot';
+const AUTH='/api/kk-admin-auth', SNAPSHOT='/api/kk-admin?action=operationsSnapshot';
 const MAX_AGE_MS=180000;
 const CLOSED=new Set(['completed','complete','cancelled','canceled','no_show','rejected','closed']);
 const ACTIVE=new Set(['pending','confirmed','prepared','picked_up','returned','uploaded']);
@@ -38,6 +38,8 @@ function normalize(source,now=new Date()){
  const root=(source&&typeof source==='object')?source:{};
  if(root.ok===false)throw new Error('SNAPSHOT_REJECTED');
  const d=root.data&&typeof root.data==='object'?root.data:root.snapshot&&typeof root.snapshot==='object'?root.snapshot:root;
+ // Reject unfiltered Admin snapshots: server must remove customer PII first.
+ if(d.projection_version!=='kk-admin-ops-projection-v1')throw new Error('OPS_PROJECTION_REQUIRED');
  // Core arrays are required. Deployed Apps Script's primary snapshot may omit Owner Locks.
  // Missing locks must downgrade every event to HOLD, not hide the entire read-only dashboard.
  const required=['events','web_ready','web_packages','bookings'];
