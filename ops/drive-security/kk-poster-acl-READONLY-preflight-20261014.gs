@@ -127,8 +127,54 @@ function kkAclSnapshot_20261013(){
     const sub=folder.getFolders();
     while(sub.hasNext())traverse(sub.next(),depth+1,id);
   }
-  traverse(DriveApp.getFolderById(KKACL_FOLDERS[0]),0);
-  traverse(DriveApp.getFolderById(KKACL_FOLDERS[3]),0);
+  const posterRootA=DriveApp.getFolderById(KKACL_FOLDERS[0]),
+        posterRootB=DriveApp.getFolderById(KKACL_FOLDERS[3]);
+  traverse(posterRootA,0);
+  traverse(posterRootB,0);
+  // Upstream roots (e.g. a shared-drive root) are OUTSIDE the scanned image
+  // trees. An unseen public Writer grant there could invalidate the child-only
+  // permission repair. Read, fingerprint and veto it without changing it.
+  const ancestorMap=new Map();
+  function inspectParents(root){
+    const pending=[{folder:root,depth:0}],visitedAncestors=new Set();
+    while(pending.length){
+      const next=pending.pop();
+      if(next.depth>12)throw Error('UPSTREAM_ANCESTOR_BOUND_EXCEEDED');
+      if(!next.folder||typeof next.folder.getParents!=='function')
+        throw Error('UPSTREAM_ANCESTRY_UNAVAILABLE');
+      const it=next.folder.getParents();
+      if(!it||typeof it.hasNext!=='function'||typeof it.next!=='function')
+        throw Error('UPSTREAM_ANCESTRY_UNAVAILABLE');
+      while(it.hasNext()){
+        const folder=it.next(),id=String(folder.getId());
+        if(visitedAncestors.has(id))continue;
+        visitedAncestors.add(id);
+        const access=String(folder.getSharingAccess()),
+              permission=String(folder.getSharingPermission());
+        if(![String(DriveApp.Access.ANYONE_WITH_LINK),String(DriveApp.Access.ANYONE),
+              String(DriveApp.Access.PRIVATE),String(DriveApp.Access.DOMAIN),
+              String(DriveApp.Access.DOMAIN_WITH_LINK)].includes(access))
+          throw Error('UPSTREAM_ACCESS_UNRECOGNIZED');
+        if(!ancestorMap.has(id)){
+          ancestorMap.set(id,{id:id,name:String(folder.getName()),
+            access:access,permission:permission});
+        }else{
+          const seen=ancestorMap.get(id);
+          if(seen.access!==access||seen.permission!==permission||seen.name!==String(folder.getName()))
+            throw Error('UPSTREAM_ANCESTOR_METADATA_DRIFT');
+        }
+        pending.push({folder:folder,depth:next.depth+1});
+        if(visitedAncestors.size>50)throw Error('UPSTREAM_ANCESTOR_BOUND_EXCEEDED');
+      }
+    }
+  }
+  inspectParents(posterRootA);
+  inspectParents(posterRootB);
+  const ancestors=[...ancestorMap.values()].sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0);
+  const ancestorPublicWriters=ancestors.filter(x=>
+    (x.access===String(DriveApp.Access.ANYONE_WITH_LINK)||
+     x.access===String(DriveApp.Access.ANYONE))&&
+      x.permission===String(DriveApp.Permission.EDIT)).length;
   if(KKACL_FOLDERS.some(id=>!foundFolders.has(id)))throw Error('KK_ASSET_FOLDER_TREE_DRIFT');
   if(active.some(id=>!found.has(id)))throw Error('ACTIVE_DRIVE_IMAGE_OUTSIDE_KK_ASSET_TREES');
   // Fingerprint binds identity, name and parent hierarchy as well as role.
@@ -136,10 +182,13 @@ function kkAclSnapshot_20261013(){
   // Length/escape-safe serialization binds each metadata field unambiguously.
   // Folder and artwork names may legally contain pipes and line breaks.
   const manifest=items.map(x=>JSON.stringify([x.kind,x.id,x.parent,x.depth,x.obj.getName(),x.role])).sort().join('\n')+
+    '\nUPSTREAM_ANCESTORS_READONLY\n'+
+    ancestors.map(x=>JSON.stringify([x.id,x.name,x.access,x.permission])).join('\n')+
     '\nSOT_CORE_WEBREADY_VISIBLE_EVENT_DATE_POSTER\n'+scope.sourceBindings;
   const fingerprint=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,manifest)
     .map(b=>('0'+((b+256)%256).toString(16)).slice(-2)).join('');
   return {items,active:active.length,activeIds:active,images:found.size,folders:foundFolders.size,
+          upstreamAncestors:ancestors.length,upstreamPublicWriters:ancestorPublicWriters,
           writers:items.filter(x=>x.role===String(DriveApp.Permission.EDIT)).length,fingerprint};
 }
 function kkAclDryRun_20261013(){
@@ -158,7 +207,10 @@ function kkAclDryRun_20261013(){
   const unsafeAncestors=s.items.filter(x=>x.kind==='folder'&&
     x.role===String(DriveApp.Permission.EDIT));
   info.blocking_public_writer_folders=unsafeAncestors.length;
-  info.owner_folder_inheritance_review_required=unsafeAncestors.length>0;
+  info.upstream_ancestors_checked=s.upstreamAncestors;
+  info.blocking_public_writer_upstream=s.upstreamPublicWriters;
+  info.owner_folder_inheritance_review_required=
+    unsafeAncestors.length>0||s.upstreamPublicWriters>0;
   Logger.log(JSON.stringify(info));
   for(let offset=0;offset<s.items.length;offset+=20){
     Logger.log(JSON.stringify({
