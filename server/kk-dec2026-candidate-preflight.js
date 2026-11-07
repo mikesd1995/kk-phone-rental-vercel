@@ -52,6 +52,8 @@ function evaluateCandidate(candidate={},snapshot={},options={}){
  if(!locks)blockers.push('OWNER_LOCK_SNAPSHOT_MISSING');
  if(!snapshot.snapshot_verified||!Number.isFinite(checked)||!Number.isFinite(now)||ageMs<0||ageMs>maxAgeMs)blockers.push('FRESH_SOT_READBACK_REQUIRED');
  if(!clean(candidate.title||candidate.name)||!clean(candidate.venue))blockers.push('EVENT_IDENTITY_INCOMPLETE');
+ const rentalFit=Number(candidate.rental_fit_score);
+ if(candidate.rental_fit_score==null||!Number.isFinite(rentalFit)||rentalFit<7||rentalFit>10)blockers.push('RENTAL_FIT_NOT_VERIFIED_OR_BELOW_PUBLISH_GATE');
  if(!validHttps(candidate.primary_source_url)||candidate.primary_source_verified!==true)blockers.push('PRIMARY_EVENT_SOURCE_NOT_VERIFIED');
  if(!validHttps(candidate.poster_url)||candidate.poster_verified!==true)blockers.push('OFFICIAL_POSTER_NOT_VERIFIED');
  if(candidate.photo_allowed!==true)blockers.push('PHONE_PHOTOGRAPHY_PERMISSION_NOT_VERIFIED');
