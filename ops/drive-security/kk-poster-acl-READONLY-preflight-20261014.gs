@@ -154,6 +154,11 @@ function kkAclDryRun_20261013(){
   info.active_public_writer=s.items.filter(x=>x.kind==='image'&&
     s.activeIds.includes(x.id)&&x.role===String(DriveApp.Permission.EDIT)).length;
   info.other_public_writer=s.writers-info.active_public_writer;
+  // Child files cannot override inherited public Writer folder grants.
+  const unsafeAncestors=s.items.filter(x=>x.kind==='folder'&&
+    x.role===String(DriveApp.Permission.EDIT));
+  info.blocking_public_writer_folders=unsafeAncestors.length;
+  info.owner_folder_inheritance_review_required=unsafeAncestors.length>0;
   Logger.log(JSON.stringify(info));
   for(let offset=0;offset<s.items.length;offset+=20){
     Logger.log(JSON.stringify({
