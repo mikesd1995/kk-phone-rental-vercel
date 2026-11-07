@@ -43,15 +43,28 @@ function exactMatch(action,rb={}){
 }
 async function execute(plan={},options={}){
  const compiled=compile(plan);if(options.executeWrites!==true)return {...compiled,status:'READ_ONLY_COMPILED'};
- const env=options.env||process.env,fetchImpl=options.fetchImpl||global.fetch,receipts=[];let writes=0;
+ const env=options.env||process.env,fetchImpl=options.fetchImpl||global.fetch,receipts=[];let writes=0,verified=0,attempted=0;
+ const result=(status,blockers=[])=>({version:VERSION,status,production_writes:writes,verified_writes:verified,attempted_writes:attempted,unknown_write_outcomes:attempted-writes,receipts,blockers});
  for(const x of compiled.actions){
-  if(x.mutation.type==='CREATE_EVENT') throw Object.assign(new Error('V2 create must be executed by package-aware create plan'),{code:'V2_CREATE_PLAN_REQUIRED'});
-  const result=await Production.postAdmin(x.admin,{env,fetchImpl});writes++;
-  let rb={event:{},packages:[]};
-  for(let i=0;i<5;i++){const snap=await Production.freshSnapshot(env,fetchImpl);rb=Production.readbackForEvent(snap,x.admin.event_id,x.decision.title,x.decision.event_date);if(exactMatch(x,rb))break;if(i<4)await new Promise(r=>setTimeout(r,650));}
-  const ok=exactMatch(x,rb);receipts.push({event_key:x.event_key,type:x.mutation.type,ok,readback:rb});if(!ok)return {version:VERSION,status:'READBACK_FAILED',production_writes:writes,receipts,blockers:['EXACT_READBACK_MISMATCH']};
+  if(x.mutation.type==='CREATE_EVENT') throw Object.assign(new Error('V2 create must be executed by package-aware create plan'),{code:'V2_CREATE_PLAN_REQUIRED',write_footprint:{production_writes:writes,verified_writes:verified,attempted_writes:attempted,unknown_write_outcomes:attempted-writes}});
+  let accepted=false;
+  try{
+   const response=await Production.postAdmin(x.admin,{env,fetchImpl:(...args)=>{attempted++;return fetchImpl(...args);}});
+   if(response.ok!==true)throw new Error('admin write receipt missing');
+   writes++;accepted=true;
+   let rb={event:{},packages:[]};
+   for(let i=0;i<5;i++){const snap=await Production.freshSnapshot(env,fetchImpl);rb=Production.readbackForEvent(snap,x.admin.event_id,x.decision.title,x.decision.event_date);if(exactMatch(x,rb))break;if(i<4)await new Promise(r=>setTimeout(r,650));}
+   const ok=exactMatch(x,rb);receipts.push({event_key:x.event_key,type:x.mutation.type,ok,readback:rb});if(!ok)return result('READBACK_FAILED',['EXACT_READBACK_MISMATCH']);
+   verified++;
+  }catch(_){
+   // Acceptance and dispatch counts survive readback/transport failures. Do not
+   // propagate provider bodies or continue with later protected writes.
+   const error_code=accepted?'V2_READBACK_FAILED':'V2_ADMIN_WRITE_FAILED';
+   receipts.push({event_key:x.event_key,type:x.mutation.type,ok:false,error_code});
+   return result(accepted?'READBACK_FAILED':'WRITE_FAILED',[error_code]);
+  }
  }
- return {version:VERSION,status:'COMPLETE',production_writes:writes,receipts,blockers:[]};
+ return result('COMPLETE');
 }
 function createPlan(decision={},mutation={},packageTemplates=[]){
  const ids={phone:'',lens:'',bundle:''};for(const p of packageTemplates||[]){const id=text(p.template_id||p.package_id),t=text(p.package_type).toLowerCase();if(t==='phone_only')ids.phone=id;else if(t==='lens_only')ids.lens=id;else if(t==='phone_lens_bundle')ids.bundle=id;}
@@ -65,7 +78,10 @@ function createPlan(decision={},mutation={},packageTemplates=[]){
  Promotion.assertReady?Promotion.assertReady(plan):null;return plan;
 }
 async function executeCreate(decision,mutation,options={}){
- const env=options.env||process.env,fetchImpl=options.fetchImpl||global.fetch,plan=createPlan(decision,mutation,options.packageTemplates||[]);
+ const env=options.env||process.env,fetchImpl=options.fetchImpl||global.fetch;
+ let plan;
+ try{plan=createPlan(decision,mutation,options.packageTemplates||[]);}
+ catch(err){err.write_footprint={production_writes:0,verified_writes:0,attempted_writes:0,unknown_write_outcomes:0};throw err;}
  return Executor.execute(plan,{env,fetchImpl,correlationId:text(options.correlationId),readbackFn:args=>Production.storefrontReadback({...args,env,fetchImpl})});
 }
 module.exports={VERSION,mapMutation,compile,exactMatch,createPlan,executeCreate,execute};
