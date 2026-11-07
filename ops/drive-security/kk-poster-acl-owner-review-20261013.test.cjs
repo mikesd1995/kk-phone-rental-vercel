@@ -78,8 +78,8 @@ function fixture(opts = {}) {
     'EVT-' + i, 'Example event', '21/10/2026', '',
     'https://drive.google.com/thumbnail?id=' + id
   ]);
-  // Preserve 38 active unique file IDs while reducing the number of
-  // reference uses by one: a stale 48/49 reference manifest must fail closed.
+  // Preserve 45 active unique file IDs while reducing the number of
+  // reference uses by one: a stale 56/57 reference manifest must fail closed.
   if (opts.referenceCountDrift) core[refs.length - 1][4] = 'https://images.example.test/replaced-duplicate.jpg';
   for (let i = core.length; i < 94; i++) {
     core.push(['EVT-' + i, 'Example event', '21/10/2026', '', 'https://images.example.test/poster.jpg']);
@@ -145,11 +145,19 @@ function fixture(opts = {}) {
       n => n > 127 ? n - 256 : n
     )
   };
-  const PropertiesService = {getScriptProperties: () => ({getProperty: () =>
-    opts.privateRosterMissing ? null :
-    opts.privateRosterMalformed ? '{' :
-    JSON.stringify(opts.privateRosterMismatch ?
-      [...expected.slice(0,44), 'KK_SYNTHETIC_UNKNOWN_FILE_ID_999'] : expected)})};
+  const PropertiesService = {getScriptProperties: () => ({getProperty: key => {
+    assert.equal(key, 'KKACL_OWNER_REVIEWED_ACTIVE_IDS_V20261107');
+    if (opts.privateRosterMissing) return null;
+    if (opts.privateRosterMalformed) return '{';
+    if (opts.privateRosterWrongType) return JSON.stringify({ids: expected});
+    const ids = [...expected];
+    if (opts.privateRosterMismatch) ids[44] = 'KK_SYNTHETIC_UNKNOWN_FILE_ID_999';
+    if (opts.privateRosterDuplicate) ids[44] = ids[43];
+    if (opts.privateRosterUnsorted) [ids[0], ids[1]] = [ids[1], ids[0]];
+    if (opts.privateRosterMissingItem) ids.pop();
+    if (opts.privateRosterBadId) ids[44] = 'bad id with whitespace';
+    return JSON.stringify(ids);
+  }})};
   const sandbox = {SpreadsheetApp, DriveApp, Utilities, PropertiesService, Logger: {log: msg => logs.push(String(msg))}};
   vm.createContext(sandbox);
   vm.runInContext(opts.readOnly ? readOnly : source, sandbox, {timeout: 2000});
@@ -197,7 +205,7 @@ test('standalone owner-only Apps Script uses openById; no bound spreadsheet or t
   assert.ok(!source.includes('function doPost('));
 });
 
-test('dry run discovers 89 Oct-Dec visible / 49 references / 38 unique without writing', () => {
+test('dry run discovers 94 Oct-Dec visible / 57 references / 45 unique without writing', () => {
   const f = fixture();
   const r = f.api.dry();
   assert.equal(r.active_files, 45);
@@ -253,7 +261,7 @@ test('invalid and stale fingerprint cannot write', () => {
   assert.equal(f.getWrites(), 0);
 });
 
-test('49-to-48 thumbnail reference drift stops before any permissions write, even with same 38 file IDs', () => {
+test('57-to-56 thumbnail reference drift stops before any permissions write, even with same 45 file IDs', () => {
   const f = fixture({referenceCountDrift: true});
   assert.throws(() => f.api.dry(), /SCOPED_ACTIVE_POSTER_DRIFT/);
   assert.equal(f.getWrites(), 0);
@@ -341,7 +349,7 @@ test('active file missing from scanned tree aborts before writing', () => {
   assert.equal(f.getWrites(), 0);
 });
 
-test('active image-only owner batches 25+13; all four folders and historical writers remain on HOLD', () => {
+test('active image-only owner batches 25+20; all four folders and historical writers remain on HOLD', () => {
   const f = fixture();
   const dry = f.api.dry();
   const first = f.api.apply(dry.fingerprint);
@@ -406,7 +414,7 @@ test('parent-folder inheritance blast radius is prevented before any folder writ
   assert.equal(f.roles['brand-logo'], undefined, 'no inherited historical permission change');
 });
 
-test('synthetic 247-image scope: 209 history and four ancestor folders untouched after 25+13 active image updates', () => {
+test('synthetic 254-image scope: 209 history and four ancestor folders untouched after 25+20 active image updates', () => {
   const f = fixture({historicExtras: 206});
   const before = f.api.dry();
   assert.equal(before.active_files, 45);
@@ -532,7 +540,16 @@ test('private synthetic roster is sorted, unique and image-ID shaped', () => {
 });
 
 test('owner Apply rejects missing, malformed and mismatched private rosters with zero writes', () => {
-  for (const options of [{privateRosterMissing:true}, {privateRosterMalformed:true}, {privateRosterMismatch:true}]) {
+  for (const options of [
+    {privateRosterMissing:true},
+    {privateRosterMalformed:true},
+    {privateRosterWrongType:true},
+    {privateRosterDuplicate:true},
+    {privateRosterUnsorted:true},
+    {privateRosterMissingItem:true},
+    {privateRosterBadId:true},
+    {privateRosterMismatch:true}
+  ]) {
     const f=fixture(options), dry=f.api.dry();
     assert.throws(()=>f.api.apply(dry.fingerprint), /OWNER_PRIVATE_ROSTER_(NOT_CONFIGURED|INVALID|DRIFT)/);
     assert.equal(f.getWrites(),0);
@@ -542,4 +559,12 @@ test('unrecognized Google Drive URL fails closed before ACL changes', () => {
   const f=fixture({alternateGoogleURL:true});
   assert.throws(()=>f.api.dry(), /SCOPED_GOOGLE_POSTER_URL_UNRECOGNIZED/);
   assert.equal(f.getWrites(),0);
+});
+
+test('private manifest rejects newly added 46th file without explicit owner approval', () => {
+  const f = fixture({privateRosterMismatch: true});
+  const dry = f.api.dry();
+  assert.equal(dry.active_files, 45);
+  assert.throws(() => f.api.apply(dry.fingerprint), /OWNER_PRIVATE_ROSTER_DRIFT/);
+  assert.equal(f.getWrites(), 0);
 });
