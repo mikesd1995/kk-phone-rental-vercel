@@ -78,7 +78,14 @@ function kkAclReadActive_20261013(){
   // Unrelated non-Drive cards may vary; new Drive references or file IDs cannot.
   if(refs.length!==KKACL_REQUIRED_REFS||files.length!==KKACL_REQUIRED_FILES)
     throw Error('SCOPED_ACTIVE_POSTER_DRIFT');
-  return files;
+  // Bind the owner's approval to EVERY visible event->date->artwork mapping,
+  // not just the set of Drive IDs. Core and WebReady can change together while
+  // retaining the same 57 uses / 45 files, which the old fingerprint missed.
+  // JSON-stringified rows prevent separator/field-collision ambiguities.
+  const sourceBindings=cards.map(row=>JSON.stringify([
+    String(row[0]),String(row[2]),String(row[4]||'')
+  ])).sort().join('\n');
+  return {files,sourceBindings};
 }
 function kkAclRole_20261013(o, historical){
   const access=String(o.getSharingAccess()),role=String(o.getSharingPermission());
@@ -100,7 +107,7 @@ function kkAclRole_20261013(o, historical){
   return role;
 }
 function kkAclSnapshot_20261013(){
-  const active=kkAclReadActive_20261013(),want=new Set(active);
+  const scope=kkAclReadActive_20261013(),active=scope.files,want=new Set(active);
   const visited=new Set(),found=new Set(),foundFolders=new Set(),items=[];
   function traverse(folder,depth,parentId){
     if(depth>8||items.length>1200)throw Error('ACL_BOUND_EXCEEDED');
@@ -128,7 +135,8 @@ function kkAclSnapshot_20261013(){
   // A file moved/renamed between owner Dry Run and Apply invalidates approval.
   // Length/escape-safe serialization binds each metadata field unambiguously.
   // Folder and artwork names may legally contain pipes and line breaks.
-  const manifest=items.map(x=>JSON.stringify([x.kind,x.id,x.parent,x.depth,x.obj.getName(),x.role])).sort().join('\n');
+  const manifest=items.map(x=>JSON.stringify([x.kind,x.id,x.parent,x.depth,x.obj.getName(),x.role])).sort().join('\n')+
+    '\nSOT_CORE_WEBREADY_VISIBLE_EVENT_DATE_POSTER\n'+scope.sourceBindings;
   const fingerprint=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,manifest)
     .map(b=>('0'+((b+256)%256).toString(16)).slice(-2)).join('');
   return {items,active:active.length,activeIds:active,images:found.size,folders:foundFolders.size,
