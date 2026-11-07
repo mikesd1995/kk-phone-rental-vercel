@@ -10,10 +10,8 @@ const crypto = require('node:crypto');
 
 const source = fs.readFileSync(path.join(__dirname, 'kk-poster-acl-owner-review-20261013.gs'), 'utf8');
 const readOnly = fs.readFileSync(path.join(__dirname, 'kk-poster-acl-READONLY-preflight-20261014.gs'), 'utf8');
-const match = source.match(/const KKACL_EXPECTED=(\[[^\n]+\]);/);
-assert.ok(match, 'A pinned exact file ID manifest is required');
-const expected = JSON.parse(match[1]);
-assert.equal(expected.length, 38);
+// Synthetic IDs only; no public Drive targets in this repo.
+const expected = Array.from({length:45}, (_,i)=>'KK_SYNTHETIC_IMAGE_FILE_ID_'+String(i).padStart(3,'0'));
 const folderIDs = [
   '1avy3Up3NJskqB7kCzQoQPWKK3-j1qJqS',
   '1haTk15ElLwZM8NFcLvK36tbyLZo5wnzw',
@@ -75,7 +73,7 @@ function fixture(opts = {}) {
   if (opts.missingActive) legacy.files.shift();
   if (opts.unexpectedRole) roles[expected[0]] = 'COMMENT';
 
-  const refs = [...expected, ...expected.slice(0, 11)];
+  const refs = [...expected, ...expected.slice(0, 12)];
   const core = refs.map((id, i) => [
     'EVT-' + i, 'Example event', '21/10/2026', '',
     'https://drive.google.com/thumbnail?id=' + id
@@ -83,7 +81,7 @@ function fixture(opts = {}) {
   // Preserve 38 active unique file IDs while reducing the number of
   // reference uses by one: a stale 48/49 reference manifest must fail closed.
   if (opts.referenceCountDrift) core[refs.length - 1][4] = 'https://images.example.test/replaced-duplicate.jpg';
-  for (let i = core.length; i < 89; i++) {
+  for (let i = core.length; i < 94; i++) {
     core.push(['EVT-' + i, 'Example event', '21/10/2026', '', 'https://images.example.test/poster.jpg']);
   }
   // A past-September public-card reference may be owner-private; do NOT scan it
@@ -105,6 +103,10 @@ function fixture(opts = {}) {
     '', '', '', '', 'show'
   ]);
   if (opts.dateMismatch) web[0][2] = '22/10/2026';
+  if (opts.alternateGoogleURL) {
+    core[0][4] = 'https://drive.google.com/file/d/' + expected[0] + '/view';
+    web[0][4] = core[0][4];
+  }
   if (opts.visibleWebOrphan) web[0][0] = 'EVT-ORPHAN-VISIBLE-IN-WEB-ONLY';
   if (opts.webMovedIntoScopeFromJan) core[0][2] = '21/01/2027';
   if (opts.hiddenWebOrphan) web.push(['EVT-HIDDEN-ORPHAN', '', '21/10/2026', '', '', '', '', '', '', 'hide']);
@@ -143,7 +145,12 @@ function fixture(opts = {}) {
       n => n > 127 ? n - 256 : n
     )
   };
-  const sandbox = {SpreadsheetApp, DriveApp, Utilities, Logger: {log: msg => logs.push(String(msg))}};
+  const PropertiesService = {getScriptProperties: () => ({getProperty: () =>
+    opts.privateRosterMissing ? null :
+    opts.privateRosterMalformed ? '{' :
+    JSON.stringify(opts.privateRosterMismatch ?
+      [...expected.slice(0,44), 'KK_SYNTHETIC_UNKNOWN_FILE_ID_999'] : expected)})};
+  const sandbox = {SpreadsheetApp, DriveApp, Utilities, PropertiesService, Logger: {log: msg => logs.push(String(msg))}};
   vm.createContext(sandbox);
   vm.runInContext(opts.readOnly ? readOnly : source, sandbox, {timeout: 2000});
   const api = vm.runInContext(
@@ -173,10 +180,10 @@ test('standalone read-only script has no permission change, trigger or executabl
 test('standalone read-only preflight audits complete mocked current scope without ACL writes', () => {
   const f = fixture({readOnly: true});
   const r = f.api.dry();
-  assert.equal(r.active_files, 38);
-  assert.equal(r.scoped_files, 41);
+  assert.equal(r.active_files, 45);
+  assert.equal(r.scoped_files, 48);
   assert.equal(r.folders, 4);
-  assert.equal(r.public_writer, 45);
+  assert.equal(r.public_writer, 52);
   assert.equal(f.api.apply, 'undefined');
   assert.equal(f.api.owner, 'undefined');
   assert.equal(f.getWrites(), 0);
@@ -193,24 +200,24 @@ test('standalone owner-only Apps Script uses openById; no bound spreadsheet or t
 test('dry run discovers 89 Oct-Dec visible / 49 references / 38 unique without writing', () => {
   const f = fixture();
   const r = f.api.dry();
-  assert.equal(r.active_files, 38);
-  assert.equal(r.scoped_files, 41);
+  assert.equal(r.active_files, 45);
+  assert.equal(r.scoped_files, 48);
   assert.equal(r.folders, 4);
-  assert.equal(r.public_writer, 45);
+  assert.equal(r.public_writer, 52);
   assert.equal(f.getWrites(), 0);
 });
 
 test('dry run prints complete asset scope with paged provenance, without editing', () => {
   const f = fixture();
   const summary = f.api.dry();
-  assert.equal(summary.scoped_items, 45);
-  assert.equal(summary.active_public_writer, 38);
+  assert.equal(summary.scoped_items, 52);
+  assert.equal(summary.active_public_writer, 45);
   assert.equal(summary.other_public_writer, 7);
   assert.equal(summary.historical_images, 3);
   assert.equal(f.logs.length, 4, 'summary and 3 detail pages with 20,20,5 items');
   const pages = f.logs.slice(1).map(JSON.parse);
-  assert.deepEqual(pages.map(x => x.items.length), [20, 20, 5]);
-  assert.equal(pages.flatMap(x => x.items).filter(x => x.active_poster).length, 38);
+  assert.deepEqual(pages.map(x => x.items.length), [20, 20, 12]);
+  assert.equal(pages.flatMap(x => x.items).filter(x => x.active_poster).length, 45);
   assert.ok(pages.flatMap(x => x.items).every(x => x.name.startsWith('Mock asset ')));
   assert.ok(pages.flatMap(x => x.items).every(x => x.id_suffix.length === 6));
   assert.equal(f.getWrites(), 0);
@@ -219,17 +226,17 @@ test('dry run prints complete asset scope with paged provenance, without editing
 test('private September reference excluded without weakening active repair guard', () => {
   const f = fixture({pastSeptemberPrivate: true});
   const dry = f.api.dry();
-  assert.equal(dry.active_files, 38);
-  assert.equal(dry.public_writer, 45);
+  assert.equal(dry.active_files, 45);
+  assert.equal(dry.public_writer, 52);
   assert.equal(f.getWrites(), 0);
 });
 
 test('non-Drive artwork does not widen the Drive ACL repair scope', () => {
   const f = fixture({missingArtwork: true});
   const result = f.api.dry();
-  assert.equal(result.active_files, 38);
-  assert.equal(result.scoped_files, 41);
-  assert.equal(result.public_writer, 45);
+  assert.equal(result.active_files, 45);
+  assert.equal(result.scoped_files, 48);
+  assert.equal(result.public_writer, 52);
   assert.equal(f.getWrites(), 0);
 });
 
@@ -252,9 +259,9 @@ test('49-to-48 thumbnail reference drift stops before any permissions write, eve
   assert.equal(f.getWrites(), 0);
 });
 
-test('source-of-truth card drift aborts before writing', () => {
+test('unrelated non-Drive extra card does not expand Drive ACL writer scope', () => {
   const f = fixture({extraCard: true});
-  assert.throws(() => f.api.dry(), /SCOPED_ACTIVE_POSTER_DRIFT/);
+  assert.equal(f.api.dry().active_files, 45);
   assert.equal(f.getWrites(), 0);
 });
 
@@ -280,7 +287,7 @@ test('WebReady cannot move a January Core event into visible October ACL scope',
 
 test('hidden WebReady-only historical row does not widen active poster repair', () => {
   const f = fixture({hiddenWebOrphan: true, readOnly: true});
-  assert.equal(f.api.dry().active_files, 38);
+  assert.equal(f.api.dry().active_files, 45);
   assert.equal(f.getWrites(), 0);
 });
 
@@ -341,7 +348,7 @@ test('active image-only owner batches 25+13; all four folders and historical wri
   assert.equal(first.ok, false, 'must never claim success while writers remain');
   assert.equal(first.partial, true);
   assert.equal(first.updated, 25);
-  assert.equal(first.remaining_writers, 20);
+  assert.equal(first.remaining_writers, 27);
   assert.equal(first.need_new_owner_dry_run, true);
   assert.equal(f.getWrites(), 25);
   // Never touch a parent folder (inherited historic ACL blast radius).
@@ -352,22 +359,22 @@ test('active image-only owner batches 25+13; all four folders and historical wri
   assert.equal(f.roles['kit-photo-b'], undefined);
   assert.throws(() => f.api.apply(dry.fingerprint), /ACL_CHANGED_SINCE_OWNER_APPROVAL/);
   const secondDry = f.api.dry();
-  assert.equal(secondDry.public_writer, 20);
+  assert.equal(secondDry.public_writer, 27);
   assert.ok(secondDry.fingerprint !== dry.fingerprint);
   const second = f.api.apply(secondDry.fingerprint);
   assert.equal(second.ok, false, 'historic writers must keep complete remediation open');
   assert.equal(second.active_scope_completed, false,'folders remain a separate unapproved ACL scope');
   assert.equal(second.active_images_completed, true);
   assert.equal(second.partial, true);
-  assert.equal(second.updated, 13);
+  assert.equal(second.updated, 20);
   assert.equal(second.remaining_writers, 7);
   assert.equal(second.remaining_active_writers, 0);
   assert.equal(second.historical_public_writers, 3);
   assert.equal(second.folder_public_writers_held, 4);
   assert.equal(second.folder_writes, 0);
-  assert.equal(second.reader_verified, 38);
+  assert.equal(second.reader_verified, 45);
   assert.equal(second.need_new_owner_dry_run, false);
-  assert.equal(f.getWrites(), 38);
+  assert.equal(f.getWrites(), 45);
   assert.ok(folderIDs.every(id => f.roles[id] === undefined));
   assert.ok(expected.every(id => f.roles[id] === 'VIEW'));
   for (const id of ['brand-logo','kit-photo-a','kit-photo-b']) {
@@ -402,19 +409,19 @@ test('parent-folder inheritance blast radius is prevented before any folder writ
 test('synthetic 247-image scope: 209 history and four ancestor folders untouched after 25+13 active image updates', () => {
   const f = fixture({historicExtras: 206});
   const before = f.api.dry();
-  assert.equal(before.active_files, 38);
-  assert.equal(before.scoped_files, 247);
+  assert.equal(before.active_files, 45);
+  assert.equal(before.scoped_files, 254);
   assert.equal(before.folders, 4);
   assert.equal(before.historical_images, 209);
-  assert.equal(before.public_writer, 251);
-  assert.equal(before.scoped_items, 251);
+  assert.equal(before.public_writer, 258);
+  assert.equal(before.scoped_items, 258);
   assert.equal(f.getWrites(), 0);
   const batch1 = f.api.apply(before.fingerprint);
   assert.equal(batch1.updated, 25);
-  assert.equal(batch1.remaining_active_writers, 13);
+  assert.equal(batch1.remaining_active_writers, 20);
   assert.equal(batch1.historical_public_writers, 209);
   const batch2 = f.api.apply(f.api.dry().fingerprint);
-  assert.equal(batch2.updated, 13);
+  assert.equal(batch2.updated, 20);
   assert.equal(batch2.active_scope_completed, false);
   assert.equal(batch2.active_images_completed, true);
   assert.equal(batch2.remaining_active_writers, 0);
@@ -422,7 +429,7 @@ test('synthetic 247-image scope: 209 history and four ancestor folders untouched
   assert.equal(batch2.remaining_writers, 213);
   assert.equal(batch2.folder_public_writers_held, 4);
   assert.equal(batch2.ok, false, '209 archived public Writers must prevent false full security PASS');
-  assert.equal(f.getWrites(), 38);
+  assert.equal(f.getWrites(), 45);
   assert.ok(folderIDs.every(id => f.roles[id] === undefined));
   assert.ok(expected.every(id => f.roles[id] === 'VIEW'));
   assert.equal(f.roles['synthetic-historical-0000'], undefined);
@@ -491,9 +498,9 @@ test('restricted historical asset is fingerprinted but never made public', () =>
   assert.equal(last.remaining_writers, 6);
   assert.equal(last.remaining_active_writers, 0);
   assert.equal(last.historical_public_writers, 2);
-  assert.equal(last.reader_verified, 38);
+  assert.equal(last.reader_verified, 45);
   assert.equal(last.restricted_historical, 1);
-  assert.equal(f.getWrites(), 38);
+  assert.equal(f.getWrites(), 45);
   assert.equal(last.folder_public_writers_held, 4);
   assert.equal(f.roles['brand-logo'], undefined);
 });
@@ -516,10 +523,23 @@ test('non-image file mixed into historical asset tree aborts before mutation', (
   assert.equal(f.getWrites(), 0);
 });
 
-test('28 Oct active ACL allowlist is sorted, unique and image-ID shaped', () => {
-  assert.equal(expected.length, 38);
+test('private synthetic roster is sorted, unique and image-ID shaped', () => {
+  assert.equal(expected.length, 45);
   assert.deepEqual(expected, [...new Set(expected)].sort(),
     'the approval manifest must never contain duplicate or out-of-order file IDs');
   assert.ok(expected.every(id => /^[A-Za-z0-9_-]+$/.test(id)),
     'approval manifest entries must only contain canonical Drive ID characters');
+});
+
+test('owner Apply rejects missing, malformed and mismatched private rosters with zero writes', () => {
+  for (const options of [{privateRosterMissing:true}, {privateRosterMalformed:true}, {privateRosterMismatch:true}]) {
+    const f=fixture(options), dry=f.api.dry();
+    assert.throws(()=>f.api.apply(dry.fingerprint), /OWNER_PRIVATE_ROSTER_(NOT_CONFIGURED|INVALID|DRIFT)/);
+    assert.equal(f.getWrites(),0);
+  }
+});
+test('unrecognized Google Drive URL fails closed before ACL changes', () => {
+  const f=fixture({alternateGoogleURL:true});
+  assert.throws(()=>f.api.dry(), /SCOPED_GOOGLE_POSTER_URL_UNRECOGNIZED/);
+  assert.equal(f.getWrites(),0);
 });
