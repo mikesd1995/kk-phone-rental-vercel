@@ -76,7 +76,15 @@ function normalize(source,now=new Date()){
  const duplicateIds=new Set(),seen=new Set();
  const records=d.web_ready.map(r=>{
   const id=display(r.event_id,120).trim();if(seen.has(id))duplicateIds.add(id);seen.add(id);
-  const sourceEvent=eventById.get(id)||{};
+  const coreRow=eventById.get(id);
+  const sourceEvent=coreRow||{};
+  // 01_Events is a separate visibility authority; derived 'show' is not enough.
+  const activeValue=sourceEvent.active_on_web;
+  const coreActive=activeValue===true||String(activeValue||'').trim().toLowerCase()==='true';
+  const coreStatus=String(sourceEvent.status||'').trim().toLowerCase();
+  const coreBookable=!!coreRow&&coreActive&&coreStatus==='open';
+  const web=String(r.action_for_web||'unknown').trim().toLowerCase();
+  const canAdvertiseReady=web==='show'&&coreBookable;
   const packages=byPackage.get(id)||[];
   const phone=packages.filter(p=>p.package_type==='phone_only');
   const bundle=packages.filter(p=>p.package_type==='phone_lens_bundle');
@@ -87,20 +95,24 @@ function normalize(source,now=new Date()){
   const stockClaim=stockCount(r.available_phone_count);
   // Both independent sources must indicate actual rentable phone capacity.
   // A package count cannot reopen a day the canonical Web Ready phone stock says is zero.
-  const phoneReady=!!(stockClaim!==null&&stockClaim>0&&p&&p.package_status==='available'&&countPhone!==null&&countPhone>0);
-  const bundleReady=!!(stockClaim!==null&&stockClaim>0&&b&&b.package_status==='available'&&countBundle!==null&&countBundle>0);
+  const phoneReady=!!(canAdvertiseReady&&stockClaim!==null&&stockClaim>0&&p&&p.package_status==='available'&&countPhone!==null&&countPhone>0);
+  const bundleReady=!!(canAdvertiseReady&&stockClaim!==null&&stockClaim>0&&b&&b.package_status==='available'&&countBundle!==null&&countBundle>0);
   const ambiguous=phone.length>1||bundle.length>1;
   const book=bookingById.get(id)||{total:0,active:0};
   const lockStates=[...new Set(lockById.get(id)||[])];
   const locked=lockStates.some(x=>!SAFE_LOCK.has(x));
   const conflict=lockStates.length>1;
-  const web=String(r.action_for_web||'unknown').toLowerCase();
   const eventDate=isoDate(r.event_date||r.event_date_text||sourceEvent.event_date);
   const guessedDate=id.match(/^EVT-(\d{4})(\d{2})(\d{2})-/);
-  const dateRisk=!eventDate||!!(guessedDate&&`${guessedDate[1]}-${guessedDate[2]}-${guessedDate[3]}`!==eventDate);
+  const coreDate=isoDate(sourceEvent.event_date);
+  const coreVenue=String(sourceEvent.venue||'').trim().normalize('NFKC').toLocaleLowerCase('th');
+  const webVenue=String(r.venue||'').trim().normalize('NFKC').toLocaleLowerCase('th');
+  const dateRisk=!eventDate||!!(guessedDate&&`${guessedDate[1]}-${guessedDate[2]}-${guessedDate[3]}`!==eventDate)
+   ||!!(coreRow&&(!coreDate||coreDate!==eventDate||coreVenue&&webVenue&&coreVenue!==webVenue));
   const poster=safePoster(r.poster_image_url||sourceEvent.poster_url||sourceEvent.poster_image_url);
   const badPoster=!poster||/kk-brand-hero|placeholder|default-poster/i.test(poster);
   const qa=[];
+  if(web==='show'&&!coreBookable)qa.push('เว็บเปิดแต่ Core ไม่ยืนยันเปิด');
   if(badPoster)qa.push('โปสเตอร์หายหรือเป็นภาพร้าน');
   if(dateRisk||!/\S/.test(r.venue||'')||/รอยืนยัน|not yet confirmed/i.test(r.venue||''))qa.push('วันที่/สถานที่ต้องตรวจ');
   if(!validPrice||ambiguous)qa.push('ราคา/แพ็กเกจไม่ครบหรือกำกวม');
@@ -109,6 +121,7 @@ function normalize(source,now=new Date()){
   qa.push('ยังไม่มีหลักฐานราคาคู่แข่งใน Snapshot');
   const gate=[];
   if(web!=='show')gate.push('หน้าร้านไม่เปิด');
+  if(!coreBookable)gate.push('01_Events / Core ไม่อนุญาตเปิดจอง');
   if(!phoneReady&&!bundleReady||stockClaim===0||stockClaim===null)gate.push('มือถือ/แพ็กเกจไม่พร้อม');
   if(!validPrice||ambiguous)gate.push('ราคา/รุ่นไม่ผ่าน');
   if(locked||conflict)gate.push('Owner Lock');
@@ -162,9 +175,9 @@ function mount(doc,win){
  }if(!rows.length)tbody.appendChild(node(doc,'tr')).appendChild(text(node(doc,'td'), 'ไม่พบรายการ'));
  }
  function renderCalendar(rows){const cal=$('calendar');cal.replaceChildren();const grouped=new Map();for(const e of rows){if(!e.date)continue;const g=grouped.get(e.date)||[];g.push(e);grouped.set(e.date,g)}for(const [date,events] of [...grouped].sort((a,b)=>a[0].localeCompare(b[0]))){const d=node(doc,'div','cal-day');d.appendChild(node(doc,'strong','',date));events.slice(0,12).forEach(e=>{const b=node(doc,'button','',e.name+' · '+e.web);b.type='button';b.addEventListener('click',()=>openDetails(e.id));d.appendChild(b)});cal.appendChild(d)}}
- function renderQa(rows){const qa=$('qa');qa.replaceChildren();const groups=[['โปสเตอร์',x=>x.qa.some(v=>v.includes('โปสเตอร์'))],['วันที่/สถานที่',x=>x.qa.some(v=>v.includes('วันที่/สถานที่'))],['ราคาและแพ็กเกจ',x=>x.qa.some(v=>v.includes('ราคา/แพ็กเกจ'))],['เว็บเปิดแต่ stock ไม่พร้อม',x=>x.qa.some(v=>v.includes('สถานะเปิด'))],['ไม่มี Booking ใน Snapshot',x=>x.qa.some(v=>v.includes('ไม่พบบุกกิ้ง'))],['ยังไม่มีหลักฐานราคาคู่แข่ง',x=>x.qa.some(v=>v.includes('คู่แข่ง'))]];for(const [title,predicate] of groups){const items=rows.filter(predicate);const item=node(doc,'article','qa-box');item.appendChild(node(doc,'h3','',title+' · '+items.length));items.slice(0,40).forEach(e=>{const b=node(doc,'button','',e.date+' '+e.name);b.type='button';b.addEventListener('click',()=>openDetails(e.id));item.appendChild(b);item.appendChild(node(doc,'p','',e.venue))});if(items.length>40)item.appendChild(node(doc,'p','',`และอีก ${items.length-40} งาน (ใช้ตัวกรองเพื่อลดรายการ)`));qa.appendChild(item)}}
+ function renderQa(rows){const qa=$('qa');qa.replaceChildren();const groups=[['โปสเตอร์',x=>x.qa.some(v=>v.includes('โปสเตอร์'))],['วันที่/สถานที่',x=>x.qa.some(v=>v.includes('วันที่/สถานที่'))],['ราคาและแพ็กเกจ',x=>x.qa.some(v=>v.includes('ราคา/แพ็กเกจ'))],['เว็บเปิดแต่สต็อก/Core ไม่พร้อม',x=>x.qa.some(v=>v.includes('สถานะเปิด'))],['ไม่มี Booking ใน Snapshot',x=>x.qa.some(v=>v.includes('ไม่พบบุกกิ้ง'))],['ยังไม่มีหลักฐานราคาคู่แข่ง',x=>x.qa.some(v=>v.includes('คู่แข่ง'))]];for(const [title,predicate] of groups){const items=rows.filter(predicate);const item=node(doc,'article','qa-box');item.appendChild(node(doc,'h3','',title+' · '+items.length));items.slice(0,40).forEach(e=>{const b=node(doc,'button','',e.date+' '+e.name);b.type='button';b.addEventListener('click',()=>openDetails(e.id));item.appendChild(b);item.appendChild(node(doc,'p','',e.venue))});if(items.length>40)item.appendChild(node(doc,'p','',`และอีก ${items.length-40} งาน (ใช้ตัวกรองเพื่อลดรายการ)`));qa.appendChild(item)}}
  function renderPlans(){const el=$('plans');el.replaceChildren();for(const p of state.plans){const e=state.records.find(x=>x.id===p.eventId);const card=node(doc,'div','plan-card');card.appendChild(node(doc,'strong','',p.at+' · '+(e?e.name:p.eventId)));card.appendChild(node(doc,'small','', 'ร่างรอตรวจสด · '+(p.type==='near'?'ใกล้วันเช่า':'เพิ่มเอนเกจ')));card.appendChild(node(doc,'div','',p.reason));const b=node(doc,'button','mini-btn','ลบร่าง');b.addEventListener('click',()=>{state.plans=state.plans.filter(x=>x!==p);persist();renderPlans()});card.appendChild(b);el.appendChild(card)} }
- function render(){setFilters();const rows=filtered();$('app').hidden=false;const kpis=$('kpis');kpis.replaceChildren(card('งานทั้งหมด',state.records.length),card('เปิดในชีต',state.records.filter(x=>x.web==='show').length),card('แสดงว่าเต็ม',state.records.filter(x=>x.web==='show_full').length),card('เว็บ/สต็อกขัดแย้ง',state.records.filter(x=>x.qa.some(z=>z.includes('สถานะเปิด'))).length));$('resultCount').textContent='พบ '+rows.length+' งาน';renderTable(rows);renderCalendar(rows);renderQa(rows);
+ function render(){setFilters();const rows=filtered();$('app').hidden=false;const kpis=$('kpis');kpis.replaceChildren(card('งานทั้งหมด',state.records.length),card('เปิดในชีต',state.records.filter(x=>x.web==='show').length),card('แสดงว่าเต็ม',state.records.filter(x=>x.web==='show_full').length),card('เว็บเปิดแต่ไม่พร้อม',state.records.filter(x=>x.qa.some(z=>z.includes('สถานะเปิด'))).length));$('resultCount').textContent='พบ '+rows.length+' งาน';renderTable(rows);renderCalendar(rows);renderQa(rows);
   const sel=$('postEvent');const old=sel.value;const options=state.records.filter(e=>e.web==='show').sort((a,b)=>a.date.localeCompare(b.date)).map(e=>new Option(e.date+' · '+e.name,e.id));sel.replaceChildren(new Option('เลือกงาน',''),...options);sel.value=state.records.some(e=>e.id===old)?old:'';
   renderPlans();$('ratio').value=state.ratio;$('ratioNear').textContent=state.ratio+'%';$('ratioEng').textContent=(100-state.ratio)+'%';
  }
