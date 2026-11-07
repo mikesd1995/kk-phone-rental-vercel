@@ -135,7 +135,7 @@ function kkAclDryRun_20261013(){
   const s=kkAclSnapshot_20261013();
   const info={dry_run:true,active_files:s.active,scoped_files:s.images,folders:s.folders,
               public_writer:s.writers,fingerprint:s.fingerprint,changed:0};
-  // The approved fingerprint encompasses every descendant, not just 38 active
+  // The approved fingerprint encompasses every descendant and every visible event/date/poster binding, not just 45 active
   // files. Make the full proposed blast radius independently reviewable before
   // anyone pastes the fingerprint into the owner-only apply entrypoint.
   info.scoped_items=s.items.length;
