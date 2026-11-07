@@ -56,3 +56,14 @@ test('negative and nonnumeric counts stay unknown, not available',()=>{
  const x=SAMPLE();x.data.web_ready[0].available_phone_count=-1;x.data.web_packages[0].available_count='Infinity';
  const safe=Ops.project(x);assert.equal(safe.data.web_ready[0].available_phone_count,null);assert.equal(safe.data.web_packages[0].available_count,null);
 });
+
+test('server projection can be parsed by dashboard without leaking or trusting duplicate bookings',()=>{
+ const Dashboard=require('../admin/operations-dashboard.js');
+ const projected=Ops.project(SAMPLE(),size=>Buffer.alloc(size,3));
+ const result=Dashboard.normalize(projected,new Date('2026-11-07T18:30:00.000Z'));
+ const row=result.records[0];
+ assert.equal(row.id,'EV-1');
+ assert.equal(row.bookingTotal,null);
+ assert.ok(row.gate.some(reason=>reason.includes('Booking')));
+ assert.equal(JSON.stringify(result).includes('PRIVATE_CUSTOMER'),false);
+});
