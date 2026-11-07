@@ -143,6 +143,11 @@ function kkAclDryRun_20261013(){
   info.active_public_writer=s.items.filter(x=>x.kind==='image'&&
     s.activeIds.includes(x.id)&&x.role===String(DriveApp.Permission.EDIT)).length;
   info.other_public_writer=s.writers-info.active_public_writer;
+  // Child files cannot override inherited public Writer folder grants.
+  const unsafeAncestors=s.items.filter(x=>x.kind==='folder'&&
+    x.role===String(DriveApp.Permission.EDIT));
+  info.blocking_public_writer_folders=unsafeAncestors.length;
+  info.owner_folder_inheritance_review_required=unsafeAncestors.length>0;
   Logger.log(JSON.stringify(info));
   for(let offset=0;offset<s.items.length;offset+=20){
     Logger.log(JSON.stringify({
@@ -165,6 +170,13 @@ function kkAclApply_20261013(approvedFingerprint){
   const before=kkAclSnapshot_20261013();
   if(approvedFingerprint!==before.fingerprint)throw Error('ACL_CHANGED_SINCE_OWNER_APPROVAL');
   kkAclOwnerRoster_20261107(before.activeIds); // separate owner-private gate
+  // Inherited public Writer permissions cannot be reduced at child level.
+  // Fail closed BEFORE any image change if one parent folder is still Writer.
+  // Folder ACL changes require a separate owner-reviewed inheritance plan.
+  const unsafeAncestors=before.items.filter(x=>x.kind==='folder'&&
+    x.role===String(DriveApp.Permission.EDIT));
+  if(unsafeAncestors.length)
+    throw Error('PUBLIC_WRITER_ANCESTOR_HOLD:'+unsafeAncestors.length);
   // Address currently public-facing surfaces first. Historic images must not
   // consume the first approval batch while active images remain publicly writable.
   // Folder ACL writes are intentionally excluded: a parent role change can
