@@ -21,7 +21,7 @@
 ## Tests (candidate only)
 
 - `node --check admin/operations-dashboard.js`: PASS.
-- `node --test tests/operations-dashboard-readonly.test.js`: 8/8 PASS (synthetic fixture, including lens-only stock, stale/public fallback, incomplete data, PII exclusion, duplicate IDs, locks, dates).
+- `node --test tests/operations-dashboard-readonly.test.js`: 10/10 PASS (synthetic fixture, including lens-only stock, stale/public fallback, incomplete data, PII exclusion, duplicate IDs, locks, dates).
 - `python tests/browser-check.py`: 11/11 PASS on Chromium mock auth/snapshot, no `pageerror`, 390px width no overflow. Browser test adapts CSP for local rendering because network to local server is blocked by the test environment; production CSP is left intact.
 - Synthetic test evidence only; **no native repo `npm run code:context`, full regression, real Preview, hosted signed-session test, independent registered UX reviewer or Visual QA Gateway execution** were possible in this environment. The pre-implementation reviewer requirement in AGENTS.md is therefore not certified; remaining gate is blocking for merge/deploy.
 
