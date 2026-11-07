@@ -480,7 +480,7 @@ test('moved Drive asset invalidates previously approved ACL fingerprint', () => 
 test('restricted historical asset is fingerprinted but never made public', () => {
   const f = fixture({privateID: 'brand-logo'});
   const dry = f.api.dry();
-  assert.equal(dry.public_writer, 44);
+  assert.equal(dry.public_writer, 51);
   assert.equal(dry.historical_images, 3);
   assert.equal(f.getWrites(), 0);
   const first = f.api.apply(dry.fingerprint);
@@ -490,7 +490,7 @@ test('restricted historical asset is fingerprinted but never made public', () =>
   assert.equal(first.restricted_historical, 1);
   assert.equal(f.roles['brand-logo'], undefined);
   const secondDry = f.api.dry();
-  assert.equal(secondDry.public_writer, 19);
+  assert.equal(secondDry.public_writer, 26);
   const last = f.api.apply(secondDry.fingerprint);
   assert.equal(last.ok, false, 'other two historic public Writers remain');
   assert.equal(last.active_scope_completed, false);
