@@ -5,7 +5,7 @@ const Ops=require('../admin/operations-dashboard.js');
 const NOW=new Date('2026-11-07T09:00:00.000Z');
 const mk=(over={})=>({
   ok:true,data:{generated_at:NOW.toISOString(),snapshot_source:'private-service-account',fallback_reader:'private-service-account',
-  events:[{event_id:'EVT-20261203-BTS-ARIRANG',event_name:'BTS World Tour',event_date:'2026-12-03'}],
+  events:[{event_id:'EVT-20261203-BTS-ARIRANG',event_name:'BTS World Tour',event_date:'2026-12-03',status:'open',active_on_web:true}],
   web_ready:[{event_id:'EVT-20261203-BTS-ARIRANG',event_name:'BTS World Tour',event_date:'2026-12-03',venue:'Rajamangala',poster_image_url:'https://example.org/poster.jpg',available_phone_count:0,available_lens_count:1,action_for_web:'show'}],
   web_packages:[{event_id:'EVT-20261203-BTS-ARIRANG',package_id:'P1',package_type:'phone_only',price:1190,available_count:0,package_status:'full'}, {event_id:'EVT-20261203-BTS-ARIRANG',package_id:'P2',package_type:'phone_lens_bundle',price:1490,available_count:0,package_status:'full'},{event_id:'EVT-20261203-BTS-ARIRANG',package_id:'P3',package_type:'lens_only',price:390,available_count:1,package_status:'available'}],
   bookings:[{booking_id:'BK-20261203-001',event_id:'EVT-20261203-BTS-ARIRANG',booking_status:'confirmed',customer_name:'PRIVATE_NAME',customer_phone:'0980000000',amount_received:9999}],
@@ -102,4 +102,43 @@ test('timezone-less Apps Script generated_at is interpreted in Bangkok time, not
   const output=Ops.normalize(mk({generated_at:'2026-11-07T16:00:00'}),NOW);
   assert.equal(output.meta.fresh,true);
   assert.equal(output.meta.generatedAt,'2026-11-07T09:00:00.000Z');
+});
+
+// Core and derived visibility are independent safety authorities.
+test('Core hidden cannot look rent-ready merely because Web Ready and packages say show',()=>{
+  const d=mk();d.data.events[0].active_on_web=false;
+  d.data.web_ready[0].available_phone_count=2;
+  d.data.web_packages[0].available_count=2;d.data.web_packages[0].package_status='available';
+  const x=Ops.normalize(d,NOW).records[0];
+  assert.equal(x.phoneReady,false);
+  assert.ok(x.qa.some(y=>y.includes('Core')));
+  assert.ok(x.gate.some(y=>y.includes('Core')));
+});
+test('orphan Web Ready event is HOLD instead of treated as verified Core event',()=>{
+  const d=mk();d.data.events[0].event_id='EVT-DIFFERENT';
+  d.data.web_ready[0].available_phone_count=2;
+  d.data.web_packages[0].available_count=2;d.data.web_packages[0].package_status='available';
+  const x=Ops.normalize(d,NOW).records[0];
+  assert.equal(x.phoneReady,false);
+  assert.ok(x.qa.some(y=>y.includes('Core')));
+});
+test('web-hidden events cannot advertise phone ready despite available packages',()=>{
+  const d=mk();d.data.web_ready[0].action_for_web='hide';d.data.web_ready[0].available_phone_count=2;
+  d.data.web_packages[0].available_count=2;d.data.web_packages[0].package_status='available';
+  const x=Ops.normalize(d,NOW).records[0];
+  assert.equal(x.phoneReady,false);
+  assert.ok(x.gate.includes('หน้าร้านไม่เปิด'));
+});
+test('Core closed event cannot advertise phone ready on contradictory derived show',()=>{
+  const d=mk();d.data.events[0].status='closed';d.data.web_ready[0].available_phone_count=2;
+  d.data.web_packages[0].available_count=2;d.data.web_packages[0].package_status='available';
+  const x=Ops.normalize(d,NOW).records[0];
+  assert.equal(x.phoneReady,false);
+  assert.ok(x.qa.some(y=>y.includes('Core')));
+});
+test('Core event date mismatch is visibly flagged and blocks post draft gate',()=>{
+ const d=mk();d.data.events[0].event_date='2026-12-04';
+ const x=Ops.normalize(d,NOW).records[0];
+ assert.ok(x.qa.some(y=>y.includes('วันที่/สถานที่')));
+ assert.ok(x.gate.includes('โปสเตอร์/วันที่'));
 });
