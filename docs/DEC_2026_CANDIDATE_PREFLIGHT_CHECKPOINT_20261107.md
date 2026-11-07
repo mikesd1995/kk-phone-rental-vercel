@@ -58,3 +58,26 @@ Price rule: exact comparable event-specific Vivo X300 Pro offers -> median; fail
 5. No business writes until safe. Report no production success unless verifiable.
 
 Related https://github.com/mikesd1995/kk-phone-rental-vercel/issues/489 and https://github.com/mikesd1995/kk-phone-rental-vercel/issues/847 .
+
+
+## Actual sanitized Core+Booking+Owner Lock preflight readback — 2026-11-07 17:39 ICT
+Read-only private read of canonical Core/Booking/Locks and extraction of non-PII fields only:
+- Core December: 70 day rows; bookings: 13 December rows; lock history: 44 December rows (26 locked).
+- Seven sourced candidate/date records checked (5 unbooked leads + PP KRIT Dec19 + Gulf Club Dec06): **7 HOLD, 0 PASS**, 0 production writes.
+- SUHO Dec27: booking_day_matches=0, core_duplicate_matches=0, owner_lock_matches=0. HOLD for official photo+poster/lens permission, access terms, independent rental-fit evidence, verified canonically reconciled phone/lens capacity, and final V4 pricing.
+- M Universe Day TeeTee–Por Dec09: zero booking/dup/lock; primary M Card official date/access proof retrieved. HOLD for rights, poster asset, independent score/price, day-wide stock.
+- MCHOICE Dec13, HADA LABO Dec25, One Bangkok Dec31: zero booking/dup/lock; HOLD for applicable primary evidence (MCHOICE, One Bangkok), photo/cover rights, scored pricing, stock. HADA LABO restricted 30 winners, official Watsons issuer verified.
+- PP KRIT Dec19: one confirmed active Jasper booking on same day and two owner date-exclusive lock matches -> HOLD. Gulf Club Dec06: two active confirmed bookings -> HOLD. The other 2026-12 booked dates remain excluded.
+- 2026-12-27 has three OTHER storefront visible event cards, but separate rows do not represent six independent phones. Do not treat Web Ready per-card phone=2 as canonical day-wide inventory proof.
+- All missing primary poster/rights/score/price data remained unverified in this audit; NONE was invented just to make a candidate pass.
+
+## Final isolated hardening and checks
+After independent code logic review, the evaluator additionally requires:
+- A fresh CANONICAL_ASSET_BOOKING_RECONCILIATION stock_by_day entry for each date, with a positive phone count; bundle also requires a positive addon lens count. Web Ready is NOT accepted as a canonical stock source.
+- Independent rental-fit score proof: rental_fit_verified=true AND a non-empty rental_fit_evidence plus valid score 7–10. A numeric score alone does not pass.
+- Phone-only proposals may not leave an active bundle visible; weekend score-fallback must carry needs_price_recheck=true.
+- Exact original candidates still go to the independent Verifier and owner publisher gates; publication_authorized=false unconditionally.
+
+Isolated V8 execution of the actual branch evaluator and test source with compatible require/URL shims: **19/19 tests PASS, 0 FAIL**. Node exact-HEAD hosted CI, independent Reviewer and runtime test are **NOT** evidenced. No Github Actions workflow was manually dispatched and no paid provider was used.
+
+PR #850: https://github.com/mikesd1995/kk-phone-rental-vercel/pull/850 (Draft; no merge/deploy).
