@@ -86,6 +86,7 @@ function evaluateCandidate(candidate={},snapshot={},options={}){
   const lens=p.final_prices.find(r=>r.template_id==='TPL-ZEISS-2-35X-LENS');
   if(!phone||!(Number(phone.override_price)>0)||
     (candidate.bundle_requested!==false&&(!bundle||!(Number(bundle.override_price)>0)))||
+    (candidate.bundle_requested===false&&bundle&&bundle.active_override===true)||
     (lens&&lens.active_override!==false))blockers.push('PACKAGE_PRICE_OR_LENS_ONLY_VISIBILITY_INVALID');
   if(p.source==='EXACT_EVENT_COMPETITOR_MEDIAN'){
    if(!(Number(p.competitor_evidence_count)>=1)||p.exact_comparables_verified!==true)
