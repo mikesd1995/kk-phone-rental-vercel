@@ -21,6 +21,8 @@ const folderIDs = [
 
 function fixture(opts = {}) {
   const roles = Object.create(null);
+  const upstreamRootID='KK_MOCK_SHARED_DRIVE_PARENT';
+  let upstreamPublic=Boolean(opts.upstreamWriter);
   const nodes = new Map();
   let writes = 0;
   const logs = [];
@@ -29,7 +31,9 @@ function fixture(opts = {}) {
       getId: () => id,
       getName: () => 'Mock asset ' + id.slice(-6),
       getMimeType: () => opts.nonImageID === id ? 'application/pdf' : 'image/jpeg',
-      getSharingAccess: () => opts.publicDiscoverableID === id ? 'ANYONE' : opts.privateID === id ? 'PRIVATE' : 'ANYONE_WITH_LINK',
+      getSharingAccess: () => id===upstreamRootID
+        ? (upstreamPublic ? 'ANYONE_WITH_LINK' : 'PRIVATE')
+        : opts.publicDiscoverableID === id ? 'ANYONE' : opts.privateID === id ? 'PRIVATE' : 'ANYONE_WITH_LINK',
       getSharingPermission: () => roles[id] || 'EDIT',
       setSharing: (access, role) => {
         assert.equal(access, 'ANYONE_WITH_LINK');
@@ -46,6 +50,11 @@ function fixture(opts = {}) {
     if (folder) {
       out.files = [];
       out.folders = [];
+      out.parents = [];
+      out.getParents = () => {
+        let n=0;
+        return {hasNext:()=>n<out.parents.length,next:()=>out.parents[n++]};
+      };
       out.getFiles = () => {
         let n = 0;
         return {hasNext: () => n < out.files.length, next: () => out.files[n++]};
@@ -60,6 +69,11 @@ function fixture(opts = {}) {
   }
 
   const [brand, legacy, kit, newer] = folderIDs.map(id => node(id, true));
+  const upstreamRoot=node(upstreamRootID,true);
+  brand.parents.push(upstreamRoot);
+  newer.parents.push(upstreamRoot);
+  legacy.parents.push(brand);
+  kit.parents.push(brand);
   // Independently cleared-ancestor case exists ONLY in simulated tests.
   // Current real four poster folders are still public Writer.
   if(opts.folderSafe) {
@@ -190,7 +204,8 @@ function fixture(opts = {}) {
     web[0][2] = '22/10/2026';
   };
   return {api, getWrites: () => writes, roles, nodes, logs,
-    swapVisibleArtwork, changeVisibleDate};
+    swapVisibleArtwork, changeVisibleDate,
+    promoteUpstreamToPublicWriter:()=>{upstreamPublic=true;}};
 }
 
 test('standalone read-only Apps Script matches exact owner script preflight prefix', () => {
@@ -658,4 +673,35 @@ test('all-Reader synthetic ancestor case permits owner-reviewed image-only batch
   assert.equal(result.updated,25);
   assert.equal(result.folder_writes,0);
   assert.ok(folderIDs.every(id=>f.roles[id]==='VIEW'));
+});
+
+test('private upstream root is fingerprinted and examined by read-only preflight', () => {
+  const f=fixture({readOnly:true});
+  const dry=f.api.dry();
+  assert.equal(dry.upstream_ancestors_checked,1);
+  assert.equal(dry.blocking_public_writer_upstream,0);
+  assert.equal(f.getWrites(),0);
+});
+
+test('upstream public Writer blocks image-only Apply even when all four scoped folders are Reader', () => {
+  const f=fixture({folderSafe:true,upstreamWriter:true});
+  const dry=f.api.dry();
+  assert.equal(dry.upstream_ancestors_checked,1);
+  assert.equal(dry.blocking_public_writer_folders,0);
+  assert.equal(dry.blocking_public_writer_upstream,1);
+  assert.equal(dry.owner_folder_inheritance_review_required,true);
+  assert.throws(()=>f.api.apply(dry.fingerprint),/PUBLIC_WRITER_UPSTREAM_HOLD:1/);
+  assert.equal(f.getWrites(),0);
+  assert.ok(folderIDs.every(id=>f.roles[id]==='VIEW'));
+});
+
+test('upstream private-to-public Writer drift invalidates previously owner-approved hash', () => {
+  const f=fixture({folderSafe:true});
+  const before=f.api.dry();
+  f.promoteUpstreamToPublicWriter();
+  const after=f.api.dry();
+  assert.notEqual(before.fingerprint,after.fingerprint);
+  assert.equal(after.blocking_public_writer_upstream,1);
+  assert.throws(()=>f.api.apply(before.fingerprint),/ACL_CHANGED_SINCE_OWNER_APPROVAL/);
+  assert.equal(f.getWrites(),0);
 });
