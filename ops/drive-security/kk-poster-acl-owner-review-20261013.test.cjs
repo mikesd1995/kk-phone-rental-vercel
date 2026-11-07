@@ -171,7 +171,20 @@ function fixture(opts = {}) {
       : '({dry:kkAclDryRun_20261013, apply:kkAclApply_20261013, owner:kkAclOwnerApprovedApply_20261013})',
     sandbox
   );
-  return {api, getWrites: () => writes, roles, nodes, logs};
+  // Core+WebReady coordinated mutations: both sources still agree, and the
+  // 57 refs / 45 distinct Drive IDs remain unchanged. The old file-only
+  // fingerprint missed these event-to-poster and in-scope date changes.
+  const swapVisibleArtwork = () => {
+    [core[0][4], core[1][4]] = [core[1][4], core[0][4]];
+    web[0][4] = core[0][4];
+    web[1][4] = core[1][4];
+  };
+  const changeVisibleDate = () => {
+    core[0][2] = '22/10/2026';
+    web[0][2] = '22/10/2026';
+  };
+  return {api, getWrites: () => writes, roles, nodes, logs,
+    swapVisibleArtwork, changeVisibleDate};
 }
 
 test('standalone read-only Apps Script matches exact owner script preflight prefix', () => {
@@ -579,4 +592,35 @@ test('new visible 46th Google Drive poster fails source scope before any writer 
   assert.equal(f.getWrites(), 0);
   assert.throws(() => f.api.apply('0'.repeat(64)), /SCOPED_ACTIVE_POSTER_DRIFT/);
   assert.equal(f.getWrites(), 0);
+});
+
+test('coordinated Core/WebReady event-to-poster swap invalidates owner approval without ACL writes', () => {
+  for(const readOnly of [false,true]){
+    const f=fixture({readOnly});
+    const before=f.api.dry();
+    f.swapVisibleArtwork();
+    const after=f.api.dry();
+    assert.equal(after.active_files,45);
+    assert.equal(after.scoped_files,before.scoped_files);
+    assert.notEqual(after.fingerprint,before.fingerprint,
+      'approval must bind visible event-to-poster mapping even when IDs/refs remain unchanged');
+    if(!readOnly){
+      assert.throws(()=>f.api.apply(before.fingerprint),/ACL_CHANGED_SINCE_OWNER_APPROVAL/);
+      assert.equal(f.getWrites(),0);
+    }
+  }
+});
+test('coordinated Core/WebReady in-scope date change invalidates approval with unchanged file ACL', () => {
+  for(const readOnly of [false,true]){
+    const f=fixture({readOnly});
+    const before=f.api.dry();
+    f.changeVisibleDate();
+    const after=f.api.dry();
+    assert.equal(after.active_files,45);
+    assert.notEqual(after.fingerprint,before.fingerprint);
+    if(!readOnly){
+      assert.throws(()=>f.api.apply(before.fingerprint),/ACL_CHANGED_SINCE_OWNER_APPROVAL/);
+      assert.equal(f.getWrites(),0);
+    }
+  }
 });
