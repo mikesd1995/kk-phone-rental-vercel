@@ -52,7 +52,25 @@ function build(opts={}){
         assert.equal(formulaPairs.length,numRows);
         calls.write.push({row,count:numRows});
         if(opts.failOnce && calls.write.length===1)throw Error('MOCK_PROVIDER_WRITE_FAIL');
-        for(let j=0;j<numRows;j++)state.formulas[first+j]=Array.from(formulaPairs[j]);
+        for(let j=0;j<numRows;j++){
+          const index=first+j;
+          state.formulas[index]=Array.from(formulaPairs[j]);
+          const row=index+firstRow,shown=state.display[index];
+          if(shown[0]&&!opts.staleRecalc){
+            const phone=Number(shown[6]||0),lens=Number(shown[7]||0);
+            const isNewAction=String(formulaPairs[j][1]).includes('IF(G'+row+'>0,"show","show_full")');
+            const isNewStatus=String(formulaPairs[j][0]).includes('IF(AND(J'+row+'="show",G'+row+'>0)');
+            const action=isNewAction
+              ?(phone>0?'show':'show_full')
+              :(Math.max(phone,lens)>0?'show':'show_full');
+            shown[9]=action;
+            shown[8]=isNewStatus
+              ?(action==='show'&&phone>0?'เปิดจอง':'เต็มแล้ว')
+              :(action==='show'?'เปิดจอง':'เต็มแล้ว');
+          }
+        }
+        if(opts.externalDrift && calls.write.length===1)
+          state.display[0][6]='3';
       }
     };
   }
@@ -218,4 +236,57 @@ test('blank-event fill-down pairs are part of dry-run planned writes',()=>{
   assert.equal(r.blank_formula_rows,557);
   assert.equal(r.blank_rows,558);
   assert.equal(r.blank_without_formula_rows,1);
+});
+
+test('recalculated post-write readback blocks stale OPEN phone and restores old formulas',()=>{
+  const f=build({staleRecalc:true});
+  const original=f.state.formulas[0].slice();
+  assert.throws(()=>f.repair(),/WEB_READY_FORMULA_REPAIR_ROLLED_BACK/);
+  assert.equal(f.calls.write.length,2,'repair and verified rollback attempted');
+  assert.deepEqual(f.state.formulas[0],original);
+  assert.equal(f.calls.packageWrites,0);
+  assert.equal(f.calls.released,1);
+});
+
+test('owner cutover rolls back when source stock changes during repair',()=>{
+  const f=build({externalDrift:true});
+  const original=f.state.formulas[0].slice();
+  assert.throws(()=>f.repair(),/WEB_READY_FORMULA_REPAIR_ROLLED_BACK/);
+  assert.equal(f.calls.write.length,2);
+  assert.deepEqual(f.state.formulas[0],original);
+  assert.equal(f.calls.released,1);
+});
+
+test('no-op owner repair rejects stale displayed OPEN on zero available phones',()=>{
+  const f=build();
+  assert.equal(f.repair(),995);
+  f.state.display[0][9]='show';
+  f.state.display[0][8]='เปิดจอง';
+  assert.throws(()=>f.repair(),/WEB_READY_OWNER_ALREADY_SAFE_FORMULAS_BAD_VALUES/);
+  assert.equal(f.calls.write.length,1,'stale no-op is rejected before provider write');
+  assert.equal(f.calls.released,2);
+});
+
+test('pure postcutover contract detects invalid counts, wrong statuses and orphan data',()=>{
+  const f=build();
+  assert.equal(f.repair(),995);
+  const valid=f.state.display.map(r=>r.slice());
+  const validate=vm.runInNewContext(
+    selected+';kkValidateOwnerWebReadyPhoneResults_',{}, {timeout:1500});
+  const pass=validate(valid,5);
+  assert.equal(pass.pass,true);
+  assert.equal(pass.verified_event_rows,438);
+  assert.equal(pass.verified_full,2);
+  assert.equal(pass.verified_open,436);
+  assert.equal(pass.invalid_count,0);
+  valid[0][9]='show';
+  valid[0][8]='เปิดจอง';
+  assert.equal(validate(valid,5).pass,false);
+  valid[0]=f.state.display[0].slice();
+  valid[2][6]='NaN';
+  assert.equal(validate(valid,5).pass,false);
+  valid[2]=f.state.display[2].slice();
+  valid[995][3]='orphan venue';
+  assert.equal(validate(valid,5).pass,false);
+  assert.throws(()=>validate(valid.slice(1),5),/WEB_READY_OWNER_RESULTS_SHAPE_INVALID/);
 });
