@@ -29,7 +29,9 @@ function build(opts={}){
       'IF(MAX(G'+row+',H'+row+')>0,"show","show_full")');
     state.ids.push([id]);
     state.formulas.push(i===totalRows-1&&opts.lastBlank!==false?['','']:[status,action]);
-    state.display.push([id,'synthetic event','03/12/2026','mock venue','mock poster','',i<2?'0':'1','1',i===totalRows-1?'':'เปิดจอง',i===totalRows-1?'':'show']);
+    state.display.push(i===totalRows-1&&opts.lastBlank!==false
+      ?Array(10).fill('')
+      :[id,'synthetic event','03/12/2026','mock venue','mock poster','',i<2?'0':'1','1','เปิดจอง','show']);
   }
   function range(row,col,numRows,numCols){
     const first=row-firstRow,last=first+numRows;
@@ -289,4 +291,13 @@ test('pure postcutover contract detects invalid counts, wrong statuses and orpha
   valid[995][3]='orphan venue';
   assert.equal(validate(valid,5).pass,false);
   assert.throws(()=>validate(valid.slice(1),5),/WEB_READY_OWNER_RESULTS_SHAPE_INVALID/);
+});
+
+test('preflight detects an orphan event row even with valid old fill-down formulas',()=>{
+  const f=build();
+  f.state.display[500][3]='orphan venue';
+  const result=f.preflight();
+  assert.equal(result.pass,false);
+  assert.ok(result.unexpected_rows.includes(505));
+  assert.equal(f.calls.write.length,0);
 });
