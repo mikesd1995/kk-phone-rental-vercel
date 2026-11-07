@@ -889,23 +889,208 @@ function kkFormulaWebReadyAction_(rowNumber) {
   const lockedById = `COUNTIFS('18_Event_Visibility_Locks'!$B$2:$B,A${r},'18_Event_Visibility_Locks'!$G$2:$G,"LOCKED")>0`;
   const lockedByIdentity = `COUNTIFS('18_Event_Visibility_Locks'!$C$2:$C,B${r},'18_Event_Visibility_Locks'!$D$2:$D,IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,3,FALSE),""),'18_Event_Visibility_Locks'!$E$2:$E,D${r},'18_Event_Visibility_Locks'!$G$2:$G,"LOCKED")>0`;
   const historicalDifferentId = `COUNTIFS('18_Event_Visibility_Locks'!$C$2:$C,B${r},'18_Event_Visibility_Locks'!$D$2:$D,IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,3,FALSE),""),'18_Event_Visibility_Locks'!$E$2:$E,D${r},'18_Event_Visibility_Locks'!$B$2:$B,"<>"&A${r})>0`;
-  return `=IF(A${r}="","",IF(OR(${lockedById},${lockedByIdentity},${historicalDifferentId},IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,9,FALSE),"")<>"OK",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,6,FALSE),"")<>"open",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,7,FALSE),FALSE)<>TRUE),"hide",IF(MAX(G${r},H${r})>0,"show","show_full")))`;
+  return `=IF(A${r}="","",IF(OR(${lockedById},${lockedByIdentity},${historicalDifferentId},IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,9,FALSE),"")<>"OK",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,6,FALSE),"")<>"open",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,7,FALSE),FALSE)<>TRUE),"hide",IF(G${r}>0,"show","show_full")))`;
 }
 
-function kkRepairOwnerVisibilityLockFormulas_() {
-  const startRow = 5;
-  const endRow = 1000;
-  const rowCount = endRow - startRow + 1;
-  const webReadyAction = [];
-  const webPackageStatus = [];
-  for (let row = startRow; row <= endRow; row++) {
-    webReadyAction.push([kkFormulaWebReadyAction_(row)]);
-    webPackageStatus.push([kkFormulaWebPackageStatus_(row)]);
+function kkFormulaWebReadyBookingStatus_(rowNumber) {
+  const r = rowNumber;
+  // H is lens-only or bundle add-on stock; it must not reopen a sold-out phone rental.
+  // A hidden event remains hidden, and a full phone date stays visible for waitlist.
+  return `=IF(A${r}="","",IF(J${r}="hide","ซ่อนจากเว็บ",IF(AND(J${r}="show",G${r}>0),"เปิดจอง","เต็มแล้ว")))`;
+}
+
+// READ-ONLY owner preflight. Never overwrite a manual status or a drifted formula.
+// Live evidence on 2026-11-01: 09_Web_Packages!J144 is a deliberate literal "hidden"
+// on an existing-renter lens-only package. Package J is OUT OF SCOPE here.
+function kkPreflightOwnerVisibilityLockFormulas_() {
+  const startRow = 5, rowCount = 996;
+  const web = kkSheet_(KK.webReady);
+  const values = web.getRange(startRow, 1, rowCount, 10).getDisplayValues();
+  const formulas = web.getRange(startRow, 9, rowCount, 2).getFormulas();
+  const issues = [];
+  let populatedRows = 0, legacyRows = 0, alreadySafeRows = 0, blankRows = 0;
+  for (let i = 0; i < rowCount; i++) {
+    const r = startRow + i;
+    const v = values[i] || [];
+    const f = formulas[i] || [];
+    const id = String(v[0] || '').trim();
+    const status = String(f[0] || '').trim();
+    const action = String(f[1] || '').trim();
+    // Owner-gated cutover MUST compare complete A1 expressions. Checking only
+    // substrings lets an altered formula piggyback on known stock/lock fragments.
+    const safeStatus = kkFormulaWebReadyBookingStatus_(r);
+    const safeAction = kkFormulaWebReadyAction_(r);
+    const legacyStatus = '=IF(A' + r + '="","",IF(J' + r +
+      '="hide","ซ่อนจากเว็บ",IF(MAX(G' + r + ',H' + r +
+      ')>0,"เปิดจอง","เต็มแล้ว")))';
+    const legacyAction = safeAction.replace(
+      'IF(G' + r + '>0,"show","show_full")',
+      'IF(MAX(G' + r + ',H' + r + ')>0,"show","show_full")'
+    );
+    const recognized = (status === legacyStatus || status === safeStatus) &&
+      (action === legacyAction || action === safeAction);
+    if (!id) {
+      blankRows++;
+      // Blank rows may contain full, known fill-down formulas (actual owner
+      // workbook has 568), or may have neither formula. Unknown/mixed partial
+      // formulas are never overwritten under a blanket 996-row repair.
+      if (status || action) {
+        if (!recognized) issues.push(r);
+      } else if (String(v[8] || '').trim() || String(v[9] || '').trim()) {
+        issues.push(r);
+      }
+      continue;
+    }
+    populatedRows++;
+    if (!recognized) issues.push(r);
+    else if (status !== safeStatus || action !== safeAction) legacyRows++;
+    else alreadySafeRows++;
   }
-  kkSheet_(KK.webReady).getRange(startRow, 10, rowCount, 1).setFormulas(webReadyAction);
-  kkSheet_(KK.webPackages).getRange(startRow, 10, rowCount, 1).setFormulas(webPackageStatus);
-  SpreadsheetApp.flush();
-  return rowCount;
+  return {
+    status: issues.length || populatedRows === 0 ? 'BLOCKED' : 'READY_FOR_OWNER_APPROVAL',
+    pass: issues.length === 0 && populatedRows > 0,
+    checked_rows: rowCount,
+    populated_rows: populatedRows,
+    blank_rows: blankRows,
+    legacy_rows: legacyRows,
+    already_safe_rows: alreadySafeRows,
+    unexpected_rows: issues.slice(0, 25),
+    unexpected_count: issues.length,
+    production_writes: 0
+  };
+}
+
+// Explicit owner repair only, never executed by public snapshot/API routes.
+// A successful dry run is NOT release approval. Owner must retain a rollback copy.
+// Plan only exact-known legacy formula rows. An already-safe or deliberately
+// blank owner row is never overwritten by a bulk Stock repair.
+function kkWebReadyOwnerRepairSpans_(previous, ids, generated, startRow) {
+  if (!Array.isArray(previous) || !Array.isArray(ids) ||
+      !Array.isArray(generated) || previous.length !== generated.length ||
+      ids.length !== generated.length) {
+    throw new Error('WEB_READY_FORMULA_ROLLBACK_SNAPSHOT_INVALID');
+  }
+  const spans = [];
+  let first = -1, next = [], before = [];
+  function flush() {
+    if (first >= 0) spans.push({startRow: startRow + first,
+      formulas: next, before: before});
+    first = -1;
+    next = [];
+    before = [];
+  }
+  for (let i = 0; i < generated.length; i++) {
+    const row = startRow + i;
+    const pair = previous[i], expected = generated[i], id = ids[i];
+    if (!Array.isArray(pair) || pair.length !== 2 ||
+        typeof pair[0] !== 'string' || typeof pair[1] !== 'string' ||
+        !Array.isArray(expected) || expected.length !== 2 ||
+        !Array.isArray(id) || typeof id[0] === 'undefined') {
+      throw new Error('WEB_READY_FORMULA_ROLLBACK_SNAPSHOT_INVALID');
+    }
+    const status = pair[0], action = pair[1];
+    if (status === expected[0] && action === expected[1]) {
+      flush();
+      continue;
+    }
+    if (status === '' && action === '' && !String(id[0] || '').trim()) {
+      flush();
+      continue;
+    }
+    const legacyStatus = '=IF(A' + row + '="","",IF(J' + row +
+      '="hide","ซ่อนจากเว็บ",IF(MAX(G' + row + ',H' + row +
+      ')>0,"เปิดจอง","เต็มแล้ว")))';
+    const legacyAction = expected[1].replace(
+      'IF(G' + row + '>0,"show","show_full")',
+      'IF(MAX(G' + row + ',H' + row + ')>0,"show","show_full")'
+    );
+    if (!((status === legacyStatus || status === expected[0]) &&
+          (action === legacyAction || action === expected[1]))) {
+      throw new Error('WEB_READY_FORMULA_SNAPSHOT_DRIFT');
+    }
+    if (first < 0) first = i;
+    next.push(expected);
+    before.push(pair);
+  }
+  flush();
+  // A strangely fragmented workbook is an owner conflict, not permission to
+  // issue unbounded provider writes. Inspect it before rerunning a repair.
+  if (spans.length > 25) throw new Error('WEB_READY_FORMULA_REPAIR_FRAGMENTED');
+  return spans;
+}
+
+// Explicit owner repair only, never executed by public snapshot/API routes.
+// Preserve existing source and owner locks. External backup still required
+// before any authorized owner invocation.
+function kkRepairOwnerVisibilityLockFormulas_() {
+  const lock = kkAcquireDocumentLock_('owner Web Ready I:J formula repair', 12000);
+  try {
+    const preflight = kkPreflightOwnerVisibilityLockFormulas_();
+    if (!preflight.pass) throw new Error(
+      'WEB_READY_FORMULA_PREFLIGHT_BLOCKED: unexpected rows=' +
+      preflight.unexpected_rows.join(',')
+    );
+    const startRow = 5, rowCount = 996, endRow = startRow + rowCount - 1;
+    const safe = [];
+    for (let row = startRow; row <= endRow; row++) {
+      safe.push([
+        kkFormulaWebReadyBookingStatus_(row),
+        kkFormulaWebReadyAction_(row)
+      ]);
+    }
+    const web = kkSheet_(KK.webReady);
+    const previous = web.getRange(startRow, 9, rowCount, 2).getFormulas();
+    const ids = web.getRange(startRow, 1, rowCount, 1).getDisplayValues();
+    // Fail closed on drift after preflight and before any write. A blank row
+    // without formulas is kept blank; a safe row is kept unchanged.
+    const spans = kkWebReadyOwnerRepairSpans_(previous, ids, safe, startRow);
+    if (!spans.length) return 0;
+    let attempted = 0;
+    try {
+      for (const span of spans) {
+        attempted++;
+        web.getRange(span.startRow, 9, span.formulas.length, 2)
+          .setFormulas(span.formulas);
+      }
+      SpreadsheetApp.flush();
+      for (const span of spans) {
+        const got = web.getRange(span.startRow, 9, span.formulas.length, 2)
+          .getFormulas();
+        if (got.length !== span.formulas.length ||
+            span.formulas.some((pair, i) => !got[i] ||
+              got[i][0] !== pair[0] || got[i][1] !== pair[1])) {
+          throw new Error('WEB_READY_FORMULA_READBACK_MISMATCH');
+        }
+      }
+    } catch (writeError) {
+      // Restore only spans that may have been touched, in reverse order.
+      // Provider error messages and private owner formulas never leave this API.
+      try {
+        for (let i = attempted - 1; i >= 0; i--) {
+          const span = spans[i];
+          web.getRange(span.startRow, 9, span.before.length, 2)
+            .setFormulas(span.before);
+        }
+        SpreadsheetApp.flush();
+        for (let i = attempted - 1; i >= 0; i--) {
+          const span = spans[i];
+          const got = web.getRange(span.startRow, 9, span.before.length, 2)
+            .getFormulas();
+          if (got.length !== span.before.length ||
+              span.before.some((pair, j) => !got[j] ||
+                got[j][0] !== pair[0] || got[j][1] !== pair[1])) {
+            throw new Error('WEB_READY_ROLLBACK_READBACK_MISMATCH');
+          }
+        }
+      } catch (rollbackError) {
+        throw new Error('WEB_READY_FORMULA_REPAIR_ROLLBACK_FAILED');
+      }
+      throw new Error('WEB_READY_FORMULA_REPAIR_ROLLED_BACK');
+    }
+    return spans.reduce((n, span) => n + span.formulas.length, 0);
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // Storefront policy: standalone lens rental is hidden by default.
