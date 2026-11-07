@@ -1,0 +1,203 @@
+{
+  "schema": "kk-active-poster-acl-snapshot-v1",
+  "observation_date": "2026-11-07",
+  "production_sha": "d4bd11f6ff78f67f41b79a26448d036007737701",
+  "source": "08_Web_Ready!A4:K480 (read-only), rows with action_for_web=show/show_full",
+  "scope": {
+    "visible_event_rows": 106,
+    "distinct_google_drive_poster_files": 46,
+    "non_google_drive_url_rows": 48
+  },
+  "limitations": [
+    "Snapshot of current referenced poster files only; historical Drive assets and folder inheritance not exhaustively audited",
+    "No file identifiers, URLs, names of customers, emails, or credentials in this snapshot",
+    "No signed-out image delivery or provider ACL mutation acceptance",
+    "Cannot establish current state after date of observation without fresh Drive metadata read"
+  ],
+  "public_permissions": [
+    {
+      "position": 1,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 2,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 3,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 4,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 5,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 6,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 7,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 8,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 9,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 10,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 11,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 12,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 13,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 14,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 15,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 16,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 17,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 18,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 19,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 20,
+      "anyone_permission": "none"
+    },
+    {
+      "position": 21,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 22,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 23,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 24,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 25,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 26,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 27,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 28,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 29,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 30,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 31,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 32,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 33,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 34,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 35,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 36,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 37,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 38,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 39,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 40,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 41,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 42,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 43,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 44,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 45,
+      "anyone_permission": "writer"
+    },
+    {
+      "position": 46,
+      "anyone_permission": "writer"
+    }
+  ]
+}
