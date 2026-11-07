@@ -97,6 +97,10 @@ function fixture(opts = {}) {
   if (opts.extraCard) {
     core.push(['EVT-EXTRA', 'Extra event', '21/10/2026', '', 'https://images.example.test/extra.jpg']);
   }
+  if (opts.extraDriveCard) {
+    core.push(['EVT-NEW-DRIVE', 'New visible poster', '21/10/2026', '',
+      'https://drive.google.com/thumbnail?id=KK_SYNTHETIC_NEW_UNREVIEWED_DRIVE_FILE_046']);
+  }
   const web = core.map(row => [
     row[0], '', row[2], '',
     opts.imageMismatch && row[0] === core[0][0] ? 'https://images.example.test/wrong.jpg' : row[4],
@@ -561,10 +565,18 @@ test('unrecognized Google Drive URL fails closed before ACL changes', () => {
   assert.equal(f.getWrites(),0);
 });
 
-test('private manifest rejects newly added 46th file without explicit owner approval', () => {
+test('owner Apply rejects an unreviewed changed file ID despite correct 45-file count', () => {
   const f = fixture({privateRosterMismatch: true});
   const dry = f.api.dry();
   assert.equal(dry.active_files, 45);
   assert.throws(() => f.api.apply(dry.fingerprint), /OWNER_PRIVATE_ROSTER_DRIFT/);
+  assert.equal(f.getWrites(), 0);
+});
+
+test('new visible 46th Google Drive poster fails source scope before any writer permission changes', () => {
+  const f = fixture({extraDriveCard:true});
+  assert.throws(() => f.api.dry(), /SCOPED_ACTIVE_POSTER_DRIFT/);
+  assert.equal(f.getWrites(), 0);
+  assert.throws(() => f.api.apply('0'.repeat(64)), /SCOPED_ACTIVE_POSTER_DRIFT/);
   assert.equal(f.getWrites(), 0);
 });
