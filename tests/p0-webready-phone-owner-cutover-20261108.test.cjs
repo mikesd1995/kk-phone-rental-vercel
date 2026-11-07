@@ -29,7 +29,7 @@ function build(opts={}){
       'IF(MAX(G'+row+',H'+row+')>0,"show","show_full")');
     state.ids.push([id]);
     state.formulas.push(i===totalRows-1&&opts.lastBlank!==false?['','']:[status,action]);
-    state.display.push(i===totalRows-1&&opts.lastBlank!==false
+    state.display.push(!id
       ?Array(10).fill('')
       :[id,'synthetic event','03/12/2026','mock venue','mock poster','',i<2?'0':'1','1','เปิดจอง','show']);
   }
