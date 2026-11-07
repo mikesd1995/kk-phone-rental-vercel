@@ -8,7 +8,7 @@ const mk=(over={})=>({
   events:[{event_id:'EVT-20261203-BTS-ARIRANG',event_name:'BTS World Tour',event_date:'2026-12-03'}],
   web_ready:[{event_id:'EVT-20261203-BTS-ARIRANG',event_name:'BTS World Tour',event_date:'2026-12-03',venue:'Rajamangala',poster_image_url:'https://example.org/poster.jpg',available_phone_count:0,available_lens_count:1,action_for_web:'show'}],
   web_packages:[{event_id:'EVT-20261203-BTS-ARIRANG',package_id:'P1',package_type:'phone_only',price:1190,available_count:0,package_status:'full'}, {event_id:'EVT-20261203-BTS-ARIRANG',package_id:'P2',package_type:'phone_lens_bundle',price:1490,available_count:0,package_status:'full'},{event_id:'EVT-20261203-BTS-ARIRANG',package_id:'P3',package_type:'lens_only',price:390,available_count:1,package_status:'available'}],
-  bookings:[{event_id:'EVT-20261203-BTS-ARIRANG',booking_status:'confirmed',customer_name:'PRIVATE_NAME',customer_phone:'0980000000',amount_received:9999}],
+  bookings:[{booking_id:'BK-20261203-001',event_id:'EVT-20261203-BTS-ARIRANG',booking_status:'confirmed',customer_name:'PRIVATE_NAME',customer_phone:'0980000000',amount_received:9999}],
   visibility_locks:[{event_id:'EVT-20261203-BTS-ARIRANG',lock_state:'SEEN_CORE'}],...over}});
 test('lens-only cannot reopen fully booked phones',()=>{
   const x=Ops.normalize(mk(),NOW).records[0];assert.equal(x.web,'show');assert.equal(x.phoneReady,false);assert.equal(x.bundleReady,false);assert.equal(x.bookings,1);assert.ok(x.qa.some(v=>v.includes('สถานะเปิด')));assert.ok(x.gate.includes('มือถือ/แพ็กเกจไม่พร้อม'));
@@ -40,7 +40,41 @@ test('no Owner Lock evidence is not considered release-safe',()=>{
   assert.ok(row.gate.includes('Owner Locks ไม่มีหลักฐาน'));
 });
 test('unknown booking status cannot imply zero active customers',()=>{
-  const x=Ops.normalize(mk({bookings:[{event_id:'EVT-20261203-BTS-ARIRANG',booking_status:'unexpected_future_value'}]}),NOW).records[0];
+  const x=Ops.normalize(mk({bookings:[{event_id:'EVT-20261203-BTS-ARIRANG',booking_id:'BK-20261203-001',booking_status:'unexpected_future_value'}]}),NOW).records[0];
   assert.equal(x.bookings,null);assert.equal(x.bookingTotal,null);
-  assert.ok(x.gate.includes('สถานะ Booking ไม่รู้จัก'));
+  assert.ok(x.gate.includes('Booking ไม่ครบ/ID ซ้ำ/สถานะไม่รู้จัก'));
+});
+
+test('empty lock state is HOLD rather than falsely permitted',()=>{
+  const row=Ops.normalize(mk({visibility_locks:[{event_id:'EVT-20261203-BTS-ARIRANG',lock_state:''}]}),NOW).records[0];
+  assert.ok(row.gate.includes('Owner Locks ไม่มีหลักฐาน'));
+  assert.equal(row.lock,'UNKNOWN');
+});
+test('duplicate underlying Event IDs cannot be silently overwritten',()=>{
+  const x=mk();x.data.events.push({...x.data.events[0],event_name:'Conflicting event'});
+  assert.throws(()=>Ops.normalize(x,NOW),/DUPLICATE_EVENT_ID/);
+});
+test('duplicate Web Package IDs cannot silently change pricing truth',()=>{
+  const x=mk();x.data.web_packages.push({...x.data.web_packages[0],available_count:5});
+  assert.throws(()=>Ops.normalize(x,NOW),/DUPLICATE_PACKAGE_ID/);
+});
+test('duplicate or missing Booking identity blocks verified booking counts',()=>{
+  const x=mk();x.data.bookings.push({...x.data.bookings[0],booking_status:'cancelled'});
+  const row=Ops.normalize(x,NOW).records[0];
+  assert.equal(row.bookingTotal,null);assert.equal(row.bookings,null);
+  assert.ok(row.gate.includes('Booking ไม่ครบ/ID ซ้ำ/สถานะไม่รู้จัก'));
+  const y=mk({bookings:[{event_id:'EVT-20261203-BTS-ARIRANG',booking_status:'confirmed'}]});
+  assert.equal(Ops.normalize(y,NOW).records[0].bookingTotal,null);
+});
+test('fractional, negative and unsafe stock counts are HOLD',()=>{
+  const x=mk();x.data.web_ready[0].available_phone_count=0.5;
+  x.data.web_packages[0]={...x.data.web_packages[0],available_count:0.5,package_status:'available'};
+  const row=Ops.normalize(x,NOW).records[0];
+  assert.equal(row.stock,null);assert.equal(row.phoneReady,false);
+  assert.ok(row.gate.includes('มือถือ/แพ็กเกจไม่พร้อม'));
+  assert.ok(row.qa.some(v=>v.includes('สถานะเปิด')));
+  for(const bad of [-1,1e99,'Infinity']){
+    const y=mk();y.data.web_ready[0].available_phone_count=bad;
+    assert.equal(Ops.normalize(y,NOW).records[0].stock,null);
+  }
 });
