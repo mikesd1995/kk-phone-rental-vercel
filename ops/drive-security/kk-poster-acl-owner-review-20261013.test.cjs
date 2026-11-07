@@ -749,7 +749,8 @@ function advancedProvenanceFixture(opts={}){
           {permissionType:'file',inherited,role:'writer',
            ...(inherited?{inheritedFrom:parent}:{})}
         ];
-        return {permissions:[{id:'mock-perm',type:'anyone',role:'writer',
+        return {permissions:[{id:'mock-perm',type:'anyone',
+          role:opts.conflictingRole&&id===folderIDs[0]?'reader':'writer',
           permissionDetails:details}]};
       },
       update:()=>{writes++;throw Error('UNSAFE_PERMISSION_UPDATE')},
@@ -828,7 +829,8 @@ test('advanced provenance refuses unreviewed or missing private file manifest',(
 test('advanced provenance shared-drive membership remains independent owner review gate',()=>{
   const f=advancedProvenanceFixture({sharedDrive:true});
   const r=f.inspect();
-  assert.equal(r.unresolved_permission_origins,50, '45 images + 4 folders + shared-drive root each require independent membership provenance review');
+  assert.equal(r.shared_drive_ids_seen,1,'50 items map to one shared-drive identity');
+  assert.equal(r.shared_drive_membership_review_required,true);
   assert.equal(r.ready_for_acl_write,false);
   assert.equal(f.getWrites(),0);
 });
@@ -840,5 +842,11 @@ test('advanced provenance aborts looping pagination before any writes',()=>{
 test('advanced provenance rejects non-image media in private roster',()=>{
   const f=advancedProvenanceFixture({nonImage:true});
   assert.throws(()=>f.inspect(),/ADVANCED_ACTIVE_FILE_NOT_IMAGE/);
+  assert.equal(f.getWrites(),0);
+});
+
+test('advanced provenance rejects inconsistent effective Reader with Writer origin',()=>{
+  const f=advancedProvenanceFixture({conflictingRole:true});
+  assert.throws(()=>f.inspect(),/ADVANCED_ROLE_DETAILS_DIVERGED/);
   assert.equal(f.getWrites(),0);
 });
