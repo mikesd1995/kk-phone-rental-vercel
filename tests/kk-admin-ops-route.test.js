@@ -12,7 +12,7 @@ const sample=()=>({ok:true,data:{
  web_packages:[{package_id:'PK',event_id:'EV',package_type:'phone_only',available_count:1,price:590,package_status:'available'}],
  bookings:[{booking_id:'SECRET_BOOKING_ID',event_id:'EV',booking_status:'confirmed',customer_name:'SECRET_NAME',customer_phone:'SECRET_PHONE'}]
 }});
-function harness({signed=true,upstream=sample(),status=200,throwV5=false,apiAllowed=true,stream=false,doubleEnd=false,unsafeHeader=false}={}){
+function harness({signed=true,upstream=sample(),status=200,throwV5=false,apiAllowed=true,realSecurity=false,stream=false,doubleEnd=false,unsafeHeader=false}={}){
  const calls={upstream:0,urls:[],authorize:0};
  const fakeV5=async(req,res)=>{
   calls.upstream++;calls.urls.push(req.url);
@@ -23,7 +23,7 @@ function harness({signed=true,upstream=sample(),status=200,throwV5=false,apiAllo
   res.end(typeof upstream==='string'?upstream:JSON.stringify(upstream));
   if(doubleEnd)res.end('SECRET_NAME');
  };
- const admin={gateMode:()=>'',authorizeApi:()=>{calls.authorize++;return apiAllowed},hasValidSession:()=>signed};
+ const admin=realSecurity?require('../server/admin-session.js'):{gateMode:()=>'',authorizeApi:()=>{calls.authorize++;return apiAllowed},hasValidSession:()=>signed};
  const mocks={
   '../server/runtime-warning-tracer':{installRuntimeWarningTracer:()=>{}},
   '../server/legacy/kk-admin-snapshot-v5.js':fakeV5,
@@ -95,3 +95,43 @@ test('oversized private source is never parsed or sent to client',async()=>{
  assert.equal(JSON.parse(x.res.body).error_code,'OPS_SOURCE_UNAVAILABLE');
  assert.ok(!x.res.body.includes('PRIVATE_SOURCE_'));
 });
+
+// Use the real signed-session implementation and synthetic secrets, not a stubbed auth gate.
+async function withSignedTestKeys(fn){
+ const keys=['KK_ADMIN_PIN','KK_ADMIN_SESSION_SECRET'];
+ const before=Object.fromEntries(keys.map(key=>[key,process.env[key]]));
+ process.env.KK_ADMIN_PIN='R8-TEST-NOT-PRODUCTION-PIN';
+ process.env.KK_ADMIN_SESSION_SECRET='R8-TEST-NOT-PRODUCTION-SIGNED-SESSION-KEY';
+ try{return await fn();}
+ finally{for(const key of keys){if(before[key]===undefined)delete process.env[key];else process.env[key]=before[key];}}
+}
+test('real signed Admin session permits only server-projected response',()=>withSignedTestKeys(async()=>{
+ const real=require('../server/admin-session.js');
+ const token=real._test.issueToken();
+ const x=harness({realSecurity:true});
+ x.req.headers.cookie=real.COOKIE_NAME+'='+token;
+ await x.handler(x.req,x.res);
+ assert.equal(x.res.statusCode,200);
+ assert.equal(x.calls.upstream,1);
+ assert.equal(JSON.parse(x.res.body).data.projection_version,PROJ.VERSION);
+ for(const marker of ['SECRET_BOOKING_ID','SECRET_PHONE','SECRET_NAME'])assert.ok(!x.res.body.includes(marker));
+}));
+test('legacy PIN alone does not grant access to private operations endpoint',()=>withSignedTestKeys(async()=>{
+ const x=harness({realSecurity:true});
+ x.req.headers['x-admin-pin']=process.env.KK_ADMIN_PIN;
+ await x.handler(x.req,x.res);
+ assert.equal(x.res.statusCode,401);
+ assert.equal(x.calls.upstream,0);
+ assert.equal(JSON.parse(x.res.body).error_code,'OPS_SESSION_REQUIRED');
+}));
+test('tampering with a signed Admin cookie cannot bypass the private route',()=>withSignedTestKeys(async()=>{
+ const real=require('../server/admin-session.js');
+ const valid=real._test.issueToken();
+ const invalid=valid.slice(0,-1)+(valid.endsWith('A')?'B':'A');
+ const x=harness({realSecurity:true});
+ x.req.headers.cookie=real.COOKIE_NAME+'='+invalid;
+ x.req.headers['x-admin-pin']=process.env.KK_ADMIN_PIN;
+ await x.handler(x.req,x.res);
+ assert.equal(x.res.statusCode,401);
+ assert.equal(x.calls.upstream,0);
+}));
