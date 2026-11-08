@@ -8,7 +8,15 @@ const Gateway=require('../server/kk-agent-gateway.js');
 const recordPath=path.resolve(process.env.ADMIN_UX_EVIDENCE_PATH||'config/kk-admin-ops-ux-evidence.json');
 const folder=path.resolve(process.env.ADMIN_UX_OUTPUT_DIR||'artifacts/admin-ops-ux');
 const sourceSha=String(process.env.GITHUB_SHA||process.env.ADMIN_UX_SOURCE_SHA||'').trim();
-const packets=JSON.parse(fs.readFileSync(recordPath,'utf8')).packets;
+const evidence=JSON.parse(fs.readFileSync(recordPath,'utf8'));
+const packets=evidence.packets;
+if(evidence.source_sha256){
+ for(const [file,sha] of Object.entries(evidence.source_sha256)){
+   if(!/^admin\/operations-dashboard\.(html|css|js)$/.test(file)||!/^[a-f0-9]{64}$/.test(sha))throw Error('INVALID_SOURCE_EVIDENCE_PATH');
+   const actual=crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+   if(actual!==sha)throw Error('VISUAL_EVIDENCE_SOURCE_HASH_MISMATCH_'+file);
+ }
+}
 if(!/^[a-f0-9]{40}$/.test(sourceSha)||!Array.isArray(packets)||packets.length<4)throw Error('INVALID_EXACT_SOURCE_OR_VIEWPORT_EVIDENCE');
 fs.mkdirSync(folder,{recursive:true});
 const writeJson=(f,v)=>{const bytes=JSON.stringify(v,null,2)+'\n';fs.writeFileSync(f,bytes);if(fs.readFileSync(f,'utf8')!==bytes)throw Error('EVIDENCE_READBACK_MISMATCH');return crypto.createHash('sha256').update(bytes).digest('hex')};

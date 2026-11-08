@@ -1,402 +1,451 @@
 {
-  "capture_kind": "pre-implementation browser evidence",
+  "capture_kind": "post-implementation browser evidence for release QA",
   "browser": "Chromium",
+  "source_sha256": {
+    "admin/operations-dashboard.html": "884e7d12aa715e8811900f70c3de3dd288eb1d8dc471f0742d9425b61afec762",
+    "admin/operations-dashboard.css": "a1fd9765aa39711b1d539bc964ccce6675dae62280f96ad24366b664c9dcba3a",
+    "admin/operations-dashboard.js": "098ca25a5f51a0aa02bf988bfa722f60b8aa46169d6a776897c0ceedf05cceed"
+  },
   "packets": [
     {
+      "surface": "KK Phone Rental internal Admin Operations Dashboard V4, synthetic booking fixture",
       "platform": "ios-contract-via-chromium",
       "viewport": {
         "width": 320,
         "height": 568
       },
-      "surface": "KK Phone Rental Admin Operations Dashboard V4; isolated synthetic booking fixture",
       "metrics": {
         "viewport_width_px": 320,
         "viewport_height_px": 568,
         "document_scroll_width_px": 320,
         "content_width_px": 320,
-        "min_form_control_font_px": 14,
+        "min_form_control_font_px": 16,
         "tap_targets": [
+          {
+            "id": "← กลับ Admin",
+            "width": 134,
+            "height": 44
+          },
           {
             "id": "refresh",
             "width": 99,
-            "height": 43
+            "height": 44
           },
           {
             "id": "search",
             "width": 274,
-            "height": 38
+            "height": 44
           },
           {
             "id": "month",
             "width": 274,
-            "height": 40
+            "height": 44
           },
           {
             "id": "date",
             "width": 274,
-            "height": 40
+            "height": 44
           },
           {
             "id": "venue",
             "width": 274,
-            "height": 40
+            "height": 44
           },
           {
             "id": "visibility",
             "width": 274,
-            "height": 40
+            "height": 44
           },
           {
             "id": "stock",
             "width": 274,
-            "height": 40
+            "height": 44
           },
           {
             "id": "booking",
             "width": 274,
-            "height": 40
+            "height": 44
           },
           {
             "id": "price",
             "width": 274,
-            "height": 40
+            "height": 44
           },
           {
             "id": "ตาราง",
             "width": 87,
-            "height": 40
+            "height": 44
           },
           {
             "id": "ปฏิทิน",
             "width": 87,
-            "height": 40
+            "height": 44
           },
           {
             "id": "ติดตาม QA",
             "width": 87,
-            "height": 40
+            "height": 44
           },
           {
             "id": "แผนโพสต์ X",
             "width": 274,
-            "height": 40
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
           }
         ],
         "raw_i18n_key_count": 0
       },
       "screenshot_artifacts": [
         {
-          "name": "admin_320.png",
-          "sha256": "0dc82690c87d3f1635fb05a69c17de305294b6f1cf504bacd10e63d38fcfd090"
+          "name": "admin_post_320.png",
+          "sha256": "fa148e00ab9a15729f873c4a98823788bf830b42b7d4c57d78462aef05e0679f"
         }
       ],
-      "screenshot_observations": [
-        {
-          "code": "ADMIN_TABLE_DETAIL_ACTION_OFFSCREEN",
-          "severity": "P1",
-          "evidence": "3 row action buttons have left>viewport (320px) until horizontal table scroll; no mobile scroll hint or sticky action; screenshot 0dc82690c87d",
-          "action": "Make row QA details action accessible in the horizontally scrollable table; provide explicit scroll hint."
-        }
-      ],
+      "screenshot_observations": [],
       "evidence_type": "CHROMIUM_LOCAL_SYNTHETIC_NO_CUSTOMER_PII"
     },
     {
+      "surface": "KK Phone Rental internal Admin Operations Dashboard V4, synthetic booking fixture",
       "platform": "ios-contract-via-chromium",
       "viewport": {
         "width": 390,
         "height": 844
       },
-      "surface": "KK Phone Rental Admin Operations Dashboard V4; isolated synthetic booking fixture",
       "metrics": {
         "viewport_width_px": 390,
         "viewport_height_px": 844,
         "document_scroll_width_px": 390,
         "content_width_px": 390,
-        "min_form_control_font_px": 14,
+        "min_form_control_font_px": 16,
         "tap_targets": [
+          {
+            "id": "← กลับ Admin",
+            "width": 134,
+            "height": 44
+          },
           {
             "id": "refresh",
             "width": 99,
-            "height": 43
+            "height": 44
           },
           {
             "id": "search",
             "width": 344,
-            "height": 38
+            "height": 44
           },
           {
             "id": "month",
             "width": 344,
-            "height": 40
+            "height": 44
           },
           {
             "id": "date",
             "width": 344,
-            "height": 40
+            "height": 44
           },
           {
             "id": "venue",
             "width": 344,
-            "height": 40
+            "height": 44
           },
           {
             "id": "visibility",
             "width": 344,
-            "height": 40
+            "height": 44
           },
           {
             "id": "stock",
             "width": 344,
-            "height": 40
+            "height": 44
           },
           {
             "id": "booking",
             "width": 344,
-            "height": 40
+            "height": 44
           },
           {
             "id": "price",
             "width": 344,
-            "height": 40
+            "height": 44
           },
           {
             "id": "ตาราง",
             "width": 73,
-            "height": 40
+            "height": 44
           },
           {
             "id": "ปฏิทิน",
             "width": 73,
-            "height": 40
+            "height": 44
           },
           {
             "id": "ติดตาม QA",
             "width": 87,
-            "height": 40
+            "height": 44
           },
           {
             "id": "แผนโพสต์ X",
             "width": 93,
-            "height": 40
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
           }
         ],
         "raw_i18n_key_count": 0
       },
       "screenshot_artifacts": [
         {
-          "name": "admin_390.png",
-          "sha256": "8f0166885b901ef78830e4f79eb30431d95f26b4311ebae21bea01c82770e7fd"
+          "name": "admin_post_390.png",
+          "sha256": "bf9c7918581f7032b44344ad4fbecd8d358af3878d15f28894fb331886b7a16c"
         }
       ],
-      "screenshot_observations": [
-        {
-          "code": "ADMIN_TABLE_DETAIL_ACTION_OFFSCREEN",
-          "severity": "P1",
-          "evidence": "3 row action buttons have left>viewport (390px) until horizontal table scroll; no mobile scroll hint or sticky action; screenshot 8f0166885b90",
-          "action": "Make row QA details action accessible in the horizontally scrollable table; provide explicit scroll hint."
-        }
-      ],
+      "screenshot_observations": [],
       "evidence_type": "CHROMIUM_LOCAL_SYNTHETIC_NO_CUSTOMER_PII"
     },
     {
+      "surface": "KK Phone Rental internal Admin Operations Dashboard V4, synthetic booking fixture",
       "platform": "chromium",
       "viewport": {
         "width": 768,
         "height": 1024
       },
-      "surface": "KK Phone Rental Admin Operations Dashboard V4; isolated synthetic booking fixture",
       "metrics": {
         "viewport_width_px": 768,
         "viewport_height_px": 1024,
         "document_scroll_width_px": 768,
         "content_width_px": 768,
-        "min_form_control_font_px": 14,
+        "min_form_control_font_px": 16,
         "tap_targets": [
+          {
+            "id": "← กลับ Admin",
+            "width": 134,
+            "height": 44
+          },
           {
             "id": "refresh",
             "width": 99,
-            "height": 43
+            "height": 44
           },
           {
             "id": "search",
             "width": 336,
-            "height": 38
+            "height": 44
           },
           {
             "id": "month",
             "width": 336,
-            "height": 40
+            "height": 44
           },
           {
             "id": "date",
             "width": 336,
-            "height": 40
+            "height": 44
           },
           {
             "id": "venue",
             "width": 336,
-            "height": 40
+            "height": 44
           },
           {
             "id": "visibility",
             "width": 336,
-            "height": 40
+            "height": 44
           },
           {
             "id": "stock",
             "width": 336,
-            "height": 40
+            "height": 44
           },
           {
             "id": "booking",
             "width": 336,
-            "height": 40
+            "height": 44
           },
           {
             "id": "price",
             "width": 336,
-            "height": 40
+            "height": 44
           },
           {
             "id": "ตาราง",
             "width": 62,
-            "height": 40
+            "height": 44
           },
           {
             "id": "ปฏิทิน",
             "width": 61,
-            "height": 40
+            "height": 44
           },
           {
             "id": "ติดตาม QA",
             "width": 87,
-            "height": 40
+            "height": 44
           },
           {
             "id": "แผนโพสต์ X",
             "width": 93,
-            "height": 40
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
           }
         ],
         "raw_i18n_key_count": 0
       },
       "screenshot_artifacts": [
         {
-          "name": "admin_768.png",
-          "sha256": "c1781ddb8a913968147bb40104cdd0e104f10d6d0fa196a422d613674ad1e712"
+          "name": "admin_post_768.png",
+          "sha256": "3899911eb86fa5e9b13f42298afce388f0e2be0f81f4fffb316aa3fb26e41bfa"
         }
       ],
-      "screenshot_observations": [
-        {
-          "code": "ADMIN_TABLE_DETAIL_ACTION_OFFSCREEN",
-          "severity": "P1",
-          "evidence": "3 row action buttons have left>viewport (768px) until horizontal table scroll; no mobile scroll hint or sticky action; screenshot c1781ddb8a91",
-          "action": "Make row QA details action accessible in the horizontally scrollable table; provide explicit scroll hint."
-        }
-      ],
+      "screenshot_observations": [],
       "evidence_type": "CHROMIUM_LOCAL_SYNTHETIC_NO_CUSTOMER_PII"
     },
     {
+      "surface": "KK Phone Rental internal Admin Operations Dashboard V4, synthetic booking fixture",
       "platform": "chromium",
       "viewport": {
         "width": 1440,
         "height": 900
       },
-      "surface": "KK Phone Rental Admin Operations Dashboard V4; isolated synthetic booking fixture",
       "metrics": {
         "viewport_width_px": 1440,
         "viewport_height_px": 900,
         "document_scroll_width_px": 1440,
         "content_width_px": 1440,
-        "min_form_control_font_px": 14,
+        "min_form_control_font_px": 16,
         "tap_targets": [
+          {
+            "id": "← กลับ Admin",
+            "width": 134,
+            "height": 44
+          },
           {
             "id": "refresh",
             "width": 99,
-            "height": 43
+            "height": 44
           },
           {
             "id": "search",
             "width": 330,
-            "height": 38
+            "height": 44
           },
           {
             "id": "month",
             "width": 330,
-            "height": 40
+            "height": 44
           },
           {
             "id": "date",
             "width": 330,
-            "height": 40
+            "height": 44
           },
           {
             "id": "venue",
             "width": 330,
-            "height": 40
+            "height": 44
           },
           {
             "id": "visibility",
             "width": 330,
-            "height": 40
+            "height": 44
           },
           {
             "id": "stock",
             "width": 330,
-            "height": 40
+            "height": 44
           },
           {
             "id": "booking",
             "width": 330,
-            "height": 40
+            "height": 44
           },
           {
             "id": "price",
             "width": 330,
-            "height": 40
+            "height": 44
           },
           {
             "id": "ตาราง",
             "width": 62,
-            "height": 40
+            "height": 44
           },
           {
             "id": "ปฏิทิน",
             "width": 61,
-            "height": 40
+            "height": 44
           },
           {
             "id": "ติดตาม QA",
             "width": 87,
-            "height": 40
+            "height": 44
           },
           {
             "id": "แผนโพสต์ X",
             "width": 93,
-            "height": 40
+            "height": 44
           },
           {
             "id": "2 QA · ดู",
             "width": 65,
-            "height": 34
+            "height": 44
           },
           {
             "id": "2 QA · ดู",
             "width": 65,
-            "height": 34
+            "height": 44
           },
           {
             "id": "2 QA · ดู",
             "width": 65,
-            "height": 34
+            "height": 44
           }
         ],
         "raw_i18n_key_count": 0
       },
       "screenshot_artifacts": [
         {
-          "name": "admin_1440.png",
-          "sha256": "7aaae60e47f6a2a790398cc8864c916278a5c987860e0f1efde397bdd4f8f5d2"
+          "name": "admin_post_1440.png",
+          "sha256": "1b708e9cc6cf6fd8c6e923c20c36917af5c6687622877d7f78ab72bcc55ea8c4"
         }
       ],
       "screenshot_observations": [],
