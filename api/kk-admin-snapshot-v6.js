@@ -90,46 +90,48 @@ function enrich(body){
 // Private, read-only Operations response: retain existing signed-session gate and
 // V5 private snapshot reader, but strip customer data on the server *before* response.
 async function handleOperationsSnapshot(req,res){
-  // Legacy PIN alone is NOT sufficient for the dedicated Operations surface.
+  // A legacy PIN is not enough: this projection requires the signed Admin cookie.
   if(!AdminSecurity.hasValidSession(req)){
     return replyJson(res,401,{ok:false,error_code:'OPS_SESSION_REQUIRED'});
   }
   const originalUrl=req.url;
-  const originalEnd=res.end.bind(res);
-  let finished=false;
-  const finish=(status,body)=>{
-    if(finished) return;
-    finished=true;
-    res.statusCode=status;
-    res.setHeader('Content-Type','application/json; charset=utf-8');
-    res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, max-age=0');
-    res.setHeader('X-Content-Type-Options','nosniff');
-    res.setHeader('X-KK-Ops-Projection-Version',OpsProjection.VERSION);
-    return originalEnd(JSON.stringify(body));
+  // A separate response object is the privacy boundary. Upstream can write only
+  // into this isolated receiver; the real network response is never handed to V5.
+  const headers=new Map();
+  let upstreamBody='';
+  let ended=0;
+  let streamed=false;
+  const upstream={
+    statusCode:200,
+    setHeader(name,value){headers.set(String(name).toLowerCase(),String(value));return this;},
+    getHeader(name){return headers.get(String(name).toLowerCase());},
+    write(){streamed=true;return false;},
+    writeHead(status){this.statusCode=Number(status)||500;return this;},
+    end(chunk){ended++;if(ended===1)upstreamBody=String(chunk??'');return undefined;}
   };
   try{
-    // V5 recognizes only action=snapshot; this internal rewrite never leaves the
-    // request and is restored after the awaited reader finishes.
     const url=new URL(originalUrl||'/api/kk-admin','http://localhost');
     url.searchParams.set('action','snapshot');
     req.url=url.pathname+url.search;
-    res.end=chunk=>{
-      if(res.statusCode!==200) return finish(503,{ok:false,error_code:'OPS_SOURCE_UNAVAILABLE'});
-      try{
-        const parsed=JSON.parse(String(chunk??''));
-        const safe=OpsProjection.project(parsed);
-        return finish(200,safe);
-      }catch(_){
-        return finish(503,{ok:false,error_code:'OPS_PROJECTION_REJECTED'});
-      }
-    };
-    await V5(req,res);
-    if(!finished) return finish(503,{ok:false,error_code:'OPS_SOURCE_NO_RESPONSE'});
+    await V5(req,upstream);
+    // Never send a partial, streaming, failed or double-terminated upstream body.
+    if(ended!==1||streamed||upstream.statusCode!==200){
+      return replyJson(res,503,{ok:false,error_code:'OPS_SOURCE_UNAVAILABLE'});
+    }
+    // Reject oversized/ill-formed upstream envelopes before creating output.
+    if(upstreamBody.length>12*1024*1024){
+      return replyJson(res,503,{ok:false,error_code:'OPS_SOURCE_UNAVAILABLE'});
+    }
+    let safe;
+    try{safe=OpsProjection.project(JSON.parse(upstreamBody));}
+    catch(_){return replyJson(res,503,{ok:false,error_code:'OPS_PROJECTION_REJECTED'});}
+    res.setHeader('X-KK-Ops-Projection-Version',OpsProjection.VERSION);
+    res.setHeader('X-Content-Type-Options','nosniff');
+    return replyJson(res,200,safe);
   }catch(_){
-    return finish(503,{ok:false,error_code:'OPS_SOURCE_UNAVAILABLE'});
+    return replyJson(res,503,{ok:false,error_code:'OPS_SOURCE_UNAVAILABLE'});
   }finally{
     req.url=originalUrl;
-    res.end=originalEnd;
   }
 }
 
