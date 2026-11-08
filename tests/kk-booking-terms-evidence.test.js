@@ -21,8 +21,8 @@ test('booking and waitlist LINE drafts include exact current customer attestatio
  assert.match(terms,/<meta name="kk-terms-version" content="KK-TERMS-2026-11-06">/);
  assert.match(terms,/<time datetime="2026-11-06">6 พฤศจิกายน 2569<\/time>/);
  assert.match(privacy,/ข้อความยืนยันการยอมรับเงื่อนไขการเช่าและรหัสฉบับ/);
- assert.equal(source.split(Evidence.ACK_LINE).length-1,2,'booking and waitlist must both contain the same statement');
- assert.equal(source.split(Evidence.PRIVACY_LINE).length-1,2,'booking and waitlist must acknowledge Privacy distinctly');
+ assert.equal(source.split(Evidence.ACK_LINE).length-1,3,'booking, lens add-on and waitlist must all contain the same statement');
+ assert.equal(source.split(Evidence.PRIVACY_LINE).length-1,3,'booking, lens add-on and waitlist must all acknowledge Privacy distinctly');
  assert.ok(source.indexOf(Evidence.ACK_LINE,source.indexOf('function buildBookingMsg'))<source.indexOf('function getBookingUrl'));
  assert.ok(source.indexOf(Evidence.ACK_LINE,source.indexOf('function buildWaitlistMsg'))<source.indexOf('function getWaitlistUrl'));
 });

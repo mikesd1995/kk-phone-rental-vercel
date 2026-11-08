@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'script.js'), 'utf8');
 
@@ -58,12 +59,41 @@ test('internal package notes never reach the customer modal', () => {
   assert.doesNotMatch(source, /if\(p\.note\)\{var nEl=.*p\.note/);
 });
 
-test('modal package rows render only model, price and booking action', () => {
+test('modal package rows keep minimal content and separate phone booking from lens inquiry', () => {
   const modal = source.slice(source.indexOf('function showModal(c,options){'), source.indexOf('var PACKAGE_CLOSE_SELECTOR'));
-  assert.match(modal, /className="ph-model"/);
-  assert.match(modal, /className="ph-price"/);
-  assert.ok(modal.includes('bookBtn.href=getBookingUrl(c,p)'));
-  assert.doesNotMatch(modal, /className="ph-note"|className="ph-spec"/);
+  function element(){
+    return {className:'',textContent:'',children:[],appendChild(child){this.children.push(child);},setAttribute(){}};
+  }
+  const nodes=Object.fromEntries(['modal-title','modal-date','modal-venue','phone-list'].map(id=>[id,element()]));
+  const packages=[
+    {type:'phone_only',model:'Phone example',price:690},
+    {type:'phone_lens_bundle',model:'Phone and lens example',price:990},
+    {type:'lens_only',model:'Lens example',price:200}
+  ].map(pkg=>({...pkg,note:'INTERNAL_NOTE_SENTINEL',spec:'INTERNAL_SPEC_SENTINEL',useCase:'INTERNAL_USE_CASE_SENTINEL'}));
+  // Run real row construction; stub only DOM and external/UI boundaries.
+  vm.runInNewContext(modal+';showModal(eventFixture);',{
+    document:{getElementById:id=>nodes[id],querySelectorAll:()=>[],createElement:element},
+    eventFixture:{id:'EVENT_FIXTURE',name:'Public event',date:'10/11/2026',venue:'Public venue',packages},
+    currentLang:'en',activeModalEvent:null,track(){},updateMetaForEvent(){},setEventUrl(){},openModal(){},
+    availPkgs:event=>event.packages,availCnt:()=>2,tr:key=>key,toNum:Number,numberLocale:()=>'en-US',
+    getBookingUrl:(event,pkg)=>'phone:'+pkg.model,
+    getExistingRenterLensUrl:(event,pkg)=>'lens-add-on:'+pkg.model
+  });
+  const rows=nodes['phone-list'].children;
+  assert.equal(rows.length,3);
+  const expectedRoutes=['phone:Phone example','phone:Phone and lens example','lens-add-on:Lens example'];
+  function renderedText(node){return [node.textContent,...node.children.map(renderedText)].join(' ');}
+  rows.forEach((row,index)=>{
+    assert.equal(row.className,'phone-row');
+    assert.deepEqual(row.children.map(child=>child.className),['ph-icon','ph-info','ph-right']);
+    assert.equal(row.children[1].children.length,1);
+    assert.equal(row.children[1].children[0].className,'ph-model');
+    assert.equal(row.children[1].children[0].textContent,packages[index].model);
+    assert.deepEqual(row.children[2].children.map(child=>child.className),['ph-price','badge book-pill']);
+    assert.equal(row.children[2].children[0].textContent,String(packages[index].price));
+    assert.equal(row.children[2].children[1].href,expectedRoutes[index]);
+    assert.doesNotMatch(renderedText(row),/INTERNAL_(?:NOTE|SPEC|USE_CASE)_SENTINEL/);
+  });
 });
 
 test('event modal contains only name, date, venue, and availability-based packages', () => {
