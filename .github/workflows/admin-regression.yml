@@ -2,6 +2,9 @@ name: Admin Regression
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/ops-dashboard-readonly-v4-20261107
 
 permissions:
   contents: read
