@@ -51,7 +51,7 @@ test('runtime runner can prove FULL only from executed provider evidence',async(
    }
    return [{title:'Shared Reference Concert Bangkok',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
- const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS});
+ const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS});
  assert.equal(out.status,'READY_FOR_VERIFIER');
  assert.equal(out.full,true);
  assert.equal(out.provider_binding.unknown_url_search_bound,true);
@@ -83,7 +83,7 @@ test('runtime known-miss probe can recover through an alias-only query without w
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.status,'READY_FOR_VERIFIER');
  assert.equal(out.full,true);
@@ -116,7 +116,7 @@ test('runtime executes known-miss probes before the broad monthly sweep',async()
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.full,true);
  assert.ok(calls[0].startsWith('knownmiss:'));
@@ -142,7 +142,7 @@ test('runtime known-miss gate accepts a governed hit from the main discovery swe
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand',known_miss_classifications:classifications},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.known_miss_regression.complete,true);
  assert.equal(out.known_miss_live_recall.complete,false);
@@ -188,7 +188,7 @@ test('deterministic historical regression remains complete even when live recall
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.known_miss_regression.complete,true);
  assert.ok(out.known_miss_live_recall.passed<out.known_miss_live_recall.case_count);
@@ -208,7 +208,7 @@ test('empty current-month discovery blocks FULL even when provider calls execute
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.discovery_proof.has_evidence,false);
  assert.ok(out.blockers.includes('DISCOVERY_EVIDENCE_EMPTY'));
@@ -382,7 +382,16 @@ test('failed FULL gates expose bounded source/task/provider receipts without pro
  assert.equal(out.diagnostic.gates.discovery.observed,false);
  assert.ok(out.diagnostic.receipts.discovery.length>20);
  assert.ok(out.diagnostic.receipts.discovery.some(r=>r.source_id==='eventpop'));
- assert.ok(out.diagnostic.receipts.discovery.every(r=>r.attempts.some(a=>a.provider==='EXA'&&a.status==='PROVIDER_ERROR')));
+ // First-party direct sources must never run paid EXA; legacy sources may do so.
+ const directIds=['iqiyi-thailand-platform','eveandboy-retail','beautrium-retail','iconsiam-hall'];
+ for(const id of directIds){
+  const row=out.diagnostic.receipts.discovery.find(r=>r.source_id===id);
+  assert.ok(row,id);
+  assert.ok(row.attempts.some(a=>a.provider==='OFFICIAL_DIRECT'&&a.status==='NOT_BOUND'),id);
+  assert.ok(!row.attempts.some(a=>a.provider==='EXA'),id);
+ }
+ assert.ok(out.diagnostic.receipts.discovery.find(r=>r.source_id==='eventpop')
+  .attempts.some(a=>a.provider==='EXA'&&a.status==='PROVIDER_ERROR'));
  assert.equal(JSON.stringify(out.diagnostic).includes('sensitive-token'),false);
  assert.equal(JSON.stringify(out.diagnostic).includes('secret-provider-payload'),false);
  assert.equal(out.diagnostic.production_writes,0);
@@ -394,13 +403,102 @@ test('operational discovery can proceed without exhaustive audit gates',async()=
    : [];
  const out=await Runner.runOperationalDiscovery(
    {month:'2026-10',location:'Bangkok Metropolitan Region Thailand'},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,BING_RSS:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.mode,'SMART_OPERATIONAL');
  assert.equal(out.status,'READY_FOR_VERIFIER');
  assert.equal(out.operational_ready,true);
+ assert.equal(out.required_source_count,4);
+ assert.equal(out.required_source_executed_count,4);
+ assert.deepEqual(out.missing_required_source_ids,[]);
  assert.equal(out.audit_required,true);
  assert.equal(out.audit_blocking,false);
  assert.ok(out.candidate_count>0);
+ assert.equal(out.production_writes,0);
+});
+
+test('iQIYI iJOY FAN ZONE official dated announcements are eligible reference signals without misclassifying generic VIP subscriptions',()=>{
+ const context={month:'2026-11',location:'Bangkok'};
+ const valid=Runner.referenceScopeDecision({
+   title:'iQIYI iJOY TH 2027 FAN ZONE 400 at ICONSIAM',
+   event_date:'2026-11-05',
+   source_url:'https://x.com/iQIYI_Thailand/status/100'
+ },context);
+ assert.deepEqual(valid,{eligible:true,reason:'ELIGIBLE_REFERENCE'});
+ assert.equal(Runner.referenceScopeDecision({
+  title:'iQIYI iJOY TH 2027 FAN ZONE 400',
+  source_url:'https://x.com/iQIYI_Thailand/status/100'
+ },context).reason,'NO_STRUCTURED_DATE');
+ assert.equal(Runner.referenceScopeDecision({
+  title:'iQIYI VIP annual membership subscription',
+  event_date:'2026-11-05',
+  source_url:'https://x.com/iQIYI_Thailand/status/101'
+ },context).reason,'EVENT_IDENTITY_NOT_STRONG_ENOUGH');
+ assert.equal(Runner.referenceScopeDecision({
+  title:'iQIYI iJOY TH 2027 FAN ZONE 400',
+  event_date:'2026-10-05',
+  source_url:'https://x.com/iQIYI_Thailand/status/102'
+ },context).reason,'OUTSIDE_TARGET_MONTH');
+});
+
+test('retail lucky fan source signals remain dated event candidates without accepting generic product promotions',()=>{
+ const context={month:'2026-11'};
+ const titles=['Ongredients Brand Ambassador Launch with ThomasKong at EVEANDBOY','BEAUTRIUM 15th Anniversary Artist Appearance','JOURNAL Fourth Lucky Fans','Dr.PONG Zee Pruk Top Spender event'];
+ for(const title of titles){
+  assert.equal(Runner.referenceScopeDecision({title,event_date:'2026-11-21',source_url:'https://x.com/brand/status/123'},context).eligible,true,title);
+ }
+ for(const title of ['EVEANDBOY discount sale for cosmetics','Ongredients price promotion','Dr.PONG G89 product listing']){
+  assert.equal(Runner.referenceScopeDecision({title,event_date:'2026-11-21',source_url:'https://x.com/brand/status/345'},context).reason,'EVENT_IDENTITY_NOT_STRONG_ENOUGH',title);
+ }
+ assert.equal(Runner.referenceScopeDecision({title:'Ongredients Brand Ambassador Launch',event_date:null,source_url:'https://x.com/brand/status/456'},context).reason,'NO_STRUCTURED_DATE');
+});
+
+test('operational discovery is HOLD when broad queries work but mandatory retail source provider is not bound',async()=>{
+ const search=async task=>task.source_tier==='OFFICIAL'
+  ?[{title:'Bangkok Fanmeeting',event_date:'2026-10-20',source_url:'https://proof.example/generic'}]
+  :[];
+ const out=await Runner.runOperationalDiscovery(
+  {month:'2026-10',location:'Bangkok Metropolitan Region Thailand'},
+  {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+ );
+ assert.ok(out.candidate_count>0);
+ assert.equal(out.status,'HOLD_FOR_OPERATIONAL_DISCOVERY');
+ assert.equal(out.operational_ready,false);
+ assert.equal(out.required_source_count,4);
+ assert.equal(out.required_source_executed_count,0);
+ for(const id of ['smart-iqiyi-thailand-platform','smart-brand-ambassador-retail','smart-retail-luckyfan-registration','smart-mall-artist-board'])assert.ok(out.missing_required_source_ids.includes(id),id);
+ assert.ok(out.blockers.includes('OPERATIONAL_REQUIRED_SOURCE_COVERAGE_MISSING'));
+ assert.equal(out.production_writes,0);
+});
+
+test('official source URL must be visited; Bing search-only evidence cannot mark required Source Universe complete',()=>{
+ const task={source_id:'iqiyi-thailand-platform',required:true,direct_url:'https://x.com/iQIYI_Thailand'};
+ const plan={gap_tasks:[task]};
+ const searched={results:[{status:'EVIDENCE_FOUND',attempts:[{provider:'BING_RSS',status:'EVIDENCE_FOUND'}]}]};
+ let r=Runner.sourceUniverseReceipts(plan,searched)[0];
+ assert.equal(r.executed,false);
+ assert.equal(r.direct_source_verified,false);
+ assert.equal(r.status,'DIRECT_SOURCE_NOT_VERIFIED');
+ r=Runner.sourceUniverseReceipts(plan,{results:[{status:'EVIDENCE_FOUND',attempts:[
+   {provider:'OFFICIAL_DIRECT',status:'PROVIDER_ERROR'},{provider:'BING_RSS',status:'EVIDENCE_FOUND'}]}]})[0];
+ assert.equal(r.executed,false);
+ assert.equal(r.status,'DIRECT_SOURCE_NOT_VERIFIED');
+ r=Runner.sourceUniverseReceipts(plan,{results:[{status:'EVIDENCE_FOUND',attempts:[
+   {provider:'OFFICIAL_DIRECT',status:'NO_EVIDENCE'},{provider:'BING_RSS',status:'EVIDENCE_FOUND'}]}]})[0];
+ assert.equal(r.executed,true);
+ assert.equal(r.direct_source_verified,true);
+ assert.equal(r.status,'EVIDENCE_FOUND');
+});
+test('operational gate refuses to certify search-only brand evidence without official direct-profile visit',async()=>{
+ const out=await Runner.runOperationalDiscovery({month:'2026-11',location:'Bangkok Thailand'},{
+  use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS,
+  providers:{BING_RSS:async task=>[{title:'Artist brand ambassador launch Fan Zone',
+   event_date:'2026-11-21',source_url:'https://example.com/brand'}]}
+ });
+ assert.ok(out.candidate_count>0);
+ assert.equal(out.status,'HOLD_FOR_OPERATIONAL_DISCOVERY');
+ assert.equal(out.operational_ready,false);
+ assert.ok(out.missing_required_source_ids.includes('smart-iqiyi-thailand-platform'));
+ assert.ok(out.blockers.includes('OPERATIONAL_REQUIRED_SOURCE_COVERAGE_MISSING'));
  assert.equal(out.production_writes,0);
 });
