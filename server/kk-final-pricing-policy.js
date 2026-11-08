@@ -121,29 +121,56 @@ function lensBaseline(input={}){
 }
 function exactCompetitorMedian(input={}){
   const pricing=input.pricing||{};
-  const evidence=Array.isArray(pricing.evidence)?pricing.evidence:[];
+  // Prefer the complete (deduplicated) peer set when the discovery stage
+  // selected just one package for its own reference proposal.
+  const evidence=Array.isArray(pricing.all_package_evidence)&&pricing.all_package_evidence.length
+    ?pricing.all_package_evidence:(Array.isArray(pricing.evidence)?pricing.evidence:[]);
   const lens=lensBaseline(input);
-  const phone=[];
+  const groups={PHONE_ONLY:[],PHONE_LENS:[]};
+  const seen=new Set();
   for(const row of evidence){
-    const p=money(row&&row.price);if(!p)continue;
-    const type=text(row&&row.package_type).toUpperCase();
-    if(type==='PHONE_ONLY'||type==='PHONE') phone.push(p);
-    else if(type==='PHONE_LENS'||type==='PHONE_LENS_BUNDLE'||type==='BUNDLE'){
-      const derived=p-lens;if(derived>0)phone.push(derived);
+    const price=money(row&&row.price);
+    const raw=text(row&&row.package_type).toUpperCase();
+    const type=['PHONE_ONLY','PHONE'].includes(raw)?'PHONE_ONLY':
+      ['PHONE_LENS','PHONE_LENS_BUNDLE','PHONE_LENS_PACKAGE','BUNDLE','PHONE_PLUS_LENS'].includes(raw)?'PHONE_LENS':'';
+    if(!price||!type) continue;
+    const shop=text(row.competitor_id||row.account||row.shop).toLowerCase();
+    if(shop){
+      const key=shop+'|'+type;
+      if(seen.has(key))continue;
+      seen.add(key);
     }
+    groups[type].push({price,shop});
   }
-  const value=median(phone);
-  if(!value)return null;
-  const policy=fallbackPolicy(input);
-  const ids=templateIds(input,policy);
+  const phoneMedian=median(groups.PHONE_ONLY.map(row=>row.price));
+  const bundleMedian=median(groups.PHONE_LENS.map(row=>row.price));
+  if(!phoneMedian&&!bundleMedian)return null;
+  // Missing package price is a STORE LENS BASELINE ESTIMATE,
+  // never a directly observed exact-event competitor quote.
+  const phone=phoneMedian||(bundleMedian>lens?bundleMedian-lens:null);
+  const bundle=bundleMedian||(phoneMedian?phoneMedian+lens:null);
+  if(!phone||!bundle)return null;
+  const distinct=(type)=>new Set(groups[type].map(row=>row.shop).filter(Boolean)).size;
+  const phoneShops=distinct('PHONE_ONLY');
+  const bundleShops=distinct('PHONE_LENS');
+  const phoneCertified=!!phoneMedian&&phoneShops>=3;
+  const bundleCertified=!!bundleMedian&&bundleShops>=3;
+  const ids=templateIds(input,fallbackPolicy(input));
   return {
-    phone:value,
-    lens,
-    bundle:value+lens,
+    phone,bundle,lens,
+    phone_observed_median:phoneMedian,
+    bundle_observed_median:bundleMedian,
+    independent_phone_sellers:phoneShops,
+    independent_bundle_sellers:bundleShops,
+    phone_derived_from_bundle:!phoneMedian,
+    bundle_derived_from_phone:!bundleMedian,
+    market_certified_both_packages:phoneCertified&&bundleCertified,
     final_prices:[
-      {template_id:ids.phone,override_price:value,active_override:true,override_note:'EXACT_EVENT_COMPETITOR_MEDIAN'},
+      {template_id:ids.phone,override_price:phone,active_override:true,
+        override_note:phoneMedian?'EXACT_EVENT_PHONE_ONLY_QUOTED_MEDIAN':'DERIVED_BUNDLE_MEDIAN_MINUS_KK_LENS_BASELINE'},
       {template_id:ids.lens,override_price:lens,active_override:false,override_note:'LENS_ONLY_HIDDEN_STORE_BASELINE'},
-      {template_id:ids.bundle,override_price:value+lens,active_override:true,override_note:'EXACT_EVENT_COMPETITOR_MEDIAN_PLUS_LENS'}
+      {template_id:ids.bundle,override_price:bundle,active_override:true,
+        override_note:bundleMedian?'EXACT_EVENT_BUNDLE_QUOTED_MEDIAN':'DERIVED_PHONE_MEDIAN_PLUS_KK_LENS_BASELINE'}
     ]
   };
 }
@@ -190,18 +217,25 @@ function resolve(input={}){
   const date=eventDate(input);
   const weekend=isWeekendDate(date);
   const exact=competitorCount>0?exactCompetitorMedian(input):null;
-  const fallback=competitorCount===0?scoreFallback(input):null;
+  const fallback=!exact?scoreFallback(input):null;
 
   if(exact){
+    const needsRecheck=!exact.market_certified_both_packages;
     return {
       schema_version:VERSION,
       status:'FINAL_PRICES_RESOLVED',
-      final_prices:decorate(exact.final_prices,{needs_price_recheck:false}),
+      final_prices:decorate(exact.final_prices,{needs_price_recheck:needsRecheck}),
       policy_approved:true,
       source:'EXACT_EVENT_COMPETITOR_MEDIAN',
-      pricing_status:'APPROVED_EXACT_EVENT_MEDIAN',
-      price_confidence:competitorCount>=3?'HIGH':'MEDIUM',
-      needs_price_recheck:false,
+      pricing_status:needsRecheck?'PROVISIONAL_NEEDS_PRICE_RECHECK':'APPROVED_EXACT_EVENT_MEDIAN',
+      price_confidence:needsRecheck?'PROVISIONAL':'HIGH',
+      needs_price_recheck:needsRecheck,
+      quoted_phone_median:exact.phone_observed_median,
+      quoted_bundle_median:exact.bundle_observed_median,
+      exact_independent_phone_sellers:exact.independent_phone_sellers,
+      exact_independent_bundle_sellers:exact.independent_bundle_sellers,
+      phone_price_derived:exact.phone_derived_from_bundle,
+      bundle_price_derived:exact.bundle_derived_from_phone,
       rental_fit_score:eventScore(input),
       minimum_publish_score:fallbackPolicy(input).minimum_publish_score,
       competitor_evidence_count:competitorCount,
