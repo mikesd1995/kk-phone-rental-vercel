@@ -12,13 +12,16 @@ const sample=()=>({ok:true,data:{
  web_packages:[{package_id:'PK',event_id:'EV',package_type:'phone_only',available_count:1,price:590,package_status:'available'}],
  bookings:[{booking_id:'SECRET_BOOKING_ID',event_id:'EV',booking_status:'confirmed',customer_name:'SECRET_NAME',customer_phone:'SECRET_PHONE'}]
 }});
-function harness({signed=true,upstream=sample(),status=200,throwV5=false,apiAllowed=true}={}){
+function harness({signed=true,upstream=sample(),status=200,throwV5=false,apiAllowed=true,stream=false,doubleEnd=false,unsafeHeader=false}={}){
  const calls={upstream:0,urls:[],authorize:0};
  const fakeV5=async(req,res)=>{
   calls.upstream++;calls.urls.push(req.url);
   if(throwV5) throw Error('private backend SECRET_NAME');
   res.statusCode=status;
+  if(unsafeHeader)res.setHeader('X-Private-Source','SECRET_NAME');
+  if(stream)res.write('SECRET_NAME');
   res.end(typeof upstream==='string'?upstream:JSON.stringify(upstream));
+  if(doubleEnd)res.end('SECRET_NAME');
  };
  const admin={gateMode:()=>'',authorizeApi:()=>{calls.authorize++;return apiAllowed},hasValidSession:()=>signed};
  const mocks={
@@ -66,4 +69,29 @@ test('upstream exception and malformed response fail closed',async()=>{
 test('API authorization guard stops before reading private snapshot',async()=>{
  const x=harness({apiAllowed:false});await x.handler(x.req,x.res);
  assert.equal(x.calls.upstream,0);assert.equal(x.calls.authorize,1);
+});
+
+test('streaming or double-ended upstream payload cannot reach real network response',async()=>{
+ for(const options of [{stream:true},{doubleEnd:true},{stream:true,doubleEnd:true}]){
+  const x=harness(options);await x.handler(x.req,x.res);
+  assert.equal(x.res.statusCode,503);
+  assert.equal(JSON.parse(x.res.body).error_code,'OPS_SOURCE_UNAVAILABLE');
+  assert.ok(!x.res.body.includes('SECRET_NAME'));
+  assert.equal(x.req.url,'/api/kk-admin?action=operationsSnapshot');
+ }
+});
+test('upstream response headers are isolated from real client headers',async()=>{
+ const x=harness({unsafeHeader:true});await x.handler(x.req,x.res);
+ assert.equal(x.res.statusCode,200);
+ assert.equal(x.res.headers['x-private-source'],undefined);
+ assert.equal(x.res.headers['x-kk-ops-projection-version'],PROJ.VERSION);
+ assert.ok(!x.res.body.includes('SECRET_NAME'));
+});
+
+test('oversized private source is never parsed or sent to client',async()=>{
+ const x=harness({upstream:'PRIVATE_SOURCE_'.repeat(900000)});
+ await x.handler(x.req,x.res);
+ assert.equal(x.res.statusCode,503);
+ assert.equal(JSON.parse(x.res.body).error_code,'OPS_SOURCE_UNAVAILABLE');
+ assert.ok(!x.res.body.includes('PRIVATE_SOURCE_'));
 });
