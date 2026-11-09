@@ -106,10 +106,13 @@ async function main(){
   const browser=await chromium.launch({headless:true,channel:'chrome'});
   let results;
   try{
-    results=[
-      await runViewport(browser,390,'dark'),
-      await runViewport(browser,1440,'light')
-    ];
+    // Every required responsive width: check the actual Terms dialog geometry,
+    // version-aware return booking and explicit customer-sent LINE boundary.
+    const widths=[320,375,390,430,480,768,1024,1440];
+    results=[];
+    for(const width of widths) {
+      results.push(await runViewport(browser,width,width<=430?'dark':'light'));
+    }
   }finally{
     await browser.close();
   }
