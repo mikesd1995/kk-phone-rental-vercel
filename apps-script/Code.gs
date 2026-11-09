@@ -1604,7 +1604,9 @@ function kkIsWebPackageBookable_(p) {
 function kkAssertWebPackageBookable_(eventId, templateId) {
   const normalizedTemplateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
   const eventRows = kkApiWebPackageRows_().filter(p => String(p.event_id || '').trim() === String(eventId || '').trim());
-  if (!eventRows.length) return;
+  // Fail closed: missing/unmaterialized derived packages cannot authorize a Booking.
+  // Caller holds the Apps Script DocumentLock before any customer-data write.
+  if (!eventRows.length) throw new Error('Web Package availability is missing for event: ' + String(eventId || '').trim());
   const row = eventRows.find(p => {
     const webPackageId = String(p.package_id || '').trim();
     const webTemplateId = kkTemplateIdFromWebPackageId_(webPackageId, p.event_id || eventId);
