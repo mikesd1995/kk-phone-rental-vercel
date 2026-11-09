@@ -1,5 +1,8 @@
 name: Admin Ops Preview Synthetic Gate
 on:
+  pull_request:
+    branches:
+      - feat/ops-dashboard-readonly-v4-20261107
   push:
     branches:
       - feat/ops-preview-fixture-uat-20261109
