@@ -109,8 +109,12 @@ function normalize(source,now=new Date()){
   const coreDate=isoDate(sourceEvent.event_date);
   const coreVenue=String(sourceEvent.venue||'').trim().normalize('NFKC').toLocaleLowerCase('th');
   const webVenue=String(r.venue||'').trim().normalize('NFKC').toLocaleLowerCase('th');
-  const dateRisk=!eventDate||!!(guessedDate&&`${guessedDate[1]}-${guessedDate[2]}-${guessedDate[3]}`!==eventDate)
-   ||!!(coreRow&&(!coreDate||coreDate!==eventDate||coreVenue&&webVenue&&coreVenue!==webVenue));
+  // Venue is a required independent identity authority. Empty or unconfirmed
+   // Core/Web Ready venue must never be treated as a verified match.
+   const unconfirmedVenue=/รอยืนยัน|รอประกาศ|ยังไม่ประกาศ|not yet confirmed|\b(?:tba|tbc|tbd)\b/i;
+   const venueRisk=!!coreRow&&(!coreVenue||!webVenue||coreVenue!==webVenue||unconfirmedVenue.test(coreVenue)||unconfirmedVenue.test(webVenue));
+   const dateRisk=!eventDate||!!(guessedDate&&`${guessedDate[1]}-${guessedDate[2]}-${guessedDate[3]}`!==eventDate)
+   ||!!(coreRow&&(!coreDate||coreDate!==eventDate||venueRisk));
   // A stale/contradictory date or venue is not an advertise-ready rental day.
   if(dateRisk){phoneReady=false;bundleReady=false;}
   const poster=safePoster(r.poster_image_url||sourceEvent.poster_url||sourceEvent.poster_image_url);
