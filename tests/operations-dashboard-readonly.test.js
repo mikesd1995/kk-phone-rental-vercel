@@ -158,3 +158,38 @@ test('reject unfiltered raw Admin response even when its other arrays look valid
  const source=mk();delete source.data.projection_version;
  assert.throws(()=>Ops.normalize(source,NOW),/OPS_PROJECTION_REQUIRED/);
 });
+
+// R14: a positive inventory number must not imply rentable-ready if the
+// independent Core/Web Ready venue identity is missing or unconfirmed.
+test('missing Core or Web Ready venue fails closed despite positive phone inventory',()=>{
+ for(const missing of ['core','web']){
+  const d=mk();d.data.events[0].venue='Rajamangala';
+  d.data.web_ready[0].venue='Rajamangala';
+  d.data.web_ready[0].available_phone_count=2;
+  for(const p of d.data.web_packages.slice(0,2)){p.available_count=2;p.package_status='available';}
+  if(missing==='core')delete d.data.events[0].venue;
+  else delete d.data.web_ready[0].venue;
+  const row=Ops.normalize(d,NOW).records[0];
+  assert.equal(row.phoneReady,false,missing+' cannot look ready');
+  assert.equal(row.bundleReady,false,missing+' cannot look bundle ready');
+  assert.ok(row.qa.some(x=>x.includes('วันที่/สถานที่')));
+  assert.ok(row.gate.includes('โปสเตอร์/วันที่'));
+ }
+});
+test('placeholder venue is unverified even when both sources agree',()=>{
+ const d=mk();d.data.events[0].venue='รอยืนยัน';d.data.web_ready[0].venue='รอยืนยัน';
+ d.data.web_ready[0].available_phone_count=2;
+ for(const p of d.data.web_packages.slice(0,2)){p.available_count=2;p.package_status='available';}
+ const row=Ops.normalize(d,NOW).records[0];
+ assert.equal(row.phoneReady,false);assert.equal(row.bundleReady,false);
+ assert.ok(row.gate.includes('โปสเตอร์/วันที่'));
+});
+test('matching verified venues do not falsely suppress positive phone readiness',()=>{
+ const d=mk();d.data.events[0].venue='Rajamangala';d.data.web_ready[0].venue='Rajamangala';
+ d.data.web_ready[0].available_phone_count=2;
+ for(const p of d.data.web_packages.slice(0,2)){p.available_count=2;p.package_status='available';}
+ const row=Ops.normalize(d,NOW).records[0];
+ assert.equal(row.phoneReady,true);assert.equal(row.bundleReady,true);
+ assert.ok(!row.gate.includes('โปสเตอร์/วันที่'));
+ assert.ok(row.gate.includes('ยังไม่ยืนยัน Production และ X Post Log สด'));
+});
