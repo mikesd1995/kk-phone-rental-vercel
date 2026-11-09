@@ -8,7 +8,13 @@ const AdminMakeGate = require('../server/admin-make-gate.js');
 const AdminWriteControl = require('../server/admin-write-control-oidc.js');
 const AdminGoogleWriter = require('./lib/admin-google-sheets-writer.js');
 const OpsProjection = require('../server/kk-admin-ops-projection.js');
-const PreviewFixture = require('../server/kk-admin-ops-preview-fixture.js');
+// Lazily load the fixture only when an explicitly scoped Preview asks for it.
+function activePreviewFixture(){
+  const env=typeof process!=='undefined'&&process.env ? process.env : {};
+  if(env.VERCEL_ENV!=='preview'||env.KK_ADMIN_OPS_PREVIEW_FIXTURE!=='1')return null;
+  const fixture=require('../server/kk-admin-ops-preview-fixture.js');
+  return fixture.enabled(env)?fixture:null;
+}
 
 const ADAPTER_VERSION = 'admin-snapshot-contract-repair-v6';
 const REQUIRED = ['events','bookings','current_bookings','assets'];
@@ -98,9 +104,9 @@ async function handleOperationsSnapshot(req,res){
 
   // Synthetic UAT is opt-in on a single Preview branch only, after signed auth.
   // Never access production Sheets/Bookings/PII for this path.
-  const runtimeEnv=typeof process!=='undefined'&&process.env ? process.env : {};
-  if(PreviewFixture.enabled(runtimeEnv)){
-      const safe=OpsProjection.project(PreviewFixture.snapshot());
+  const fixture=activePreviewFixture();
+  if(fixture){
+      const safe=OpsProjection.project(fixture.snapshot());
       res.setHeader('X-KK-Ops-Projection-Version',OpsProjection.VERSION);
       res.setHeader('X-KK-Ops-Data-Class','synthetic-preview-only');
       res.setHeader('X-Content-Type-Options','nosniff');
@@ -154,7 +160,7 @@ module.exports=async function handler(req,res){
   // and a signed, projected synthetic Operations read are available.
   // In particular, never allow a legacy snapshot, write, Make or other Admin
   // action to reach real Sheets when the test Admin PIN is active.
-  if(PreviewFixture.enabled(process.env)){
+  if(activePreviewFixture()){
     if(gate==='auth'||gate==='app'||gate==='asset')
       return AdminSecurity.handleGate(req,res,gate);
     if(!gate&&req.method==='GET'&&requestAction(req)==='operationsSnapshot')
