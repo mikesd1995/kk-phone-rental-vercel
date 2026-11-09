@@ -41,7 +41,7 @@ function harness({signed=true,upstream=sample(),status=200,throwV5=false,apiAllo
  const module={exports:{}};
  const requireMock=p=>{if(!Object.hasOwn(mocks,p)) throw Error('Unexpected require '+p);return mocks[p]};
  const code=fs.readFileSync(path.join(ROOT,'api/kk-admin-snapshot-v6.js'),'utf8');
- vm.runInNewContext(code,{module,exports:module.exports,require:requireMock,URL,Promise,JSON,String,Number,Object,Array,Buffer}, {filename:'api/kk-admin-snapshot-v6.js'});
+ vm.runInNewContext(code,{module,exports:module.exports,require:requireMock,URL,Promise,JSON,String,Number,Object,Array,Buffer,process}, {filename:'api/kk-admin-snapshot-v6.js'});
  const req={method:'GET',url:'/api/kk-admin?action=operationsSnapshot',headers:{cookie:'signed-session'}};
  const res={statusCode:200,headers:{},body:null,setHeader(k,v){this.headers[k.toLowerCase()]=v},end(payload){this.body=String(payload??'');return this.body}};
  return {handler:module.exports,req,res,calls};
