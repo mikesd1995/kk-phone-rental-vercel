@@ -193,3 +193,48 @@ test('matching verified venues do not falsely suppress positive phone readiness'
  assert.ok(!row.gate.includes('โปสเตอร์/วันที่'));
  assert.ok(row.gate.includes('ยังไม่ยืนยัน Production และ X Post Log สด'));
 });
+
+// R15: prevent a stale or public-derived snapshot from showing false "พร้อม" stock.
+function positiveStockFixture(over={}) {
+ const d=mk(over);
+ d.data.events[0].venue='Rajamangala';
+ d.data.web_ready[0].venue='Rajamangala';
+ d.data.web_ready[0].available_phone_count=2;
+ for(const p of d.data.web_packages.slice(0,2)){p.available_count=2;p.package_status='available';}
+ return d;
+}
+test('stale private snapshot must not claim available phone or bundle despite positive inventory',()=>{
+ const d=positiveStockFixture({generated_at:'2026-01-01T00:00:00Z'});
+ const x=Ops.normalize(d,NOW);
+ assert.equal(x.meta.fresh,false);
+ assert.equal(x.records[0].stock,2);
+ assert.equal(x.records[0].phoneReady,false);
+ assert.equal(x.records[0].bundleReady,false);
+ assert.ok(x.records[0].qa.some(q=>q.includes('Reader ไม่ผ่าน')));
+ assert.ok(x.records[0].gate.includes('Snapshot ไม่สด'));
+});
+test('fresh public GViz fallback must not claim available phone or bundle',()=>{
+ const d=positiveStockFixture({fallback_reader:'public-gviz',snapshot_source:'public-gviz'});
+ const x=Ops.normalize(d,NOW);
+ assert.equal(x.meta.fresh,true);
+ assert.equal(x.meta.viaPublic,true);
+ assert.equal(x.records[0].phoneReady,false);
+ assert.equal(x.records[0].bundleReady,false);
+ assert.ok(x.records[0].gate.includes('Source เป็น public GViz fallback'));
+});
+test('missing Web Ready date fails closed even when Core and Event ID contain date',()=>{
+ const d=positiveStockFixture();
+ delete d.data.web_ready[0].event_date;
+ const x=Ops.normalize(d,NOW);
+ assert.equal(x.records[0].phoneReady,false);
+ assert.equal(x.records[0].bundleReady,false);
+ assert.ok(x.records[0].qa.some(q=>q.includes('วันที่/สถานที่')));
+});
+test('fresh private source with matching Core and Web Ready dates remains readable',()=>{
+ const d=positiveStockFixture();
+ const x=Ops.normalize(d,NOW);
+ assert.equal(x.meta.fresh,true);
+ assert.equal(x.meta.viaPublic,false);
+ assert.equal(x.records[0].phoneReady,true);
+ assert.equal(x.records[0].bundleReady,true);
+});

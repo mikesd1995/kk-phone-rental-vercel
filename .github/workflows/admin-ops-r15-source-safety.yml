@@ -1,0 +1,72 @@
+name: Admin Ops R15 isolated source-safety CI
+on:
+  push:
+    branches:
+      - fix/ops-dashboard-source-freshness-r15-20261110
+  pull_request:
+    branches:
+      - fix/ops-dashboard-venue-identity-r14-20261110
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ops-r15-source-safety-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ops-r15-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Node 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+      - name: Syntax and source-safety regressions
+        run: |
+          node --check admin/operations-dashboard.js
+          node --check tests/operations-dashboard-readonly.test.js
+          node --test tests/operations-dashboard-readonly.test.js
+      - name: Full repository static checks
+        run: npm run check
+      - name: Install pinned dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Full regression
+        run: npm test
+  ops-r15-visual-evidence:
+    # Playwright 1.55 Chromium browser install is supported on this pinned runner.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Node 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+      - name: Install browser tooling (test-only, pinned, no lifecycle scripts)
+        run: |
+          npm ci --ignore-scripts
+          npm install --no-save --ignore-scripts --no-audit --no-fund playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Capture real Chromium eight-viewport DOM and screenshots
+        run: |
+          node --check scripts/kk-admin-ops-r16-browser-capture.cjs
+          node scripts/kk-admin-ops-r16-browser-capture.cjs
+      - name: Registered Operations UX and visual gate (fresh captured evidence only)
+        env:
+          ADMIN_UX_EVIDENCE_PATH: artifacts/admin-ops-ux/browser-evidence.json
+        run: node scripts/kk-admin-ops-registered-ux-gate.cjs
+      - name: Persist zero-secret QA invocation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ops-r15-visual-evidence-${{ github.sha }}
+          path: artifacts/admin-ops-ux/
+          if-no-files-found: ignore
+          retention-days: 7
