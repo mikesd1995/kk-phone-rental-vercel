@@ -31,10 +31,12 @@ jobs:
           node --check api/kk-admin-snapshot-v6.js
           node --check admin/operations-dashboard.js
           node --check tests/kk-admin-ops-preview-fixture.test.js
+          node --check tests/kk-admin-ops-real-http-smoke.test.js
       - name: Signed route, synthetic Preview, PII, UI and existing Admin tests
         run: |
           node --test \
             tests/kk-admin-ops-preview-fixture.test.js \
+            tests/kk-admin-ops-real-http-smoke.test.js \
             tests/kk-admin-ops-route.test.js \
             tests/kk-admin-ops-projection.test.js \
             tests/operations-dashboard-readonly.test.js
