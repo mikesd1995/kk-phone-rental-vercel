@@ -34,6 +34,7 @@ alter table public.kk_customer_line_sessions enable row level security;
 alter table public.kk_customer_terms_evidence enable row level security;
 revoke all on table public.kk_customer_line_sessions from public, anon, authenticated;
 revoke all on table public.kk_customer_terms_evidence from public, anon, authenticated;
+revoke all on sequence public.kk_customer_terms_evidence_id_seq from public, anon, authenticated;
 grant select, insert, update, delete on table public.kk_customer_line_sessions to service_role;
 grant select, insert on table public.kk_customer_terms_evidence to service_role;
 grant usage, select on sequence public.kk_customer_terms_evidence_id_seq to service_role;
