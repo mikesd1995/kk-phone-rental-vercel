@@ -11,6 +11,8 @@ The current `assets/kk-booking-agreement.js` unconditionally resets `check.check
 - `tests/storefront-booking-agreement.test.js`: replace old no-storage assertion with narrow test of the versioned UI-only storage and no unrelated browser/API writes.
 - `tests/storefront-booking-agreement-remember.test.js`: synthetic Node VM DOM/URL tests: first-time unchecked, confirm, next booking bypass, Cancel does not store, changed Terms re-prompts, localStorage blocked re-prompts, non-LINE URL untouched, actual version string parity.
 - `docs/KK_LINE_TERMS_ACCEPTANCE_2026-11-06.md`: update description of UI-only persistence vs signed LINE evidence.
+- `scripts/qa/storefront-booking-agreement-qa.cjs`: adapt the real localhost Playwright smoke test at 390px/1440px to require a repeat click to open LINE directly, while a stale version still shows unchecked Terms in English; no provider request.
+- `.github/workflows/storefront-visual-qa.yml`: include the new browser-storage regression test in the workflow's Node test step and trigger paths.
 - This handoff document.
 
 ## Strong evidence boundary
@@ -23,7 +25,8 @@ The current `assets/kk-booking-agreement.js` unconditionally resets `check.check
 - Original main SHA at start: `eec14200cb087173ca555fa0c21b99e54c1c3961`.
 - Source and existing tests read from exact current GitHub Main; 5 relevant files changed in a new branch independent of #856.
 - Exact modified JS was compiled in V8 and exercised in simulated DOM with first prompt, explicit checkbox, LINE click replay, stored version, subsequent skip, old version forced prompt, blocked localStorage fallback, and non-LINE untouched: all checks matched expected behavior.
-- Native `npm run code:context`, `node --test` and full `npm test` **not** run; container cannot resolve github.com, so no full repo checkout; test source exists for exact-head CI. Project's registered `storefront_ux_review` and `storefront_visual_qa` invocations **not available/verified** in this connector-only run. No synthetic test can substitute for mandatory actual gate.
+- The first GitHub native Storefront Automated Visual QA on SHA `a79718bf25640d8f6b34b3f2dcce4032e4619e97` (`run 42677809442`) **FAILED** because the original scripted browser test still expected a click count of 1 after a repeat booking, whereas the correct new behavior produced 2. The Playwright QA script and workflow test list were then patched; recheck their final exact HEAD CI before any release.
+- Native `npm run code:context`, `node --test` and full `npm test` **not** run in the local container; container cannot resolve github.com, so no full repo checkout; test source exists for exact-head CI. Project's registered `storefront_ux_review` and `storefront_visual_qa` invocations **not available/verified** in this connector-only run. No synthetic test can substitute for mandatory actual gate.
 - Vercel production alias and GitHub main were read-only checked before change. Production remains original until authorized deployment; do not claim this fix is live.
 
 ## Release blockers and next steps
