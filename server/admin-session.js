@@ -3,6 +3,7 @@
 const crypto=require('crypto');
 const fs=require('fs');
 const path=require('path');
+const PreviewFixture=require('./kk-admin-ops-preview-fixture.js');
 
 const COOKIE_NAME='__Host-kk_admin_session';
 const SESSION_TTL_SECONDS=8*60*60;
@@ -355,7 +356,11 @@ async function handleAuth(req,res){
     return json(res,429,{ok:false,error:'ลองใหม่ภายหลัง'});
   }
 
-  const expected=String(process.env.KK_ADMIN_PIN||'').trim();
+  // Never expose or reuse the Production Admin PIN for a synthetic Preview UAT.
+  // This isolated branch accepts only a separately generated Preview-only PIN.
+  const expected=PreviewFixture.enabled(process.env)
+    ? String(process.env.KK_ADMIN_OPS_PREVIEW_TEST_PIN||'').trim()
+    : String(process.env.KK_ADMIN_PIN||'').trim();
   const provided=String(payload.pin||'').trim();
   if(!expected) return json(res,503,{ok:false,error:'Admin access is unavailable'});
   if(!safeEqual(provided,expected)){
