@@ -82,3 +82,36 @@ test('event hashtag header is not mistaken for the creative hook',()=>{
   assert.doesNotMatch(hook,/งาน\s+#ExampleEvent/);
   assert.match(hook,/ธีมจริงของงาน/);
 });
+
+
+function ownerItem(event,hook,lead){
+ const result=item(event,hook);
+ result.input.cta_style='lead_then_book_link';
+ result.input.recent_context_source='chat_drafts';
+ result.input.recent_posts=['ข้อความเก่าที่บันทึกไว้จากโพสต์ก่อน'];
+ result.post=result.post.replace(
+   '👉 จองคิว / เช็กคิวว่าง\nhttps://kk-phone-rental.vercel.app/',
+   lead+'\n👉 จองเลย: https://kk-phone-rental.vercel.app/'
+ );
+ return result;
+}
+
+test('owner-specific CTA skeleton repeated across different events blocks the batch',()=>{
+ const a=ownerItem('Alpha','มีการแสดงสดพร้อมเพลงพิเศษที่เวที Alpha','เลือกรอบที่ยังว่างแล้วกดจองได้ทันที');
+ const b=ownerItem('Beta','ผู้ชม Beta จะร่วมตอบคำถามและดูแฟนมีต','เลือกรอบที่ยังว่างแล้วกดจองได้ทันที');
+ const r=BatchQa.validateFinalPostBatch([a,b]);
+ assert.equal(r.gate,'BLOCKED');
+ assert.match(r.errors.join('|'),/BATCH_CTA_LEAD_NEAR_DUPLICATE/);
+});
+
+test('owner-specific CTA requires real supplied history and recorded provenance',()=>{
+ const a=ownerItem('Alpha','เริ่มด้วยบทเพลงแรกที่เรียบเรียงสด','เลือกช่วงกิจกรรมที่ได้รับสิทธิ์แล้วตรวจคิวกับร้าน');
+ const b=ownerItem('Beta','ช่วงพูดคุยมีคำถามของแฟนเพลงที่คัดเลือก','เข้าไปดูแพ็กเกจสำหรับงานแฟนมีตนี้ได้เลย');
+ a.input.recent_posts=[];
+ const blocked=BatchQa.validateFinalPostBatch([a,b]);
+ assert.match(blocked.errors.join('|'),/RECENT_POST_COPY_MISSING/);
+ a.input.recent_posts=['โพสต์เก่าที่เคยตรวจ'];
+ a.input.recent_context_source='';
+ const withoutSource=BatchQa.validateFinalPostBatch([a,b]);
+ assert.match(withoutSource.errors.join('|'),/RECENT_CONTEXT_SOURCE_NOT_RECORDED/);
+});

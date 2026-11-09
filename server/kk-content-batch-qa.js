@@ -2,7 +2,8 @@
 
 const Qa=require('./kk-content-qa-gate.js');
 
-const VERSION='KK_CONTENT_BATCH_QA_V1';
+const VERSION='KK_CONTENT_BATCH_QA_V2';
+const CTA_SIMILARITY_THRESHOLD=0.65;
 const HOOK_SIMILARITY_THRESHOLD=0.58;
 const MAX_GENERIC_ARCHETYPE_REPEATS=2;
 const SAFETY=Object.freeze({
@@ -56,7 +57,11 @@ function hookLines(post,input={}){
   const dates=Qa.dateTokens(input);
   const venues=Qa.venueTokens(input);
   const lines=text(post).split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  const bookingLead=ctaLead(post,input);
   return lines.filter(line=>{
+    if(bookingLead&&line===bookingLead)return false;
+    if(/^(?:[\p{Extended_Pictographic}\uFE0F]\s*)?งาน\s+/u.test(line))return false;
+    if(/^\d{1,2}\s*(?:ต\.ค\.|พ\.ย\.|ธ\.ค\.)/u.test(line))return false;
     if(line===Qa.BRAND_LINE)return false;
     if(line.includes('kk-phone-rental.vercel.app'))return false;
     if(/^#[\p{L}\p{M}\p{N}_]+(?:\s+#[\p{L}\p{M}\p{N}_]+)*$/u.test(line))return false;
@@ -96,10 +101,27 @@ function archetypes(post,input={}){
   return uniq(keys);
 }
 
+function ctaLead(post,input={}){
+  if(text(input.cta_style)!=='lead_then_book_link')return '';
+  const lines=text(post).split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  const idx=lines.findIndex(x=>/^👉\s*จองเลย\s*:\s*https:\/\/kk-phone-rental\.vercel\.app\/?$/u.test(x));
+  return idx>0?lines[idx-1]:'';
+}
+
+function ctaSkeleton(post,input={}){
+  return normalize(stripKnownAnchors(ctaLead(post,input),input));
+}
+
 function validateItemContext(item={},index=0){
   const errors=[];
   const input=item.input&&typeof item.input==='object'?item.input:{};
   if(input.recent_context_checked!==true)errors.push('ITEM_'+(index+1)+':RECENT_CONTEXT_NOT_CHECKED');
+  if(text(input.cta_style)==='lead_then_book_link'){
+    const source=text(input.recent_context_source);
+    if(!['confirmed_x','confirmed_x_and_chat','chat_drafts'].includes(source))errors.push('ITEM_'+(index+1)+':RECENT_CONTEXT_SOURCE_NOT_RECORDED');
+    if(!Array.isArray(input.recent_posts)||input.recent_posts.length===0)errors.push('ITEM_'+(index+1)+':RECENT_POST_COPY_MISSING');
+    if(!ctaLead(item.post,input))errors.push('ITEM_'+(index+1)+':CTA_LEAD_NOT_FOUND');
+  }
   const dna=uniq([
     ...(Array.isArray(input.event_dna)?input.event_dna:[]),
     ...(Array.isArray(input.creative_anchors)?input.creative_anchors:[])
@@ -128,13 +150,21 @@ function validateFinalPostBatch(items=[]){
       hook,
       skeleton,
       archetypes:archetypeList,
-      event_dna:context.event_dna
+      event_dna:context.event_dna,
+      cta_lead:ctaLead(item.post,item.input||{}),
+      cta_skeleton:ctaSkeleton(item.post,item.input||{})
     };
   });
 
   for(let i=0;i<rows.length;i++){
     for(let j=i+1;j<rows.length;j++){
       const score=Qa.similarity(rows[i].skeleton,rows[j].skeleton);
+      if(rows[i].cta_skeleton&&rows[j].cta_skeleton){
+        const ctaScore=Qa.similarity(rows[i].cta_skeleton,rows[j].cta_skeleton);
+        if(ctaScore>=CTA_SIMILARITY_THRESHOLD){
+          errors.push('BATCH_CTA_LEAD_NEAR_DUPLICATE:'+rows[i].index+'-'+rows[j].index+':'+ctaScore.toFixed(2));
+        }
+      }
       if(score>=HOOK_SIMILARITY_THRESHOLD){
         errors.push('BATCH_HOOK_NEAR_DUPLICATE:'+rows[i].index+'-'+rows[j].index+':'+score.toFixed(2));
       }
@@ -165,6 +195,7 @@ function validateFinalPostBatch(items=[]){
     warnings:uniq(warnings),
     thresholds:{
       hook_similarity:HOOK_SIMILARITY_THRESHOLD,
+      cta_similarity:CTA_SIMILARITY_THRESHOLD,
       max_generic_archetype_repeats:MAX_GENERIC_ARCHETYPE_REPEATS
     },
     rows,
@@ -173,7 +204,7 @@ function validateFinalPostBatch(items=[]){
 }
 
 module.exports={
-  VERSION,SAFETY,HOOK_SIMILARITY_THRESHOLD,MAX_GENERIC_ARCHETYPE_REPEATS,
-  normalize,knownAnchors,stripKnownAnchors,hookLines,hookText,hookSkeleton,archetypes,
+  VERSION,SAFETY,HOOK_SIMILARITY_THRESHOLD,CTA_SIMILARITY_THRESHOLD,MAX_GENERIC_ARCHETYPE_REPEATS,
+  normalize,knownAnchors,stripKnownAnchors,hookLines,hookText,hookSkeleton,ctaLead,ctaSkeleton,archetypes,
   validateItemContext,validateFinalPostBatch
 };
