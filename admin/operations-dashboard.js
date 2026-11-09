@@ -40,6 +40,7 @@ function normalize(source,now=new Date()){
  const d=root.data&&typeof root.data==='object'?root.data:root.snapshot&&typeof root.snapshot==='object'?root.snapshot:root;
  // Reject unfiltered Admin snapshots: server must remove customer PII first.
  if(d.projection_version!=='kk-admin-ops-projection-v1')throw new Error('OPS_PROJECTION_REQUIRED');
+ const syntheticPreview=String(d.snapshot_source||'')==='synthetic-preview-fixture-v1';
  // Core arrays are required. Deployed Apps Script's primary snapshot may omit Owner Locks.
  // Missing locks must downgrade every event to HOLD, not hide the entire read-only dashboard.
  const required=['events','web_ready','web_packages','bookings'];
@@ -134,11 +135,12 @@ function normalize(source,now=new Date()){
   if(badPoster||dateRisk)gate.push('โปสเตอร์/วันที่');
   if(!fresh)gate.push('Snapshot ไม่สด');
   if(viaPublic)gate.push('Source เป็น public GViz fallback');
+  if(syntheticPreview)gate.push('ข้อมูล Preview จำลองเท่านั้น — ห้ามใช้ตัดสินใจจองหรือโพสต์');
   gate.push('ยังไม่ยืนยัน Production และ X Post Log สด');
   return {id,name:display(r.event_name||sourceEvent.event_name,220),date:eventDate,venue:display(r.venue||sourceEvent.venue,180),poster,web,phone:pricePhone,bundle:priceBundle,phoneReady,bundleReady,stock:stockClaim,bookings:badBooking.has(id)?null:book.active,bookingTotal:badBooking.has(id)?null:book.total,lock:conflict?'CONFLICT':(!lockStates.length||lockStates.includes(''))?'UNKNOWN':locked?'LOCKED':lockStates.join(','),qa,gate,validPrice,ambiguous};
  }).filter(x=>x.id);
  if(duplicateIds.size)throw new Error('DUPLICATE_EVENT_ID');
- return {records,meta:{generatedAt:Number.isFinite(fetched)?new Date(fetched).toISOString():null,fresh,viaPublic,snapshotSource:display(d.snapshot_source||'unknown'),xLogAvailable:false,locksAvailable,complete:missing.length===0&&locksAvailable}};
+ return {records,meta:{generatedAt:Number.isFinite(fetched)?new Date(fetched).toISOString():null,fresh,viaPublic,snapshotSource:display(d.snapshot_source||'unknown'),xLogAvailable:false,locksAvailable,syntheticPreview,complete:missing.length===0&&locksAvailable}};
 }
 function mount(doc,win){
  const $=id=>doc.getElementById(id);const state={records:[],view:'table',meta:null,plans:[],ratio:60};
@@ -192,7 +194,7 @@ function mount(doc,win){
   if(!response.ok)throw new Error('API_HTTP_'+response.status);
   const payload=await response.json();const data=normalize(payload);
   state.records=data.records;state.meta=data.meta;render();
-  const issues=[];if(!data.meta.fresh)issues.push('Snapshot ไม่สดหรือไม่มี generated_at');if(data.meta.viaPublic)issues.push('Reader ยังเป็น public GViz fallback');if(!data.meta.locksAvailable)issues.push('Owner Locks ไม่อยู่ใน Snapshot: งานทั้งหมด HOLD รอตรวจ');issues.push('ยังไม่มี X Post Log ใน Snapshot และยังไม่ได้ยืนยัน Production ที่ลูกค้าเห็น');
+  const issues=[];if(data.meta.syntheticPreview)issues.push('SYNTHETIC PREVIEW / ข้อมูลจำลอง ไม่ใช่ข้อมูลลูกค้าจริงหรือหลักฐานความพร้อมของ Production');if(!data.meta.fresh)issues.push('Snapshot ไม่สดหรือไม่มี generated_at');if(data.meta.viaPublic)issues.push('Reader ยังเป็น public GViz fallback');if(!data.meta.locksAvailable)issues.push('Owner Locks ไม่อยู่ใน Snapshot: งานทั้งหมด HOLD รอตรวจ');issues.push('ยังไม่มี X Post Log ใน Snapshot และยังไม่ได้ยืนยัน Production ที่ลูกค้าเห็น');
   status('อ่านข้อมูลหลังบ้านสำเร็จ '+data.records.length+' งาน · '+(data.meta.generatedAt||'ไม่ทราบเวลาต้นทาง')+' · '+issues.join(' · '),issues.length?'':'ready');
  }catch(e){state.records=[];state.meta=null;$('app').hidden=true;status('HOLD — ไม่แสดงข้อมูลหลังบ้าน เพราะ '+(e.message==='LOGIN_REQUIRED'?'ยังไม่ได้เข้าสู่ระบบ Admin: เปิด /admin เพื่อเข้าสู่ระบบ':display(e.message,100)),'error')}
  finally{$('refresh').disabled=false}}
