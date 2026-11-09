@@ -94,6 +94,21 @@ async function handleOperationsSnapshot(req,res){
   if(!AdminSecurity.hasValidSession(req)){
     return replyJson(res,401,{ok:false,error_code:'OPS_SESSION_REQUIRED'});
   }
+
+  // Synthetic UAT is opt-in on a single Preview branch only, after signed auth.
+  // Never access production Sheets/Bookings/PII for this path.
+  const runtimeEnv=typeof process!=='undefined'&&process.env ? process.env : {};
+  if(runtimeEnv.VERCEL_ENV==='preview'&&runtimeEnv.KK_ADMIN_OPS_PREVIEW_FIXTURE==='1'){
+    const fixture=require('../server/kk-admin-ops-preview-fixture.js');
+    if(fixture.enabled(runtimeEnv)){
+      const safe=OpsProjection.project(fixture.snapshot());
+      res.setHeader('X-KK-Ops-Projection-Version',OpsProjection.VERSION);
+      res.setHeader('X-KK-Ops-Data-Class','synthetic-preview-only');
+      res.setHeader('X-Content-Type-Options','nosniff');
+      return replyJson(res,200,safe);
+    }
+  }
+
   const originalUrl=req.url;
   // A separate response object is the privacy boundary. Upstream can write only
   // into this isolated receiver; the real network response is never handed to V5.
