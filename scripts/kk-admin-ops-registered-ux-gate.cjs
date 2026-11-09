@@ -27,6 +27,15 @@ for(let i=0;i<expectedViewports.length;i++){
 }
 fs.mkdirSync(folder,{recursive:true});
 const writeJson=(f,v)=>{const bytes=JSON.stringify(v,null,2)+'\n';fs.writeFileSync(f,bytes);if(fs.readFileSync(f,'utf8')!==bytes)throw Error('EVIDENCE_READBACK_MISMATCH');return crypto.createHash('sha256').update(bytes).digest('hex')};
+function safeInvocationId(value){
+ const id=String(value||'');
+ if(!/^agi_[a-f0-9]{40}$/.test(id))throw Error('INVALID_INVOCATION_ID');
+ return id;
+}
+function safeCount(value){
+ const n=Number(value);
+ return Number.isInteger(n)&&n>=0&&n<=100000?n:null;
+}
 async function invoke(kind,packet,index){
  if(kind!=='storefront_ux_review'&&kind!=='storefront_visual_qa')throw Error('INVALID_REGISTERED_AGENT_KIND');
  const width=packet.viewport.width;
@@ -36,17 +45,42 @@ async function invoke(kind,packet,index){
  const result=await Gateway.executeAgentRequest({task_type:kind,input:packet,correlation_id:'admin-ops-'+sourceSha.slice(0,16)+'-'+width+'-'+kind},{
    env:{},
    ledgerFn:async rec=>{
-      const r={...rec,source_commit_sha:sourceSha,scope:'LOCAL_ARTIFACT',input_hash:crypto.createHash('sha256').update(JSON.stringify(packet)).digest('hex')};
+      // Persist only provenance fields. Never store raw Gateway records or
+      // provider error payloads in the security/UX review artifacts.
+      const id=safeInvocationId(rec&&rec.invocation_id);
+      const record={
+       schema_version:'KK_OPS_UX_AUDIT_META_V1',
+       invocation_id:id,
+       task_type:kind,
+       viewport_width:width,
+       source_commit_sha:sourceSha,
+       scope:'LOCAL_ARTIFACT',
+       input_sha256:crypto.createHash('sha256').update(JSON.stringify(packet)).digest('hex'),
+       production_writes:0
+      };
       const f=path.join(folder,artifactName+'-invocation.json');
-      const sha256=writeJson(f,r);
-      return {ok:true,persistent:true,readback_verified:true,mode:'LOCAL_ARTIFACT',source_commit_sha:sourceSha,invocation_id:r.invocation_id,sha256};
+      const sha256=writeJson(f,record);
+      return {ok:true,persistent:true,readback_verified:true,mode:'LOCAL_ARTIFACT',source_commit_sha:sourceSha,invocation_id:id,sha256};
    }
  });
- const artifact=path.join(folder,artifactName+'-result.json');writeJson(artifact,result);
- if(result.status!=='RECORDED'||!result.ledger?.readback_verified||!result.invocation_check?.pass)throw Error(kind+'_'+width+'_INVOCATION_BLOCKED_'+result.status);
- const evidence=result.result;
- const pass=kind==='storefront_visual_qa' ? evidence.pass===true : evidence.finding_counts?.P0===0&&evidence.finding_counts?.P1===0;
- return {kind,width,status:evidence.status,pass,P0:evidence.review?.finding_counts?.P0??evidence.finding_counts?.P0,P1:evidence.review?.finding_counts?.P1??evidence.finding_counts?.P1,invocation_id:result.invocation.invocation_id};
+ if(result.status!=='RECORDED'||!result.ledger?.readback_verified||!result.invocation_check?.pass)throw Error('REGISTERED_UX_INVOCATION_BLOCKED');
+ const observation=result.result||{};
+ const pass=kind==='storefront_visual_qa' ? observation.pass===true : observation.finding_counts?.P0===0&&observation.finding_counts?.P1===0;
+ const status=['PASS','PASS_WITH_POLISH','NEEDS_REFINEMENT','BLOCKED'].includes(observation.status)?observation.status:'UNKNOWN';
+ const decision={
+  kind,width,status,pass,
+  P0:safeCount(observation.review?.finding_counts?.P0??observation.finding_counts?.P0),
+  P1:safeCount(observation.review?.finding_counts?.P1??observation.finding_counts?.P1),
+  invocation_id:safeInvocationId(result.invocation&&result.invocation.invocation_id)
+ };
+ // Store the digest of the raw result, never raw result/error text.
+ const resultEvidence={
+  ...decision,source_commit_sha:sourceSha,
+  raw_result_sha256:crypto.createHash('sha256').update(JSON.stringify(result)).digest('hex'),
+  raw_result_included:false,production_writes:0
+ };
+ writeJson(path.join(folder,artifactName+'-result.json'),resultEvidence);
+ return decision;
 }
 (async()=>{
  const decisions=[];

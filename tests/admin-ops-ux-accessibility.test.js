@@ -47,3 +47,11 @@ test('Admin registered UX evidence requires all eight exact policy widths',()=>{
  const evidence=JSON.parse(fs.readFileSync(path.join(root,'config/kk-admin-ops-ux-evidence.json'),'utf8'));
  assert.deepEqual(evidence.packets.map(x=>x.viewport.width),[320,375,390,430,480,768,1024,1440]);
 });
+
+test('Admin UX audit never persists raw Gateway records or provider result bodies',()=>{
+ const src=fs.readFileSync(path.join(root,'scripts/kk-admin-ops-registered-ux-gate.cjs'),'utf8');
+ assert.doesNotMatch(src,/\.\.\.rec\b/);
+ assert.doesNotMatch(src,/writeJson\(artifact,\s*result\)/);
+ assert.match(src,/raw_result_included:false/);
+ assert.match(src,/safeInvocationId\(rec&&rec\.invocation_id\)/);
+});
