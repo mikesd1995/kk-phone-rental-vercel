@@ -109,7 +109,7 @@ async function handleOperationsSnapshot(req,res){
     end(chunk){ended++;if(ended===1)upstreamBody=String(chunk??'');return undefined;}
   };
   try{
-    const url=new URL(originalUrl||'/api/kk-admin','http://localhost');
+    const url=new URL(req.url||'/api/kk-admin','http://localhost');
     url.searchParams.set('action','snapshot');
     // Reuse the signed-session-authorized request as a prototype only. The
     // legacy snapshot reader still expects a PIN header, so provide it in a
