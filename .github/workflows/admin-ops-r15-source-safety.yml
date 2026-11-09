@@ -37,7 +37,8 @@ jobs:
       - name: Full regression
         run: npm test
   ops-r15-visual-evidence:
-    runs-on: ubuntu-latest
+    # Playwright 1.55 Chromium browser install is supported on this pinned runner.
+    runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
       - name: Checkout exact commit
