@@ -8,6 +8,9 @@ async function runViewport(browser,width,scheme){
   const context=await browser.newContext({viewport:{width,height:width<600?844:900},colorScheme:scheme,reducedMotion:'reduce'});
   const page=await context.newPage();
   const externalRequests=[];
+  const out=path.resolve(process.env.OUTPUT_DIR||'artifacts/storefront-visual-qa');
+  fs.mkdirSync(out,{recursive:true});
+  const screenshots=[];
   await page.route('https://line.me/**',route=>{
     externalRequests.push(route.request().url());
     return route.abort();
@@ -40,6 +43,18 @@ async function runViewport(browser,width,scheme){
     assert.equal(await page.evaluate(()=>window.__kkQaApproved),0,'no provider handoff before acknowledgement');
     assert.equal(await page.locator('#kk-booking-agreement a[href="/terms/"]').count(),1);
     assert.equal(await page.locator('#kk-booking-agreement a[href="/privacy/"]').count(),1);
+    // Measure the actual visible dialog, not the 0x0 hidden element after Escape.
+    const box=await page.locator('.kk-booking-agreement-card').evaluate(el=>{
+      const r=el.getBoundingClientRect();
+      return {width:r.width,height:r.height,viewport:innerWidth,
+        scrollWidth:document.documentElement.scrollWidth};
+    });
+    assert.ok(box.width>0&&box.height>0,'visible Terms dialog must have non-zero dimensions');
+    assert.ok(box.width<=box.viewport,'visible Terms dialog must fit viewport');
+    assert.ok(box.scrollWidth<=box.viewport+1,'Terms dialog must not cause horizontal overflow');
+    const thShot='booking-terms-'+width+'-'+scheme+'-first.jpg';
+    await page.screenshot({path:path.join(out,thShot),type:'jpeg',quality:78,animations:'disabled'});
+    screenshots.push(thShot);
     await page.locator('#kk-booking-terms-cancel').click();
     assert.equal(await gate.isVisible(),false,'cancel closes without handoff');
     assert.equal(await page.evaluate(()=>window.__kkQaApproved),0);
@@ -69,6 +84,9 @@ async function runViewport(browser,width,scheme){
     assert.equal(await page.locator('#kk-booking-agreement .kk-booking-agreement-check a').nth(0).getAttribute('href'),'/en/terms/');
     assert.equal(await page.locator('#kk-booking-agreement .kk-booking-agreement-check a').nth(1).getAttribute('href'),'/en/privacy/');
     assert.equal((await confirm.textContent()).trim(),'Accept and open LINE');
+    const enShot='booking-terms-'+width+'-'+scheme+'-stale-en.jpg';
+    await page.screenshot({path:path.join(out,enShot),type:'jpeg',quality:78,animations:'disabled'});
+    screenshots.push(enShot);
     await page.keyboard.press('Escape');
     assert.equal(await gate.isVisible(),false);
     // Return to Thai; policy destinations must follow the selected language.
@@ -76,16 +94,8 @@ async function runViewport(browser,width,scheme){
     assert.equal(await page.locator('#kk-footer-terms-link').getAttribute('href'),'/terms/');
     assert.equal(await page.locator('#kk-footer-privacy-link').getAttribute('href'),'/privacy/');
     assert.equal(await page.evaluate(()=>window.__kkQaApproved),2);
-    const box=await page.locator('.kk-booking-agreement-card').evaluate(el=>({
-      width:el.getBoundingClientRect().width,
-      viewport:innerWidth,
-      scrollWidth:document.documentElement.scrollWidth,
-      height:el.getBoundingClientRect().height
-    }));
-    assert.ok(box.width<=box.viewport,'confirmation must fit phone width');
-    assert.ok(box.scrollWidth<=box.viewport+1,'confirmation must not create horizontal overflow');
     assert.equal(externalRequests.length,0,'QA must not reach LINE');
-    return {width,scheme,acknowledgment:'PASS',no_provider_request:true,box};
+    return {width,scheme,acknowledgment:'PASS',no_provider_request:true,box,screenshots};
   }finally{
     await context.close();
   }
