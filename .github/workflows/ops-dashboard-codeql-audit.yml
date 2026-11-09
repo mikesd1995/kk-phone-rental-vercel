@@ -1,0 +1,48 @@
+name: KK Admin Dashboard R15 CodeQL Recheck R1
+
+on:
+  push:
+    branches:
+      - audit/ops-dashboard-codeql-r15-20261110
+
+# One-off separate audit branch, never a production release workflow.
+permissions:
+  contents: read
+  security-events: read
+
+jobs:
+  codeql:
+    name: Independent CodeQL JS/TS security-extended
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact audited source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify audited source matches PR 851
+        shell: bash
+        run: |
+          test "$(git merge-base HEAD 884cd1123ad67f74adf9c0243ee9da8590c2511f)" = '884cd1123ad67f74adf9c0243ee9da8590c2511f'
+          git diff --name-only 884cd1123ad67f74adf9c0243ee9da8590c2511f HEAD | grep -Fx '.github/workflows/ops-dashboard-codeql-audit.yml'
+          test "$(git diff --name-only 884cd1123ad67f74adf9c0243ee9da8590c2511f HEAD | wc -l)" -eq 1
+      - name: Initialize independent CodeQL scanner
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          queries: security-extended
+      - name: Analyze without modifying repository alerts
+        uses: github/codeql-action/analyze@v4
+        with:
+          upload: never
+          upload-database: false
+          output: ${{ runner.temp }}/ops-codeql-r15-r1
+      - name: Persist source-matched SARIF evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ops-codeql-audit-r15-r1-${{ github.sha }}
+          path: ${{ runner.temp }}/ops-codeql-r15-r1/
+          if-no-files-found: error
+          retention-days: 7
