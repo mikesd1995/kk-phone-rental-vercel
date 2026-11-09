@@ -109,7 +109,7 @@ function normalize(source,now=new Date()){
   const coreDate=isoDate(sourceEvent.event_date);
   const coreVenue=String(sourceEvent.venue||'').trim().normalize('NFKC').toLocaleLowerCase('th');
   const webVenue=String(r.venue||'').trim().normalize('NFKC').toLocaleLowerCase('th');
-  // Venue is a required independent identity authority. Empty or unconfirmed
+   // Venue is a required independent identity authority. Empty or unconfirmed
    // Core/Web Ready venue must never be treated as a verified match.
    const unconfirmedVenue=/รอยืนยัน|รอประกาศ|ยังไม่ประกาศ|not yet confirmed|\b(?:tba|tbc|tbd)\b/i;
    const venueRisk=!!coreRow&&(!coreVenue||!webVenue||coreVenue!==webVenue||unconfirmedVenue.test(coreVenue)||unconfirmedVenue.test(webVenue));
