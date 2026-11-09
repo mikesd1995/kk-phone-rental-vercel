@@ -1,0 +1,45 @@
+name: KK Admin Dashboard R11 Independent CodeQL Audit
+
+on:
+  push:
+    branches:
+      - audit/ops-dashboard-codeql-20261109
+
+# One-off separate audit branch, never a production release workflow.
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    name: Independent CodeQL JS/TS security-extended
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact audited source
+        uses: actions/checkout@v4
+      - name: Verify audited source matches PR 851
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD^)" = 'a99a76c0fb5047a596803db318d459bf4cc80f8a'
+          git diff --name-only HEAD^ HEAD | grep -Fx '.github/workflows/ops-dashboard-codeql-audit.yml'
+          test "$(git diff --name-only HEAD^ HEAD | wc -l)" -eq 1
+      - name: Initialize independent CodeQL scanner
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          queries: security-extended
+      - name: Analyze without modifying repository alerts
+        uses: github/codeql-action/analyze@v4
+        with:
+          upload: never
+          upload-database: false
+          output: ${{ runner.temp }}/ops-codeql-r11
+      - name: Persist source-matched SARIF evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ops-codeql-audit-r11-${{ github.sha }}
+          path: ${{ runner.temp }}/ops-codeql-r11/
+          if-no-files-found: warn
+          retention-days: 7
