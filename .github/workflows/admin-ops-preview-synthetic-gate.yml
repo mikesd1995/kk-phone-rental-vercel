@@ -38,3 +38,25 @@ jobs:
             tests/kk-admin-ops-route.test.js \
             tests/kk-admin-ops-projection.test.js \
             tests/operations-dashboard-readonly.test.js
+
+  full-admin-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact reviewed branch with no persisted token
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install pinned test dependencies
+        run: npm ci --ignore-scripts
+      - name: Full project syntax and regression acceptance
+        env:
+          HF_EVENT_ASSIST_ENABLED: 'false'
+          KK_ADMIN_OPS_PREVIEW_FIXTURE: '0'
+        run: |
+          npm run check
+          npm test
