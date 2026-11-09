@@ -1,0 +1,37 @@
+name: Admin Ops Preview Synthetic Gate
+on:
+  push:
+    branches:
+      - feat/ops-preview-fixture-uat-20261109
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: admin-ops-preview-fixture-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  synthetic-uat-source-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Checkout exact branch commit without write credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check all changed JS files
+        run: |
+          node --check server/kk-admin-ops-preview-fixture.js
+          node --check api/kk-admin-snapshot-v6.js
+          node --check admin/operations-dashboard.js
+          node --check tests/kk-admin-ops-preview-fixture.test.js
+      - name: Signed route, synthetic Preview, PII, UI and existing Admin tests
+        run: |
+          node --test \
+            tests/kk-admin-ops-preview-fixture.test.js \
+            tests/kk-admin-ops-route.test.js \
+            tests/kk-admin-ops-projection.test.js \
+            tests/operations-dashboard-readonly.test.js
