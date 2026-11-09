@@ -8,6 +8,7 @@ const AdminMakeGate = require('../server/admin-make-gate.js');
 const AdminWriteControl = require('../server/admin-write-control-oidc.js');
 const AdminGoogleWriter = require('./lib/admin-google-sheets-writer.js');
 const OpsProjection = require('../server/kk-admin-ops-projection.js');
+const PreviewFixture = require('../server/kk-admin-ops-preview-fixture.js');
 
 const ADAPTER_VERSION = 'admin-snapshot-contract-repair-v6';
 const REQUIRED = ['events','bookings','current_bookings','assets'];
@@ -98,15 +99,12 @@ async function handleOperationsSnapshot(req,res){
   // Synthetic UAT is opt-in on a single Preview branch only, after signed auth.
   // Never access production Sheets/Bookings/PII for this path.
   const runtimeEnv=typeof process!=='undefined'&&process.env ? process.env : {};
-  if(runtimeEnv.VERCEL_ENV==='preview'&&runtimeEnv.KK_ADMIN_OPS_PREVIEW_FIXTURE==='1'){
-    const fixture=require('../server/kk-admin-ops-preview-fixture.js');
-    if(fixture.enabled(runtimeEnv)){
-      const safe=OpsProjection.project(fixture.snapshot());
+  if(PreviewFixture.enabled(runtimeEnv)){
+      const safe=OpsProjection.project(PreviewFixture.snapshot());
       res.setHeader('X-KK-Ops-Projection-Version',OpsProjection.VERSION);
       res.setHeader('X-KK-Ops-Data-Class','synthetic-preview-only');
       res.setHeader('X-Content-Type-Options','nosniff');
       return replyJson(res,200,safe);
-    }
   }
 
   const originalUrl=req.url;
@@ -152,6 +150,17 @@ async function handleOperationsSnapshot(req,res){
 
 module.exports=async function handler(req,res){
   const gate=AdminSecurity.gateMode(req);
+  // Isolated synthetic UAT branch: only sign-in, protected static Admin assets
+  // and a signed, projected synthetic Operations read are available.
+  // In particular, never allow a legacy snapshot, write, Make or other Admin
+  // action to reach real Sheets when the test Admin PIN is active.
+  if(PreviewFixture.enabled(process.env)){
+    if(gate==='auth'||gate==='app'||gate==='asset')
+      return AdminSecurity.handleGate(req,res,gate);
+    if(!gate&&req.method==='GET'&&requestAction(req)==='operationsSnapshot')
+      return handleOperationsSnapshot(req,res);
+    return replyJson(res,403,{ok:false,error_code:'OPS_PREVIEW_FIXTURE_ONLY'});
+  }
   if(gate==='make-verify') return AdminMakeGate.handleVerify(req,res);
   if(gate==='make-health') return AdminMakeGate.handleHealth(req,res);
   if(gate) return AdminSecurity.handleGate(req,res,gate);
