@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout exact audited source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Verify audited source matches PR 851
         shell: bash
         run: |
