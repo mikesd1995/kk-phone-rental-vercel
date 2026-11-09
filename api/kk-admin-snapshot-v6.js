@@ -158,27 +158,31 @@ async function handleOperationsSnapshot(req,res){
 }
 
 module.exports=async function handler(req,res){
-  const gate=AdminSecurity.gateMode(req);
-  // Isolated synthetic UAT branch: only sign-in, protected static Admin assets
-  // and a signed, projected synthetic Operations read are available.
-  // In particular, never allow a legacy snapshot, write, Make or other Admin
-  // action to reach real Sheets when the test Admin PIN is active.
+  // Decide Operations routing BEFORE user-controlled __kk_gate, including in
+  // isolated Preview. No gate parameter may bypass signed Operations auth.
+  const action=requestAction(req);
+  // Preview has a separate test identity and intentionally has no KK_ADMIN_PIN.
+  // Do not invoke the production legacy PIN admission for synthetic data.
   if(activePreviewFixture()){
+    if(req.method==='GET'&&action==='operationsSnapshot'){
+      if(!AdminSecurity.hasValidSession(req))
+        return replyJson(res,401,{ok:false,error_code:'OPS_SESSION_REQUIRED'});
+      return handleOperationsSnapshot(req,res);
+    }
+    const gate=AdminSecurity.gateMode(req);
     if(gate==='auth'||gate==='app'||gate==='asset')
       return AdminSecurity.handleGate(req,res,gate);
-    if(!gate&&req.method==='GET'&&requestAction(req)==='operationsSnapshot')
-      return handleOperationsSnapshot(req,res);
     return replyJson(res,403,{ok:false,error_code:'OPS_PREVIEW_FIXTURE_ONLY'});
   }
+  if(req.method==='GET'&&action==='operationsSnapshot'){
+    if(!AdminSecurity.authorizeApi(req,res)) return;
+    return handleOperationsSnapshot(req,res);
+  }
+  const gate=AdminSecurity.gateMode(req);
   if(gate==='make-verify') return AdminMakeGate.handleVerify(req,res);
   if(gate==='make-health') return AdminMakeGate.handleHealth(req,res);
   if(gate) return AdminSecurity.handleGate(req,res,gate);
   if(!AdminSecurity.authorizeApi(req,res)) return;
-
-  const action=requestAction(req);
-  if(req.method==='GET'&&action==='operationsSnapshot'){
-    return handleOperationsSnapshot(req,res);
-  }
   if(req.method==='GET'&&action==='writeControlHealth'){
     return handleDirectWriterHealth(res);
   }
