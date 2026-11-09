@@ -141,16 +141,19 @@ async function handleOperationsSnapshot(req,res){
 }
 
 module.exports=async function handler(req,res){
+  // The private Operations route must not be rerouted by the user-controlled
+  // __kk_gate query parameter before its own signed-session authorization.
+  const action=requestAction(req);
+  if(req.method==='GET'&&action==='operationsSnapshot'){
+    if(!AdminSecurity.authorizeApi(req,res)) return;
+    return handleOperationsSnapshot(req,res);
+  }
   const gate=AdminSecurity.gateMode(req);
   if(gate==='make-verify') return AdminMakeGate.handleVerify(req,res);
   if(gate==='make-health') return AdminMakeGate.handleHealth(req,res);
   if(gate) return AdminSecurity.handleGate(req,res,gate);
   if(!AdminSecurity.authorizeApi(req,res)) return;
 
-  const action=requestAction(req);
-  if(req.method==='GET'&&action==='operationsSnapshot'){
-    return handleOperationsSnapshot(req,res);
-  }
   if(req.method==='GET'&&action==='writeControlHealth'){
     return handleDirectWriterHealth(res);
   }
