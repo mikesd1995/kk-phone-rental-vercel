@@ -24,6 +24,7 @@ on:
       - 'server/kk-agent-orchestration.js'
       - 'scripts/storefront-evidence.cjs'
       - 'tests/storefront-evidence.test.js'
+      - 'tests/storefront-booking-agreement-remember.test.js'
       - 'config/kk-storefront-v5-screenshot-review.json'
       - 'config/kk-storefront-ux-policy.json'
       - 'scripts/storefront-visual-acceptance.mjs'
@@ -115,7 +116,7 @@ jobs:
           node-version: '20'
 
       - name: Test public legal documents and customer privacy boundary
-        run: node --test tests/public-legal-documents.test.js tests/storefront-booking-agreement.test.js tests/kk-booking-terms-evidence.test.js tests/line-booking-intake.test.js tests/line-webhook.test.js
+        run: node --test tests/public-legal-documents.test.js tests/storefront-booking-agreement.test.js tests/storefront-booking-agreement-remember.test.js tests/kk-booking-terms-evidence.test.js tests/line-booking-intake.test.js tests/line-webhook.test.js
 
       - name: Validate remote deployment identity
         if: ${{ env.TARGET_MODE != 'local_zero_cost' }}
