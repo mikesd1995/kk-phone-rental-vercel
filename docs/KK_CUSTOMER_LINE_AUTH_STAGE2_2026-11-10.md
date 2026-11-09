@@ -70,3 +70,11 @@ https://developers.line.biz/en/docs/line-login/integrate-line-login/
 https://developers.line.biz/en/docs/line-login/integrate-pkce/
 https://developers.line.biz/en/docs/messaging-api/getting-user-ids/
 https://supabase.com/docs/guides/api/securing-your-api
+
+
+## Vercel configuration readback (read-only; 10 Nov 2026)
+- Connected Vercel project: kk-phone-rental-vercel, ID prj_snbAmpya7YGmOuMbv1o8T16ouxl6.
+- Environment KEY NAMES ONLY, not secret values: production currently has LINE_CHANNEL_SECRET, LINE_CHANNEL_ACCESS_TOKEN, KK_INBOX_SUPABASE_URL and KK_INBOX_SUPABASE_SERVICE_ROLE_KEY. No KK_LINE_LOGIN_* or KK_CUSTOMER_AUTH_* key was present in the 38-entry environment-variable inventory.
+- This confirms existing Messaging API + Inbox bindings, **NOT a configured LINE Login channel**. Runtime flag stays OFF and calls to the new endpoint would return 404 until an independently approved release.
+- Do NOT re-use LINE_CHANNEL_SECRET or the Messaging API access token as the LINE Login client secret. Provider/channel relationship remains an external owner-console validation.
+- No environment variables were created, changed, decrypted or printed.
