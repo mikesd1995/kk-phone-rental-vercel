@@ -77,7 +77,7 @@ test('HTTP login -> signed cookie -> real V5 synthetic snapshot projection, then
   assert.equal(login.status,200);
   const auth=await login.json();assert.equal(auth.authenticated,true);
   const cookie=String(login.headers.get('set-cookie')||'').split(';')[0];
-  assert.match(cookie,/^kk_admin_session=/);
+  assert.match(cookie,/^__Host-kk_admin_session=/);
   assert.match(String(login.headers.get('set-cookie')||''),/HttpOnly/i);
   assert.match(String(login.headers.get('set-cookie')||''),/SameSite=Strict/i);
 
