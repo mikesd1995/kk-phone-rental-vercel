@@ -52,3 +52,40 @@ test('radio free music festivals and mall public plaza sources are mandatory',()
   assert.ok(a.some(x=>x.source_id===id&&x.required===true),id);
  }
 });
+
+test('November final-episode coverage requires STAR HUNTER and MGI Hall receipts',()=>{
+ const plan=R.buildUniversePlan({month:'2026-11',location:'Bangkok Thailand'});
+ assert.equal(plan.version,'KK_ULTRA_DEEP_SOURCE_REGISTRY_V9');
+ for(const [id,tier] of [
+  ['star-hunter-gl-final-episodes','ARTIST_AGENCY'],
+  ['mgi-hall-bravo-bkk','VENUE']
+ ]){
+  const task=plan.tasks.find(x=>x.source_id===id);
+  assert.ok(task,'Missing source '+id);
+  assert.equal(task.source_tier,tier);
+  assert.equal(task.required,true);
+  assert.ok(task.query.includes('November 2026'));
+  assert.ok(task.query_variants.some(q=>q.includes('พฤศจิกายน 2569')));
+  assert.equal(task.evidence_required,true);
+ }
+ const star=plan.tasks.find(x=>x.source_id==='star-hunter-gl-final-episodes');
+ assert.match(star.label,/STAR HUNTER/);
+ assert.match(star.label,/Khom Khlang/);
+ assert.equal(plan.production_writes,0);
+ assert.equal(plan.verifier_required,true);
+});
+
+test('a scan cannot claim complete coverage if STAR HUNTER or MGI venue was skipped',()=>{
+ const receipts=R.allSources().filter(x=>!['star-hunter-gl-final-episodes','mgi-hall-bravo-bkk'].includes(x.source_id))
+  .map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ const proof=R.buildUniverseProof(receipts);
+ assert.equal(proof.complete,false);
+ assert.ok(proof.missing_required_sources.includes('star-hunter-gl-final-episodes'));
+ assert.ok(proof.missing_required_sources.includes('mgi-hall-bravo-bkk'));
+ assert.equal(proof.production_writes,0);
+ receipts.push(
+  {source_id:'star-hunter-gl-final-episodes',status:'EVIDENCE_FOUND',executed:true},
+  {source_id:'mgi-hall-bravo-bkk',status:'NO_EVIDENCE',executed:true}
+ );
+ assert.equal(R.buildUniverseProof(receipts).complete,true);
+});
