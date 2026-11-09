@@ -18,13 +18,13 @@ jobs:
       - name: Checkout exact audited source
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - name: Verify audited source matches PR 851
         shell: bash
         run: |
-          test "$(git rev-parse HEAD^)" = 'a99a76c0fb5047a596803db318d459bf4cc80f8a'
-          git diff --name-only HEAD^ HEAD | grep -Fx '.github/workflows/ops-dashboard-codeql-audit.yml'
-          test "$(git diff --name-only HEAD^ HEAD | wc -l)" -eq 1
+          test "$(git merge-base HEAD a99a76c0fb5047a596803db318d459bf4cc80f8a)" = 'a99a76c0fb5047a596803db318d459bf4cc80f8a'
+          git diff --name-only a99a76c0fb5047a596803db318d459bf4cc80f8a HEAD | grep -Fx '.github/workflows/ops-dashboard-codeql-audit.yml'
+          test "$(git diff --name-only a99a76c0fb5047a596803db318d459bf4cc80f8a HEAD | wc -l)" -eq 1
       - name: Initialize independent CodeQL scanner
         uses: github/codeql-action/init@v4
         with:
