@@ -4,8 +4,14 @@ on:
     branches:
       - release/ops-dashboard-v4-gated-main-20261110
   pull_request:
-    branches:
-      - release/ops-dashboard-v4-gated-main-20261110
+    branches: [main]
+    paths:
+      - 'admin/**'
+      - 'api/kk-admin-snapshot-v6.js'
+      - 'server/kk-admin-ops-projection.js'
+      - 'scripts/kk-admin-ops-*'
+      - 'tests/*ops*.test.js'
+      - '.github/workflows/admin-ops-release-candidate.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,6 +20,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   ops-r15-regression:
+    if: github.event_name != 'pull_request' || github.head_ref == 'release/ops-dashboard-v4-gated-main-20261110'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -37,6 +44,7 @@ jobs:
       - name: Full regression
         run: npm test
   ops-r15-visual-evidence:
+    if: github.event_name != 'pull_request' || github.head_ref == 'release/ops-dashboard-v4-gated-main-20261110'
     # Playwright 1.55 Chromium browser install is supported on this pinned runner.
     runs-on: ubuntu-24.04
     timeout-minutes: 8
