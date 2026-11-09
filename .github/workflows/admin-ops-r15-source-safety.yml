@@ -36,5 +36,25 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Full regression
         run: npm test
-      - name: Registered Operations UX and visual gate
+  ops-r15-visual-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Node 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+      - name: Registered Operations UX and visual gate (fresh source evidence required)
         run: node scripts/kk-admin-ops-registered-ux-gate.cjs
+      - name: Persist zero-secret QA invocation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ops-r15-visual-evidence-${{ github.sha }}
+          path: artifacts/admin-ops-ux/
+          if-no-files-found: ignore
+          retention-days: 7
