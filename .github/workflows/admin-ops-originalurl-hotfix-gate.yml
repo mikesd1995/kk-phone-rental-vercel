@@ -1,0 +1,44 @@
+name: Admin Ops Signed Snapshot Original URL Hotfix Gate
+on:
+  pull_request:
+    branches:
+      - feat/ops-dashboard-readonly-v4-20261107
+    paths:
+      - 'api/kk-admin-snapshot-v6.js'
+      - 'tests/kk-admin-ops-route.test.js'
+      - '.github/workflows/admin-ops-originalurl-hotfix-gate.yml'
+  push:
+    branches:
+      - fix/ops-snapshot-originalurl-20261110
+permissions:
+  contents: read
+jobs:
+  signed-admin-snapshot-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact PR head without credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify pinned HEAD
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check Admin snapshot adapter
+        run: node --check api/kk-admin-snapshot-v6.js
+      - name: Run signed session, immutable request and legacy reader regression
+        run: node --test tests/kk-admin-ops-route.test.js tests/kk-admin-ops-projection.test.js
+      - name: Install pinned dependencies
+        run: npm ci --ignore-scripts
+      - name: Full Admin regression
+        env:
+          HF_EVENT_ASSIST_ENABLED: 'false'
+        run: |
+          npm run check
+          npm test
