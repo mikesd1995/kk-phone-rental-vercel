@@ -1,0 +1,899 @@
+{
+  "capture_kind": "post-implementation browser evidence for release QA",
+  "browser": "Chromium",
+  "source_sha256": {
+    "admin/operations-dashboard.html": "884e7d12aa715e8811900f70c3de3dd288eb1d8dc471f0742d9425b61afec762",
+    "admin/operations-dashboard.css": "a1fd9765aa39711b1d539bc964ccce6675dae62280f96ad24366b664c9dcba3a",
+    "admin/operations-dashboard.js": "098ca25a5f51a0aa02bf988bfa722f60b8aa46169d6a776897c0ceedf05cceed"
+  },
+  "packets": [
+    {
+      "surface": "KK Phone Rental internal Admin Operations Dashboard V4, synthetic booking fixture",
+      "platform": "ios-contract-via-chromium",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "metrics": {
+        "viewport_width_px": 320,
+        "viewport_height_px": 568,
+        "document_scroll_width_px": 320,
+        "content_width_px": 320,
+        "min_form_control_font_px": 16,
+        "tap_targets": [
+          {
+            "id": "← กลับ Admin",
+            "width": 134,
+            "height": 44
+          },
+          {
+            "id": "refresh",
+            "width": 99,
+            "height": 44
+          },
+          {
+            "id": "search",
+            "width": 274,
+            "height": 44
+          },
+          {
+            "id": "month",
+            "width": 274,
+            "height": 44
+          },
+          {
+            "id": "date",
+            "width": 274,
+            "height": 44
+          },
+          {
+            "id": "venue",
+            "width": 274,
+            "height": 44
+          },
+          {
+            "id": "visibility",
+            "width": 274,
+            "height": 44
+          },
+          {
+            "id": "stock",
+            "width": 274,
+            "height": 44
+          },
+          {
+            "id": "booking",
+            "width": 274,
+            "height": 44
+          },
+          {
+            "id": "price",
+            "width": 274,
+            "height": 44
+          },
+          {
+            "id": "ตาราง",
+            "width": 87,
+            "height": 44
+          },
+          {
+            "id": "ปฏิทิน",
+            "width": 87,
+            "height": 44
+          },
+          {
+            "id": "ติดตาม QA",
+            "width": 87,
+            "height": 44
+          },
+          {
+            "id": "แผนโพสต์ X",
+            "width": 274,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          }
+        ],
+        "raw_i18n_key_count": 0
+      },
+      "screenshot_artifacts": [
+        {
+          "name": "admin_post_320.png",
+          "sha256": "08027437a9e705415a448412fdc881342bf992a91832c8dcb2347fd631dfd14d"
+        }
+      ],
+      "screenshot_observations": [],
+      "evidence_type": "CHROMIUM_LOCAL_SYNTHETIC_NO_CUSTOMER_PII"
+    },
+    {
+      "surface": "KK Phone Rental internal Admin Operations Dashboard V4, synthetic booking fixture",
+      "platform": "ios-contract-via-chromium",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "metrics": {
+        "viewport_width_px": 375,
+        "viewport_height_px": 812,
+        "document_scroll_width_px": 375,
+        "content_width_px": 375,
+        "min_form_control_font_px": 16,
+        "tap_targets": [
+          {
+            "id": "← กลับ Admin",
+            "width": 134,
+            "height": 44
+          },
+          {
+            "id": "refresh",
+            "width": 99,
+            "height": 44
+          },
+          {
+            "id": "search",
+            "width": 329,
+            "height": 44
+          },
+          {
+            "id": "month",
+            "width": 329,
+            "height": 44
+          },
+          {
+            "id": "date",
+            "width": 329,
+            "height": 44
+          },
+          {
+            "id": "venue",
+            "width": 329,
+            "height": 44
+          },
+          {
+            "id": "visibility",
+            "width": 329,
+            "height": 44
+          },
+          {
+            "id": "stock",
+            "width": 329,
+            "height": 44
+          },
+          {
+            "id": "booking",
+            "width": 329,
+            "height": 44
+          },
+          {
+            "id": "price",
+            "width": 329,
+            "height": 44
+          },
+          {
+            "id": "ตาราง",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "ปฏิทิน",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "ติดตาม QA",
+            "width": 87,
+            "height": 44
+          },
+          {
+            "id": "แผนโพสต์ X",
+            "width": 93,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          }
+        ],
+        "raw_i18n_key_count": 0
+      },
+      "screenshot_artifacts": [
+        {
+          "name": "admin_post_375.png",
+          "sha256": "265d43e195f9675f98f4c483eaae309de6538202f3ec1880bddc2be017c329e5"
+        }
+      ],
+      "screenshot_observations": [],
+      "evidence_type": "CHROMIUM_LOCAL_SYNTHETIC_NO_CUSTOMER_PII"
+    },
+    {
+      "surface": "KK Phone Rental internal Admin Operations Dashboard V4, synthetic booking fixture",
+      "platform": "ios-contract-via-chromium",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "metrics": {
+        "viewport_width_px": 390,
+        "viewport_height_px": 844,
+        "document_scroll_width_px": 390,
+        "content_width_px": 390,
+        "min_form_control_font_px": 16,
+        "tap_targets": [
+          {
+            "id": "← กลับ Admin",
+            "width": 134,
+            "height": 44
+          },
+          {
+            "id": "refresh",
+            "width": 99,
+            "height": 44
+          },
+          {
+            "id": "search",
+            "width": 344,
+            "height": 44
+          },
+          {
+            "id": "month",
+            "width": 344,
+            "height": 44
+          },
+          {
+            "id": "date",
+            "width": 344,
+            "height": 44
+          },
+          {
+            "id": "venue",
+            "width": 344,
+            "height": 44
+          },
+          {
+            "id": "visibility",
+            "width": 344,
+            "height": 44
+          },
+          {
+            "id": "stock",
+            "width": 344,
+            "height": 44
+          },
+          {
+            "id": "booking",
+            "width": 344,
+            "height": 44
+          },
+          {
+            "id": "price",
+            "width": 344,
+            "height": 44
+          },
+          {
+            "id": "ตาราง",
+            "width": 73,
+            "height": 44
+          },
+          {
+            "id": "ปฏิทิน",
+            "width": 73,
+            "height": 44
+          },
+          {
+            "id": "ติดตาม QA",
+            "width": 87,
+            "height": 44
+          },
+          {
+            "id": "แผนโพสต์ X",
+            "width": 93,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          }
+        ],
+        "raw_i18n_key_count": 0
+      },
+      "screenshot_artifacts": [
+        {
+          "name": "admin_post_390.png",
+          "sha256": "485c0ab79996450ed399d7312123e4809e2ce997570ad06e57472781a8ae4afe"
+        }
+      ],
+      "screenshot_observations": [],
+      "evidence_type": "CHROMIUM_LOCAL_SYNTHETIC_NO_CUSTOMER_PII"
+    },
+    {
+      "surface": "KK Phone Rental internal Admin Operations Dashboard V4, synthetic booking fixture",
+      "platform": "ios-contract-via-chromium",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "metrics": {
+        "viewport_width_px": 430,
+        "viewport_height_px": 932,
+        "document_scroll_width_px": 430,
+        "content_width_px": 430,
+        "min_form_control_font_px": 16,
+        "tap_targets": [
+          {
+            "id": "← กลับ Admin",
+            "width": 134,
+            "height": 44
+          },
+          {
+            "id": "refresh",
+            "width": 99,
+            "height": 44
+          },
+          {
+            "id": "search",
+            "width": 384,
+            "height": 44
+          },
+          {
+            "id": "month",
+            "width": 384,
+            "height": 44
+          },
+          {
+            "id": "date",
+            "width": 384,
+            "height": 44
+          },
+          {
+            "id": "venue",
+            "width": 384,
+            "height": 44
+          },
+          {
+            "id": "visibility",
+            "width": 384,
+            "height": 44
+          },
+          {
+            "id": "stock",
+            "width": 384,
+            "height": 44
+          },
+          {
+            "id": "booking",
+            "width": 384,
+            "height": 44
+          },
+          {
+            "id": "price",
+            "width": 384,
+            "height": 44
+          },
+          {
+            "id": "ตาราง",
+            "width": 91,
+            "height": 44
+          },
+          {
+            "id": "ปฏิทิน",
+            "width": 91,
+            "height": 44
+          },
+          {
+            "id": "ติดตาม QA",
+            "width": 91,
+            "height": 44
+          },
+          {
+            "id": "แผนโพสต์ X",
+            "width": 93,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          }
+        ],
+        "raw_i18n_key_count": 0
+      },
+      "screenshot_artifacts": [
+        {
+          "name": "admin_post_430.png",
+          "sha256": "feb4e3840959514695a8b200daddc8360cbb43bd5d890ac957e7b2cd4aa3b1a3"
+        }
+      ],
+      "screenshot_observations": [],
+      "evidence_type": "CHROMIUM_LOCAL_SYNTHETIC_NO_CUSTOMER_PII"
+    },
+    {
+      "surface": "KK Phone Rental internal Admin Operations Dashboard V4, synthetic booking fixture",
+      "platform": "ios-contract-via-chromium",
+      "viewport": {
+        "width": 480,
+        "height": 932
+      },
+      "metrics": {
+        "viewport_width_px": 480,
+        "viewport_height_px": 932,
+        "document_scroll_width_px": 480,
+        "content_width_px": 480,
+        "min_form_control_font_px": 16,
+        "tap_targets": [
+          {
+            "id": "← กลับ Admin",
+            "width": 134,
+            "height": 44
+          },
+          {
+            "id": "refresh",
+            "width": 99,
+            "height": 44
+          },
+          {
+            "id": "search",
+            "width": 434,
+            "height": 44
+          },
+          {
+            "id": "month",
+            "width": 434,
+            "height": 44
+          },
+          {
+            "id": "date",
+            "width": 434,
+            "height": 44
+          },
+          {
+            "id": "venue",
+            "width": 434,
+            "height": 44
+          },
+          {
+            "id": "visibility",
+            "width": 434,
+            "height": 44
+          },
+          {
+            "id": "stock",
+            "width": 434,
+            "height": 44
+          },
+          {
+            "id": "booking",
+            "width": 434,
+            "height": 44
+          },
+          {
+            "id": "price",
+            "width": 434,
+            "height": 44
+          },
+          {
+            "id": "ตาราง",
+            "width": 104,
+            "height": 44
+          },
+          {
+            "id": "ปฏิทิน",
+            "width": 104,
+            "height": 44
+          },
+          {
+            "id": "ติดตาม QA",
+            "width": 104,
+            "height": 44
+          },
+          {
+            "id": "แผนโพสต์ X",
+            "width": 104,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          }
+        ],
+        "raw_i18n_key_count": 0
+      },
+      "screenshot_artifacts": [
+        {
+          "name": "admin_post_480.png",
+          "sha256": "7ae27e898940d3796fbb86f07e7d7a7e152f5268a1c948ab746258ab77038506"
+        }
+      ],
+      "screenshot_observations": [],
+      "evidence_type": "CHROMIUM_LOCAL_SYNTHETIC_NO_CUSTOMER_PII"
+    },
+    {
+      "surface": "KK Phone Rental internal Admin Operations Dashboard V4, synthetic booking fixture",
+      "platform": "chromium",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "metrics": {
+        "viewport_width_px": 768,
+        "viewport_height_px": 1024,
+        "document_scroll_width_px": 768,
+        "content_width_px": 768,
+        "min_form_control_font_px": 16,
+        "tap_targets": [
+          {
+            "id": "← กลับ Admin",
+            "width": 134,
+            "height": 44
+          },
+          {
+            "id": "refresh",
+            "width": 99,
+            "height": 44
+          },
+          {
+            "id": "search",
+            "width": 336,
+            "height": 44
+          },
+          {
+            "id": "month",
+            "width": 336,
+            "height": 44
+          },
+          {
+            "id": "date",
+            "width": 336,
+            "height": 44
+          },
+          {
+            "id": "venue",
+            "width": 336,
+            "height": 44
+          },
+          {
+            "id": "visibility",
+            "width": 336,
+            "height": 44
+          },
+          {
+            "id": "stock",
+            "width": 336,
+            "height": 44
+          },
+          {
+            "id": "booking",
+            "width": 336,
+            "height": 44
+          },
+          {
+            "id": "price",
+            "width": 336,
+            "height": 44
+          },
+          {
+            "id": "ตาราง",
+            "width": 62,
+            "height": 44
+          },
+          {
+            "id": "ปฏิทิน",
+            "width": 61,
+            "height": 44
+          },
+          {
+            "id": "ติดตาม QA",
+            "width": 87,
+            "height": 44
+          },
+          {
+            "id": "แผนโพสต์ X",
+            "width": 93,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          }
+        ],
+        "raw_i18n_key_count": 0
+      },
+      "screenshot_artifacts": [
+        {
+          "name": "admin_post_768.png",
+          "sha256": "1128129019bf69de8420f3eef25205d787076d5f1f9c59172015ee4c2ee9c0c8"
+        }
+      ],
+      "screenshot_observations": [],
+      "evidence_type": "CHROMIUM_LOCAL_SYNTHETIC_NO_CUSTOMER_PII"
+    },
+    {
+      "surface": "KK Phone Rental internal Admin Operations Dashboard V4, synthetic booking fixture",
+      "platform": "chromium",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "metrics": {
+        "viewport_width_px": 1024,
+        "viewport_height_px": 768,
+        "document_scroll_width_px": 1024,
+        "content_width_px": 1024,
+        "min_form_control_font_px": 16,
+        "tap_targets": [
+          {
+            "id": "← กลับ Admin",
+            "width": 134,
+            "height": 44
+          },
+          {
+            "id": "refresh",
+            "width": 99,
+            "height": 44
+          },
+          {
+            "id": "search",
+            "width": 226,
+            "height": 44
+          },
+          {
+            "id": "month",
+            "width": 226,
+            "height": 44
+          },
+          {
+            "id": "date",
+            "width": 226,
+            "height": 44
+          },
+          {
+            "id": "venue",
+            "width": 226,
+            "height": 44
+          },
+          {
+            "id": "visibility",
+            "width": 226,
+            "height": 44
+          },
+          {
+            "id": "stock",
+            "width": 226,
+            "height": 44
+          },
+          {
+            "id": "booking",
+            "width": 226,
+            "height": 44
+          },
+          {
+            "id": "price",
+            "width": 226,
+            "height": 44
+          },
+          {
+            "id": "ตาราง",
+            "width": 62,
+            "height": 44
+          },
+          {
+            "id": "ปฏิทิน",
+            "width": 61,
+            "height": 44
+          },
+          {
+            "id": "ติดตาม QA",
+            "width": 87,
+            "height": 44
+          },
+          {
+            "id": "แผนโพสต์ X",
+            "width": 93,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          }
+        ],
+        "raw_i18n_key_count": 0
+      },
+      "screenshot_artifacts": [
+        {
+          "name": "admin_post_1024.png",
+          "sha256": "21cab7c6007683e5afa58aafcb235028c868f8dd3279634cca527fa97dfa8c37"
+        }
+      ],
+      "screenshot_observations": [],
+      "evidence_type": "CHROMIUM_LOCAL_SYNTHETIC_NO_CUSTOMER_PII"
+    },
+    {
+      "surface": "KK Phone Rental internal Admin Operations Dashboard V4, synthetic booking fixture",
+      "platform": "chromium",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "metrics": {
+        "viewport_width_px": 1440,
+        "viewport_height_px": 900,
+        "document_scroll_width_px": 1440,
+        "content_width_px": 1440,
+        "min_form_control_font_px": 16,
+        "tap_targets": [
+          {
+            "id": "← กลับ Admin",
+            "width": 134,
+            "height": 44
+          },
+          {
+            "id": "refresh",
+            "width": 99,
+            "height": 44
+          },
+          {
+            "id": "search",
+            "width": 330,
+            "height": 44
+          },
+          {
+            "id": "month",
+            "width": 330,
+            "height": 44
+          },
+          {
+            "id": "date",
+            "width": 330,
+            "height": 44
+          },
+          {
+            "id": "venue",
+            "width": 330,
+            "height": 44
+          },
+          {
+            "id": "visibility",
+            "width": 330,
+            "height": 44
+          },
+          {
+            "id": "stock",
+            "width": 330,
+            "height": 44
+          },
+          {
+            "id": "booking",
+            "width": 330,
+            "height": 44
+          },
+          {
+            "id": "price",
+            "width": 330,
+            "height": 44
+          },
+          {
+            "id": "ตาราง",
+            "width": 62,
+            "height": 44
+          },
+          {
+            "id": "ปฏิทิน",
+            "width": 61,
+            "height": 44
+          },
+          {
+            "id": "ติดตาม QA",
+            "width": 87,
+            "height": 44
+          },
+          {
+            "id": "แผนโพสต์ X",
+            "width": 93,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          },
+          {
+            "id": "2 QA · ดู",
+            "width": 65,
+            "height": 44
+          }
+        ],
+        "raw_i18n_key_count": 0
+      },
+      "screenshot_artifacts": [
+        {
+          "name": "admin_post_1440.png",
+          "sha256": "d1371d565c25cbceeec07534c78567959f835427e2b8bbd0dbe04a8c5975651a"
+        }
+      ],
+      "screenshot_observations": [],
+      "evidence_type": "CHROMIUM_LOCAL_SYNTHETIC_NO_CUSTOMER_PII"
+    }
+  ]
+}
