@@ -8,6 +8,7 @@ on:
 # One-off separate audit branch, never a production release workflow.
 permissions:
   contents: read
+  security-events: read
 
 jobs:
   codeql:
@@ -42,6 +43,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ops-codeql-audit-r11-r2-${{ github.sha }}
-          path: ${{ runner.temp }}/ops-codeql-r11/
-          if-no-files-found: warn
+          path: ${{ runner.temp }}/ops-codeql-r11-r2/
+          if-no-files-found: error
           retention-days: 7
