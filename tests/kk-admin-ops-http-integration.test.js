@@ -60,6 +60,11 @@ test('HTTP login -> signed cookie -> real V5 synthetic snapshot projection, then
   assert.equal(withoutCookie.status,401);
   assert.equal((await withoutCookie.json()).ok,false);
   assert.equal(sourceReads,0,'unauthenticated request must not access any source');
+  for(const gate of ['auth','asset','make-health','make-verify','app']){
+   const spoof=await fetch(base+'/api/kk-admin?action=operationsSnapshot&__kk_gate='+encodeURIComponent(gate),{redirect:'manual'});
+   assert.equal(spoof.status,401,'untrusted gate must not override Operations authorization: '+gate);
+   assert.equal(sourceReads,0);
+  }
 
   const pinOnly=await fetch(base+'/api/kk-admin?action=operationsSnapshot',{headers:{'x-admin-pin':process.env.KK_ADMIN_PIN}});
   assert.equal(pinOnly.status,401);
