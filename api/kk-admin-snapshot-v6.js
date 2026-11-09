@@ -8,6 +8,13 @@ const AdminMakeGate = require('../server/admin-make-gate.js');
 const AdminWriteControl = require('../server/admin-write-control-oidc.js');
 const AdminGoogleWriter = require('./lib/admin-google-sheets-writer.js');
 const OpsProjection = require('../server/kk-admin-ops-projection.js');
+// Lazily load the fixture only when an explicitly scoped Preview asks for it.
+function activePreviewFixture(){
+  const env=typeof process!=='undefined'&&process.env ? process.env : {};
+  if(env.VERCEL_ENV!=='preview'||env.KK_ADMIN_OPS_PREVIEW_FIXTURE!=='1')return null;
+  const fixture=require('../server/kk-admin-ops-preview-fixture.js');
+  return fixture.enabled(env)?fixture:null;
+}
 
 const ADAPTER_VERSION = 'admin-snapshot-contract-repair-v6';
 const REQUIRED = ['events','bookings','current_bookings','assets'];
@@ -94,6 +101,18 @@ async function handleOperationsSnapshot(req,res){
   if(!AdminSecurity.hasValidSession(req)){
     return replyJson(res,401,{ok:false,error_code:'OPS_SESSION_REQUIRED'});
   }
+
+  // Synthetic UAT is opt-in on a single Preview branch only, after signed auth.
+  // Never access production Sheets/Bookings/PII for this path.
+  const fixture=activePreviewFixture();
+  if(fixture){
+      const safe=OpsProjection.project(fixture.snapshot());
+      res.setHeader('X-KK-Ops-Projection-Version',OpsProjection.VERSION);
+      res.setHeader('X-KK-Ops-Data-Class','synthetic-preview-only');
+      res.setHeader('X-Content-Type-Options','nosniff');
+      return replyJson(res,200,safe);
+  }
+
   // A separate response object is the privacy boundary. Upstream can write only
   // into this isolated receiver; the real network response is never handed to V5.
   const headers=new Map();
@@ -111,10 +130,8 @@ async function handleOperationsSnapshot(req,res){
   try{
     const url=new URL(req.url||'/api/kk-admin','http://localhost');
     url.searchParams.set('action','snapshot');
-    // Reuse the signed-session-authorized request as a prototype only. The
-    // legacy snapshot reader still expects a PIN header, so provide it in a
-    // separate internal request after authentication instead of relying on
-    // mutation of IncomingMessage headers (which may be immutable).
+    // Keep the original signed request immutable. The private legacy reader
+    // receives a scoped internal copy with a trusted PIN, never caller input.
     const legacyReq=Object.create(req);
     Object.defineProperties(legacyReq,{
       url:{value:url.pathname+url.search,writable:true,configurable:true,enumerable:true},
@@ -141,9 +158,22 @@ async function handleOperationsSnapshot(req,res){
 }
 
 module.exports=async function handler(req,res){
-  // The private Operations route must not be rerouted by the user-controlled
-  // __kk_gate query parameter before its own signed-session authorization.
+  // Decide Operations routing BEFORE user-controlled __kk_gate, including in
+  // isolated Preview. No gate parameter may bypass signed Operations auth.
   const action=requestAction(req);
+  // Preview has a separate test identity and intentionally has no KK_ADMIN_PIN.
+  // Do not invoke the production legacy PIN admission for synthetic data.
+  if(activePreviewFixture()){
+    if(req.method==='GET'&&action==='operationsSnapshot'){
+      if(!AdminSecurity.hasValidSession(req))
+        return replyJson(res,401,{ok:false,error_code:'OPS_SESSION_REQUIRED'});
+      return handleOperationsSnapshot(req,res);
+    }
+    const gate=AdminSecurity.gateMode(req);
+    if(gate==='auth'||gate==='app'||gate==='asset')
+      return AdminSecurity.handleGate(req,res,gate);
+    return replyJson(res,403,{ok:false,error_code:'OPS_PREVIEW_FIXTURE_ONLY'});
+  }
   if(req.method==='GET'&&action==='operationsSnapshot'){
     if(!AdminSecurity.authorizeApi(req,res)) return;
     return handleOperationsSnapshot(req,res);
@@ -153,7 +183,6 @@ module.exports=async function handler(req,res){
   if(gate==='make-health') return AdminMakeGate.handleHealth(req,res);
   if(gate) return AdminSecurity.handleGate(req,res,gate);
   if(!AdminSecurity.authorizeApi(req,res)) return;
-
   if(req.method==='GET'&&action==='writeControlHealth'){
     return handleDirectWriterHealth(res);
   }
