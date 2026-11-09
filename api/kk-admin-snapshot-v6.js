@@ -94,7 +94,6 @@ async function handleOperationsSnapshot(req,res){
   if(!AdminSecurity.hasValidSession(req)){
     return replyJson(res,401,{ok:false,error_code:'OPS_SESSION_REQUIRED'});
   }
-  const originalUrl=req.url;
   // A separate response object is the privacy boundary. Upstream can write only
   // into this isolated receiver; the real network response is never handed to V5.
   const headers=new Map();
@@ -112,8 +111,16 @@ async function handleOperationsSnapshot(req,res){
   try{
     const url=new URL(originalUrl||'/api/kk-admin','http://localhost');
     url.searchParams.set('action','snapshot');
-    req.url=url.pathname+url.search;
-    await V5(req,upstream);
+    // Reuse the signed-session-authorized request as a prototype only. The
+    // legacy snapshot reader still expects a PIN header, so provide it in a
+    // separate internal request after authentication instead of relying on
+    // mutation of IncomingMessage headers (which may be immutable).
+    const legacyReq=Object.create(req);
+    Object.defineProperties(legacyReq,{
+      url:{value:url.pathname+url.search,writable:true,configurable:true,enumerable:true},
+      headers:{value:{...(req.headers||{}),'x-admin-pin':String(process.env.KK_ADMIN_PIN||'').trim()},writable:true,configurable:true,enumerable:true}
+    });
+    await V5(legacyReq,upstream);
     // Never send a partial, streaming, failed or double-terminated upstream body.
     if(ended!==1||streamed||upstream.statusCode!==200){
       return replyJson(res,503,{ok:false,error_code:'OPS_SOURCE_UNAVAILABLE'});
@@ -130,8 +137,6 @@ async function handleOperationsSnapshot(req,res){
     return replyJson(res,200,safe);
   }catch(_){
     return replyJson(res,503,{ok:false,error_code:'OPS_SOURCE_UNAVAILABLE'});
-  }finally{
-    req.url=originalUrl;
   }
 }
 

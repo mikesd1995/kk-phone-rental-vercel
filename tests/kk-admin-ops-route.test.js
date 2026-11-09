@@ -12,10 +12,15 @@ const sample=()=>({ok:true,data:{
  web_packages:[{package_id:'PK',event_id:'EV',package_type:'phone_only',available_count:1,price:590,package_status:'available'}],
  bookings:[{booking_id:'SECRET_BOOKING_ID',event_id:'EV',booking_status:'confirmed',customer_name:'SECRET_NAME',customer_phone:'SECRET_PHONE'}]
 }});
-function harness({signed=true,upstream=sample(),status=200,throwV5=false,apiAllowed=true,realSecurity=false,stream=false,doubleEnd=false,unsafeHeader=false}={}){
+function harness({signed=true,upstream=sample(),status=200,throwV5=false,apiAllowed=true,realSecurity=false,enforceLegacyPin=false,stream=false,doubleEnd=false,unsafeHeader=false}={}){
  const calls={upstream:0,urls:[],authorize:0};
  const fakeV5=async(req,res)=>{
   calls.upstream++;calls.urls.push(req.url);
+  if(enforceLegacyPin && req.headers['x-admin-pin']!==process.env.KK_ADMIN_PIN){
+   res.statusCode=401;
+   res.end(JSON.stringify({ok:false,error_code:'LEGACY_PIN_REQUIRED'}));
+   return;
+  }
   if(throwV5) throw Error('private backend SECRET_NAME');
   res.statusCode=status;
   if(unsafeHeader)res.setHeader('X-Private-Source','SECRET_NAME');
@@ -134,4 +139,36 @@ test('tampering with a signed Admin cookie cannot bypass the private route',()=>
  await x.handler(x.req,x.res);
  assert.equal(x.res.statusCode,401);
  assert.equal(x.calls.upstream,0);
+}));
+
+test('frozen incoming request with valid signed session works with legacy PIN reader, without mutation',()=>withSignedTestKeys(async()=>{
+ const real=require('../server/admin-session.js');
+ const token=real._test.issueToken();
+ const x=harness({realSecurity:true,enforceLegacyPin:true});
+ x.req.headers.cookie=real.COOKIE_NAME+'='+token;
+ // Emulate hosted runtimes that expose read-only headers or requests.
+ Object.freeze(x.req.headers);
+ Object.freeze(x.req);
+ await x.handler(x.req,x.res);
+ assert.equal(x.res.statusCode,200);
+ assert.equal(x.calls.upstream,1);
+ assert.equal(x.calls.urls[0],'/api/kk-admin?action=snapshot');
+ assert.equal(x.req.url,'/api/kk-admin?action=operationsSnapshot');
+ assert.equal(x.req.headers['x-admin-pin'],undefined);
+ assert.equal(JSON.parse(x.res.body).data.projection_version,PROJ.VERSION);
+ assert.ok(!x.res.body.includes(process.env.KK_ADMIN_PIN));
+}));
+test('legacy reader never receives caller-supplied spoofed PIN when session valid',()=>withSignedTestKeys(async()=>{
+ const real=require('../server/admin-session.js');
+ const token=real._test.issueToken();
+ const x=harness({realSecurity:true,enforceLegacyPin:true});
+ x.req.headers.cookie=real.COOKIE_NAME+'='+token;
+ x.req.headers['x-admin-pin']='WRONG_EXTERNAL_PIN';
+ Object.freeze(x.req.headers);
+ Object.freeze(x.req);
+ await x.handler(x.req,x.res);
+ assert.equal(x.res.statusCode,200);
+ assert.equal(x.calls.upstream,1);
+ assert.equal(x.req.headers['x-admin-pin'],'WRONG_EXTERNAL_PIN');
+ assert.ok(!x.res.body.includes('WRONG_EXTERNAL_PIN'));
 }));
