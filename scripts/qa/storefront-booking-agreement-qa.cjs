@@ -50,19 +50,21 @@ async function runViewport(browser,width,scheme){
     assert.equal(await gate.isVisible(),false,'success closes gate');
     assert.equal(await page.evaluate(()=>window.__kkQaApproved),1,'approved click replays only once');
     await trigger.click();
-    assert.equal(await check.isChecked(),false,'every new request requires a fresh tick');
-    await page.keyboard.press('Escape');
-    assert.equal(await gate.isVisible(),false,'Escape cancels');
-    assert.equal(await page.evaluate(()=>window.__kkQaApproved),1);
+    assert.equal(await gate.isVisible(),false,'current-version same-browser repeat must skip the popup');
+    assert.equal(await page.evaluate(()=>window.__kkQaApproved),2,'repeat booking still opens the original LINE link');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('kk_booking_terms_prompt_version')),'KK-TERMS-2026-11-06');
     // English from the existing homepage switch must translate the real checkout
-    // dialog and link to English documents while keeping the checkbox unchecked.
+    // dialog and link to English documents. Simulate an old Terms version
+    // so the updated-version prompt is visible for accessibility checks.
     await page.locator('#language-switch [data-lang="en"]').click();
     assert.equal(await page.locator('#kk-footer-terms-link').getAttribute('href'),'/en/terms/');
     assert.equal(await page.locator('#kk-footer-privacy-link').getAttribute('href'),'/en/privacy/');
     assert.equal((await page.locator('#kk-footer-customer-title').textContent()).trim(),'Customer support');
+    await page.evaluate(()=>localStorage.setItem('kk_booking_terms_prompt_version','KK-TERMS-2026-11-05'));
     await trigger.click();
-    assert.equal(await check.isChecked(),false,'English checkout must still require a fresh tick');
-    assert.equal(await confirm.isDisabled(),true,'English continue must not bypass acceptance');
+    assert.equal(await gate.isVisible(),true,'stale version must show English prompt');
+    assert.equal(await check.isChecked(),false,'new-version English checkout must be unchecked');
+    assert.equal(await confirm.isDisabled(),true,'new-version English continue must not be enabled');
     assert.equal((await page.locator('#kk-booking-agreement-title').textContent()).trim(),'Review rental terms');
     assert.equal(await page.locator('#kk-booking-agreement .kk-booking-agreement-check a').nth(0).getAttribute('href'),'/en/terms/');
     assert.equal(await page.locator('#kk-booking-agreement .kk-booking-agreement-check a').nth(1).getAttribute('href'),'/en/privacy/');
@@ -73,7 +75,7 @@ async function runViewport(browser,width,scheme){
     await page.locator('#language-switch [data-lang="th"]').click();
     assert.equal(await page.locator('#kk-footer-terms-link').getAttribute('href'),'/terms/');
     assert.equal(await page.locator('#kk-footer-privacy-link').getAttribute('href'),'/privacy/');
-    assert.equal(await page.evaluate(()=>window.__kkQaApproved),1);
+    assert.equal(await page.evaluate(()=>window.__kkQaApproved),2);
     const box=await page.locator('.kk-booking-agreement-card').evaluate(el=>({
       width:el.getBoundingClientRect().width,
       viewport:innerWidth,
