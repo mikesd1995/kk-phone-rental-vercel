@@ -217,3 +217,23 @@ test('real session login accepts a separate Preview-only PIN, never Production f
     }
   }
 });
+
+test('untrusted __kk_gate cannot override signed Operations routing on synthetic Preview',async()=>{
+  for(const gate of ['auth','app','asset','make-health','make-verify']){
+    const route='/api/kk-admin?action=operationsSnapshot&__kk_gate='+encodeURIComponent(gate);
+    const denied=harness(preview(),false);
+    denied.req.url=route;
+    await denied.call();
+    assert.equal(denied.res.statusCode,401,'unsigned gate spoof: '+gate);
+    assert.equal(JSON.parse(denied.res.body).error_code,'OPS_SESSION_REQUIRED');
+    assert.equal(denied.calls.upstream,0);
+
+    const allowed=harness(preview(),true);
+    allowed.req.url=route;
+    await allowed.call();
+    assert.equal(allowed.res.statusCode,200,'signed fixture route should win: '+gate);
+    assert.equal(allowed.res.headers['x-kk-ops-data-class'],'synthetic-preview-only');
+    assert.equal(allowed.calls.upstream,0);
+    assert.equal(JSON.parse(allowed.res.body).data.snapshot_source,FIXTURE.SOURCE);
+  }
+});
