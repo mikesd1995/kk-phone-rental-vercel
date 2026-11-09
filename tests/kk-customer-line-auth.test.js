@@ -53,7 +53,7 @@ test('OAuth flow refuses tampered cookies, mismatched state, expired or future f
   assert.equal(OAuth.finishFlow({sealed:value,state:'WRONG',secret:SECRET,nowMs:now+1}),null);
   assert.equal(OAuth.finishFlow({sealed:value,state,secret:SECRET,nowMs:now+OAuth.FLOW_TTL_MS+1}),null);
   assert.equal(OAuth.finishFlow({sealed:value,state,secret:SECRET,nowMs:now-1}),null);
-  assert.equal(OAuth.finishFlow({sealed:value.slice(0,-1)+'x',state,secret:SECRET,nowMs:now+1}),null);
+  assert.equal(OAuth.finishFlow({sealed:(value[0]==='A'?'B':'A')+value.slice(1),state,secret:SECRET,nowMs:now+1}),null);
   assert.equal(OAuth.finishFlow({sealed:value,state,secret:'not-the-secret',nowMs:now+1}),null);
 });
 
