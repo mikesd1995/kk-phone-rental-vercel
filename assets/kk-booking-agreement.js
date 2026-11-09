@@ -1,5 +1,7 @@
 'use strict';
-// Customer-only booking acknowledgement. No consent tracking, identifiers or storage.
+// The browser remembers only that the customer dismissed this versioned UX prompt.
+// This is NOT durable Terms evidence: only the customer-sent, signature-verified
+// LINE message can confirm the actual booking acknowledgement.
 (function () {
   var gate = document.getElementById('kk-booking-agreement');
   var dialog = document.getElementById('kk-booking-agreement-dialog');
@@ -9,6 +11,20 @@
   if (!gate || !dialog || !check || !confirm || !cancel) return;
 
   var bookingSelector = 'a.book-pill, a.waitlist-line-btn, a.sticky-line, a.line-btn';
+  var termsVersion = 'KK-TERMS-2026-11-06';
+  var promptKey = 'kk_booking_terms_prompt_version';
+
+  // UI convenience only. Do not store identity, booking data, proof or secrets.
+  // Private mode/storage-disabled browsers correctly fall back to the checkbox.
+  function hasSeenCurrentTermsPrompt() {
+    try { return window.localStorage.getItem(promptKey) === termsVersion; }
+    catch (_error) { return false; }
+  }
+
+  function rememberCurrentTermsPrompt() {
+    try { window.localStorage.setItem(promptKey, termsVersion); }
+    catch (_error) { /* No persistence: continue the safe existing LINE flow. */ }
+  }
   var pending = null;
   var approved = null;
   var lastFocused = null;
@@ -51,7 +67,7 @@
   document.addEventListener('click', function (event) {
     var link = event.target && event.target.closest && event.target.closest(bookingSelector);
     if (!link || !isLineBooking(link)) return;
-    if (approved === link) return;
+    if (approved === link || hasSeenCurrentTermsPrompt()) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     openAgreement(link);
@@ -69,6 +85,9 @@
   confirm.addEventListener('click', function () {
     if (!check.checked || confirm.disabled || !pending || !isLineBooking(pending)) return;
     var link = pending;
+    // Remember only this prompt dismissal, after an explicit unchecked-by-default
+    // customer action. LINE's actual sent text remains the evidence source.
+    rememberCurrentTermsPrompt();
     closeAgreement();
     // Replay only the approved existing link; preserves the original URL,
     // LINE message and click analytics without passing private data here.
