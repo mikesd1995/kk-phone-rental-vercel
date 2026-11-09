@@ -64,7 +64,12 @@ function harness(env,signed=true){
     res.end(JSON.stringify(FIXTURE.snapshot(new Date('2026-11-09T05:30:00.000Z'))));
   };
   const authorized={
-    gateMode:()=>'',authorizeApi:()=>true,hasValidSession:()=>signed
+    gateMode:require('../server/admin-session.js').gateMode,
+    authorizeApi:()=>true,hasValidSession:()=>signed,
+    handleGate:(_req,res,gate)=>{
+      res.statusCode=gate==='auth'?200:403;
+      res.end(JSON.stringify({gate}));
+    }
   };
   const mocks={
     '../server/runtime-warning-tracer':{installRuntimeWarningTracer:()=>{}},
@@ -126,4 +131,89 @@ test('a Preview branch mismatch never enables the fixture and preserves V5 path'
   await h.call();
   assert.equal(h.calls.upstream,1);
   assert.equal(h.res.headers['x-kk-ops-data-class'],undefined);
+});
+
+test('Preview fixture blocks legacy snapshots, health, Make, writes and unsupported methods',async()=>{
+  const attempts=[
+    {method:'GET',url:'/api/kk-admin?action=snapshot'},
+    {method:'GET',url:'/api/kk-admin?action=writeControlHealth'},
+    {method:'POST',url:'/api/kk-admin'},
+    {method:'GET',url:'/api/kk-admin?__kk_gate=make-verify'},
+    {method:'GET',url:'/api/kk-admin?__kk_gate=make-health'},
+    {method:'HEAD',url:'/api/kk-admin?action=operationsSnapshot'}
+  ];
+  for(const bad of attempts){
+    const h=harness(preview(),true);
+    h.req.method=bad.method;
+    h.req.url=bad.url;
+    await h.call();
+    assert.equal(h.res.statusCode,403,JSON.stringify(bad));
+    assert.equal(JSON.parse(h.res.body).error_code,'OPS_PREVIEW_FIXTURE_ONLY');
+    assert.equal(h.calls.upstream,0,'never call the legacy live reader');
+  }
+});
+
+test('Preview fixture still routes sign-in and static assets through the existing session gate',async()=>{
+  for(const route of [
+    {url:'/api/kk-admin?__kk_gate=auth',gate:'auth',status:200},
+    {url:'/api/kk-admin?__kk_gate=asset&path=operations-dashboard.js',gate:'asset',status:403}
+  ]){
+    const h=harness(preview(),true);
+    h.req.url=route.url;
+    await h.call();
+    assert.equal(h.res.statusCode,route.status);
+    assert.equal(JSON.parse(h.res.body).gate,route.gate);
+    assert.equal(h.calls.upstream,0);
+  }
+});
+
+test('real session login accepts a separate Preview-only PIN, never Production fallback',async()=>{
+  const sec=require('../server/admin-session.js');
+  const keys=[
+    'KK_ADMIN_PIN','KK_ADMIN_SESSION_SECRET','KK_ADMIN_OPS_PREVIEW_TEST_PIN',
+    'VERCEL_ENV','KK_ADMIN_OPS_PREVIEW_FIXTURE',
+    'KK_ADMIN_OPS_PREVIEW_FIXTURE_BRANCH','VERCEL_GIT_COMMIT_REF'
+  ];
+  const original=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
+  function reply(){
+    return {statusCode:200,headers:{},body:'',
+      setHeader(k,v){this.headers[String(k).toLowerCase()]=v;},
+      end(v){this.body=String(v??'');}};
+  }
+  function request(pin){
+    return {method:'POST',url:'/api/kk-admin?__kk_gate=auth',
+      headers:{host:'local.example','x-forwarded-proto':'https',origin:'https://local.example','x-real-ip':'fixture-signed-test-'+pin.slice(0,6)},
+      body:{pin}};
+  }
+  try{
+    delete process.env.KK_ADMIN_PIN;
+    Object.assign(process.env,preview());
+    process.env.KK_ADMIN_OPS_PREVIEW_TEST_PIN='SYNTHETIC-FIXTURE-NONPROD-TEST-PIN';
+    process.env.KK_ADMIN_SESSION_SECRET='SYNTHETIC-FIXTURE-NONPROD-TEST-KEY';
+    let res=reply();
+    await sec.handleGate(request('wrong-pin'),res,'auth');
+    assert.equal(res.statusCode,401);
+
+    res=reply();
+    await sec.handleGate(request(process.env.KK_ADMIN_OPS_PREVIEW_TEST_PIN),res,'auth');
+    assert.equal(res.statusCode,200);
+    const cookie=String(res.headers['set-cookie']||'').split(';')[0];
+    assert.match(cookie,/^__Host-kk_admin_session=v2\./);
+    assert.equal(sec.hasValidSession({headers:{cookie}}),true);
+
+    const api=reply();
+    assert.equal(sec.authorizeApi({method:'GET',headers:{cookie}},api),false);
+    assert.equal(api.statusCode,503,'legacy Admin API remains closed with no production PIN');
+
+    // Matching Preview credentials must never work as a login outside the Preview branch.
+    process.env.VERCEL_ENV='production';
+    res=reply();
+    await sec.handleGate(request('SYNTHETIC-FIXTURE-NONPROD-TEST-PIN'),res,'auth');
+    assert.equal(res.statusCode,503);
+  }finally{
+    for(const key of keys){
+      if(original[key]===undefined)delete process.env[key];
+      else process.env[key]=original[key];
+    }
+  }
 });
