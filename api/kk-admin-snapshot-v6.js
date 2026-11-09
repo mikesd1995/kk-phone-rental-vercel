@@ -113,7 +113,6 @@ async function handleOperationsSnapshot(req,res){
       return replyJson(res,200,safe);
   }
 
-  const originalUrl=req.url;
   // A separate response object is the privacy boundary. Upstream can write only
   // into this isolated receiver; the real network response is never handed to V5.
   const headers=new Map();
@@ -129,10 +128,16 @@ async function handleOperationsSnapshot(req,res){
     end(chunk){ended++;if(ended===1)upstreamBody=String(chunk??'');return undefined;}
   };
   try{
-    const url=new URL(originalUrl||'/api/kk-admin','http://localhost');
+    const url=new URL(req.url||'/api/kk-admin','http://localhost');
     url.searchParams.set('action','snapshot');
-    req.url=url.pathname+url.search;
-    await V5(req,upstream);
+    // Keep the original signed request immutable. The private legacy reader
+    // receives a scoped internal copy with a trusted PIN, never caller input.
+    const legacyReq=Object.create(req);
+    Object.defineProperties(legacyReq,{
+      url:{value:url.pathname+url.search,writable:true,configurable:true,enumerable:true},
+      headers:{value:{...(req.headers||{}),'x-admin-pin':String(process.env.KK_ADMIN_PIN||'').trim()},writable:true,configurable:true,enumerable:true}
+    });
+    await V5(legacyReq,upstream);
     // Never send a partial, streaming, failed or double-terminated upstream body.
     if(ended!==1||streamed||upstream.statusCode!==200){
       return replyJson(res,503,{ok:false,error_code:'OPS_SOURCE_UNAVAILABLE'});
@@ -149,8 +154,6 @@ async function handleOperationsSnapshot(req,res){
     return replyJson(res,200,safe);
   }catch(_){
     return replyJson(res,503,{ok:false,error_code:'OPS_SOURCE_UNAVAILABLE'});
-  }finally{
-    req.url=originalUrl;
   }
 }
 
