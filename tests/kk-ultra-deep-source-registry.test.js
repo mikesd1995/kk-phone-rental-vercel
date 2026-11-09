@@ -52,3 +52,41 @@ test('radio free music festivals and mall public plaza sources are mandatory',()
   assert.ok(a.some(x=>x.source_id===id&&x.required===true),id);
  }
 });
+
+test('November 2026 must scan official M Card fan zone and Mall Bangkapi outdoor plaza separately',()=>{
+ const plan=R.buildUniversePlan({month:'2026-11',location:'Bangkok Thailand'});
+ assert.equal(plan.version,'KK_ULTRA_DEEP_SOURCE_REGISTRY_V9_MCARD');
+ for(const [id,tier] of [
+  ['mcardmall-artist-fan-zone','BRAND_SPONSOR'],
+  ['the-mall-lifestore-outdoor-bangkapi','VENUE']
+ ]){
+  const task=plan.tasks.find(x=>x.source_id===id);
+  assert.ok(task,'Missing required source '+id);
+  assert.equal(task.required,true);
+  assert.equal(task.source_tier,tier);
+  assert.ok(task.query.includes('November 2026'));
+  assert.ok(task.query_variants.some(q=>q.includes('พฤศจิกายน 2569')));
+ }
+ const official=plan.tasks.find(x=>x.source_id==='mcardmall-artist-fan-zone');
+ assert.match(official.label,/M Card/);
+ assert.match(official.label,/PROXIE/);
+ assert.equal(plan.production_writes,0);
+ assert.equal(plan.verifier_required,true);
+});
+
+test('M Card missing execution receipt forbids claiming full November source coverage',()=>{
+ const missing=R.allSources().filter(s=>![
+  'mcardmall-artist-fan-zone','the-mall-lifestore-outdoor-bangkapi'
+ ].includes(s.source_id)).map(s=>({source_id:s.source_id,status:'NO_EVIDENCE',executed:true}));
+ const proof=R.buildUniverseProof(missing);
+ assert.equal(proof.complete,false);
+ assert.ok(proof.missing_required_sources.includes('mcardmall-artist-fan-zone'));
+ assert.ok(proof.missing_required_sources.includes('the-mall-lifestore-outdoor-bangkapi'));
+ missing.push(
+  {source_id:'mcardmall-artist-fan-zone',status:'EVIDENCE_FOUND',executed:true},
+  {source_id:'the-mall-lifestore-outdoor-bangkapi',status:'NO_EVIDENCE',executed:true}
+ );
+ const complete=R.buildUniverseProof(missing);
+ assert.equal(complete.complete,true);
+ assert.equal(complete.production_writes,0);
+});

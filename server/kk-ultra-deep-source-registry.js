@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V8';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V9_MCARD';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -24,6 +24,7 @@ const REGISTRY=Object.freeze({
     {source_id:'mcc-hall',label:'MCC Hall',required:true},
     {source_id:'paragon-hall',label:'Paragon Hall',required:true},
     {source_id:'the-mall-m-grand-hall',label:'The Mall Lifestore / M Grand Hall',required:true},
+    {source_id:'the-mall-lifestore-outdoor-bangkapi',label:'The Mall Lifestore Bangkapi outdoor plaza artist ceremonies Christmas tree lighting TeeTee Por PROXIE',required:true},
     {source_id:'pmcu-siam-square',label:'PMCU Siam Square seasonal free music festivals and stages',domain:'pmcu.co.th',required:true},
     {source_id:'siam-center-free-stage',label:'Siam Center public plaza and POP-Pah free T-Pop programmes',required:true}
   ]),
@@ -47,6 +48,7 @@ const REGISTRY=Object.freeze({
     {source_id:'wetv-campaigns',label:'WeTV campaigns',required:true},
     {source_id:'smtrue-campaigns',label:'SM True campaigns',required:true},
     {source_id:'mall-brand-campaigns',label:'Mall / retail brand campaigns',required:true},
+    {source_id:'mcardmall-artist-fan-zone',label:'M Card official Mall Lifestore artist fan club zone Christmas tree lighting 2026 TeeTee Por PROXIE',domain:'mcardmall.com',required:true},
     {source_id:'lucky-fan-top-spender',label:'Lucky fan / top spender campaigns',required:true},
     {source_id:'beauty-personal-care-campaigns',label:'Beauty / personal-care artist campaigns',required:true},
     {source_id:'retail-performance-schedules',label:'Retail / mall artist performance schedules',required:true},
