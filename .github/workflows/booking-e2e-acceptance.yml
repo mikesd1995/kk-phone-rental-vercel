@@ -65,7 +65,7 @@ jobs:
       - name: Full repository regression (source-only, zero business writes)
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
-          npm run code:context
+          npm run code:context -- "P0 LINE Reply API redacted diagnostics and booking regression"
           npm test
 
       - name: Assert no provider or production acceptance side effects
