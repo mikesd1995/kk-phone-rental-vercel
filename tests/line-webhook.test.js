@@ -145,6 +145,33 @@ test('transport and malformed status fail closed without arbitrary error details
   }
 });
 
+test('known owner/booking failures remain identifiable but private data is never logged',()=>{
+  const cases=[
+    ['LINE_BOOKING_AUTOMATION_NOT_READY','BOOKING_CONFIGURATION'],
+    ['LINE_BOOKING_UPSTREAM_TRANSPORT_FAILED','BOOKING_UPSTREAM'],
+    ['LINE_BOOKING_UPSTREAM_NON_JSON','BOOKING_UPSTREAM'],
+    ['LINE_BOOKING_UPSTREAM_FAILED','BOOKING_UPSTREAM'],
+    ['LINE_CUSTOMER_USER_ID_REQUIRED','BOOKING_VALIDATION'],
+    ['LINE_APPROVAL_DATA_INCOMPLETE','OWNER_APPROVAL'],
+    ['LINE_OWNER_DECISION_BOOKING_ID_MISMATCH','OWNER_APPROVAL'],
+    ['LINE_OWNER_DECISION_READBACK_MISMATCH','OWNER_APPROVAL'],
+    ['LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED','OWNER_APPROVAL'],
+    ['LINE_CUSTOMER_CONTACT_READBACK_REQUIRED','OWNER_APPROVAL'],
+    ['LINE_SEND_FAILED','LINE_PUSH_OR_REPLY'],
+    ['LINE_SEND_TRANSPORT_FAILED','LINE_PUSH_OR_REPLY']
+  ];
+  for(const [code,provider_category] of cases){
+    const error=Object.assign(new Error('PRIVATE_NAME PHONE_0999999999 SECRET_TOKEN'),{
+      code,status:429,replyToken:'PRIVATE_REPLY_TOKEN',customer:'PRIVATE_CUSTOMER_ID'
+    });
+    const out=mod._test.safeLineReplyDiagnostic(error);
+    assert.deepEqual(out,{code,provider_http_status:null,provider_category});
+    assert.doesNotMatch(JSON.stringify(out),/PRIVATE|0999999999|SECRET|CUSTOMER_ID/);
+  }
+  const injected=mod._test.safeLineReplyDiagnostic({code:'LINE_SEND_FAILED_PRIVATE_TOKEN',status:429});
+  assert.deepEqual(injected,{code:'WEBHOOK_PROCESSING_FAILED',provider_http_status:null,provider_category:'OTHER'});
+});
+
 test('LINE Reply API response status is preserved for redacted logging without reading response body',async()=>{
   let bodyReads=0;
   await assert.rejects(
