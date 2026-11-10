@@ -120,7 +120,15 @@ function normalize(source,now=new Date()){
   // A stale/private-source violation must not remain labelled "พร้อม" in the UI.
   // Keep the rows visible for inspection; only readiness claims fail closed.
   const sourceUnverified=!fresh||viaPublic;
-  if(dateRisk||sourceUnverified){phoneReady=false;bundleReady=false;}
+  // A positive package count is not enough to advertise phone readiness.
+  // Missing/conflicting Owner Locks, uncertain Booking identity/status, or
+  // ambiguous pricing are an audit-only HOLD even when inventory is positive.
+  const ownershipUnverified=!locksAvailable||!lockStates.length||lockStates.includes('')||locked||conflict;
+  const bookingUnverified=badBooking.has(id);
+  const packageUnverified=!validPrice||ambiguous;
+  if(dateRisk||sourceUnverified||ownershipUnverified||bookingUnverified||packageUnverified){
+   phoneReady=false;bundleReady=false;
+  }
   const poster=safePoster(r.poster_image_url||sourceEvent.poster_url||sourceEvent.poster_image_url);
   const badPoster=!poster||/kk-brand-hero|placeholder|default-poster/i.test(poster);
   const qa=[];
