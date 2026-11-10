@@ -186,6 +186,27 @@ function safeLineReplyDiagnostic(err){
     else if(status!==null && status>=400) category='PROVIDER_CLIENT_FAILURE';
     return {code:'LINE_BOOKING_REPLY_FAILED',provider_http_status:status,provider_category:category};
   }
+  // Preserve only explicitly recognized internal failure codes. Never log
+  // arbitrary err.message, err.code, URLs, recipient IDs or provider bodies.
+  const SAFE_INTERNAL_FAILURES={
+    LINE_BOOKING_AUTOMATION_NOT_READY:'BOOKING_CONFIGURATION',
+    LINE_BOOKING_UPSTREAM_TRANSPORT_FAILED:'BOOKING_UPSTREAM',
+    LINE_BOOKING_UPSTREAM_NON_JSON:'BOOKING_UPSTREAM',
+    LINE_BOOKING_UPSTREAM_FAILED:'BOOKING_UPSTREAM',
+    LINE_CUSTOMER_USER_ID_REQUIRED:'BOOKING_VALIDATION',
+    LINE_APPROVAL_DATA_INCOMPLETE:'OWNER_APPROVAL',
+    LINE_OWNER_DECISION_BOOKING_ID_MISMATCH:'OWNER_APPROVAL',
+    LINE_OWNER_DECISION_READBACK_MISMATCH:'OWNER_APPROVAL',
+    LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED:'OWNER_APPROVAL',
+    LINE_CUSTOMER_CONTACT_READBACK_REQUIRED:'OWNER_APPROVAL',
+    LINE_SEND_FAILED:'LINE_PUSH_OR_REPLY',
+    LINE_SEND_TRANSPORT_FAILED:'LINE_PUSH_OR_REPLY'
+  };
+  const code=err&&typeof err.code==='string'?err.code:'';
+  if(Object.prototype.hasOwnProperty.call(SAFE_INTERNAL_FAILURES,code)){
+    // This is not necessarily a Reply API status; do not misattribute it.
+    return {code,provider_http_status:null,provider_category:SAFE_INTERNAL_FAILURES[code]};
+  }
   return {code:'WEBHOOK_PROCESSING_FAILED',provider_http_status:null,provider_category:'OTHER'};
 }
 
