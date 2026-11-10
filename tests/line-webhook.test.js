@@ -6,7 +6,32 @@ test('verifies exact raw-body HMAC-SHA256 signature',()=>{const body='{"destinat
 test('parses current Thai storefront booking message',()=>{const b=mod._test.parseBookingText('สนใจเช่า vivo X300 Pro + Lens\nงาน : LYKN REFLEXION CONCERT\nวันที่ : 18 ต.ค. 2026\nสถานที่ : IMPACT Arena\nราคา : 1,290฿\n\nชื่อเล่น : \nเบอร์โทร : ');assert.equal(b.event_name,'LYKN REFLEXION CONCERT');assert.equal(b.package_name,'vivo X300 Pro + Lens');assert.equal(b.price_display,'1,290฿');});
 test('ignores unrelated customer text',()=>assert.equal(mod._test.parseBookingText('สวัสดีค่ะ'),null));
 test('resolves poster only from matching public event row',async()=>{const csv='event_id,event_name,event_date_text,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count\nEVT-1,LYKN REFLEXION CONCERT,18 ต.ค. 2026,IMPACT Arena,https://drive.google.com/thumbnail?id=approved-poster,show,เปิดจอง,1';const f=async()=>({ok:true,text:async()=>csv});const p=await mod._test.resolvePoster({event_name:'LYKN REFLEXION CONCERT',venue:'IMPACT Arena'},f);assert.equal(p,'https://kk-phone-rental.vercel.app/api/line-poster?event_id=EVT-1');});
-test('processes booking and replies with Flex hero using canonical package price',async()=>{const calls=[];const web='event_id,event_name,event_date_text,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count\nEVT-1,LYKN REFLEXION CONCERT,18 ต.ค. 2026,IMPACT Arena,https://drive.google.com/thumbnail?id=approved-poster,show,เปิดจอง,1';const pkg='package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case\nPKG-BUNDLE,EVT-1,phone_lens_bundle,VIVO_X300_PRO,Vivo X300 Pro,ZEISS,Lens Vivo,"1,290",1,available,30,,1,';const f=async(url,opt)=>{calls.push({url,opt});if(String(url).includes('09_Web_Packages'))return{ok:true,text:async()=>pkg};if(String(url).includes('08_Web_Ready'))return{ok:true,text:async()=>web};return{ok:true,text:async()=>''};};const event={type:'message',replyToken:'reply-1',message:{type:'text',text:'สนใจเช่า vivo X300 Pro + Lens\nงาน : LYKN REFLEXION CONCERT\nวันที่ : 18 ต.ค. 2026\nสถานที่ : IMPACT Arena\nราคา : 590 บาท'}};const out=await mod._test.processEvent(event,{LINE_CHANNEL_ACCESS_TOKEN:'token'},f);assert.equal(out.handled,true);const reply=calls.find(x=>String(x.url).includes('api.line.me'));assert.ok(reply);const sent=JSON.parse(reply.opt.body);assert.equal(sent.messages[0].type,'flex');assert.equal(sent.messages[0].contents.hero.url,'https://kk-phone-rental.vercel.app/api/line-poster?event_id=EVT-1');assert.match(JSON.stringify(sent),/1,290 บาท/);assert.doesNotMatch(JSON.stringify(sent),/ราคา  590 บาท/);assert.match(reply.opt.headers.Authorization,/^Bearer /);});
+test('processes booking and replies with Flex hero using canonical package price',async()=>{const calls=[];const web='event_id,event_name,event_date_text,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count\nEVT-1,LYKN REFLEXION CONCERT,18 ต.ค. 2026,IMPACT Arena,https://drive.google.com/thumbnail?id=approved-poster,show,เปิดจอง,1';const pkg='package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case\nPKG-BUNDLE,EVT-1,phone_lens_bundle,VIVO_X300_PRO,Vivo X300 Pro,ZEISS,Lens Vivo,"1,290",1,available,30,,1,';const f=async(url,opt)=>{calls.push({url,opt});if(String(url).includes('09_Web_Packages'))return{ok:true,text:async()=>pkg};if(String(url).includes('08_Web_Ready'))return{ok:true,text:async()=>web};return{ok:true,text:async()=>''};};const event={type:'message',replyToken:'reply-1',message:{type:'text',text:'สนใจเช่า vivo X300 Pro + Lens\nงาน : LYKN REFLEXION CONCERT\nวันที่ : 18 ต.ค. 2026\nสถานที่ : IMPACT Arena\nราคา : 590 บาท'}};const out=await mod._test.processEvent(event,{LINE_CHANNEL_ACCESS_TOKEN:'token'},f);assert.equal(out.handled,true);const reply=calls.find(x=>String(x.url).includes('api.line.me'));assert.ok(reply);const sent=JSON.parse(reply.opt.body);assert.equal(sent.messages[0].type,'flex');assert.equal(sent.messages[0].contents.hero.url,'https://kk-phone-rental.vercel.app/api/line-poster?event_id=EVT-1');assert.match(JSON.stringify(sent),/1,290 บาท/);assert.doesNotMatch(JSON.stringify(sent),/ราคา  590 บาท/);assert.match(reply.opt.headers.Authorization,/^Bearer /);assert.equal(calls.filter(x=>String(x.url).includes('08_Web_Ready')).length,1,'one Web Ready snapshot read per booking request');});
+
+test('failed Web Ready read is shared and customer gets safe unconfirmed reply without booking mutation',async()=>{
+ const calls=[];
+ const event={type:'message',replyToken:'SYNTHETIC_REPLY',message:{
+  type:'text',text:'สนใจเช่า vivo X300 Pro + Lens\\nงาน : LYKN REFLEXION CONCERT\\nวันที่ : 18 ต.ค. 2026\\nสถานที่ : IMPACT Arena'
+ }};
+ const fetchImpl=async(url,opt)=>{
+   calls.push({url:String(url),opt});
+   if(String(url).includes('08_Web_Ready'))return {ok:false,status:503,text:async()=>{throw Error('should not read failed response');}};
+   if(String(url).includes('09_Web_Packages'))throw Error('must not fetch packages after failed source');
+   if(String(url).endsWith('/reply'))return {ok:true,status:200};
+   throw Error('unexpected provider call');
+ };
+ const result=await mod._test.processEvent(event,{LINE_CHANNEL_ACCESS_TOKEN:'SYNTHETIC_TOKEN'},fetchImpl);
+ assert.equal(result.handled,true);
+ assert.equal(result.booking_id,'');
+ assert.equal(result.automation_status,'REPLY_ONLY');
+ assert.equal(calls.filter(x=>x.url.includes('08_Web_Ready')).length,1);
+ assert.equal(calls.filter(x=>x.url.includes('09_Web_Packages')).length,0);
+ assert.equal(calls.filter(x=>x.url.endsWith('/reply')).length,1);
+ const sent=JSON.parse(calls.find(x=>x.url.endsWith('/reply')).opt.body);
+ assert.equal(sent.messages[0].type,'flex');
+ assert.equal('hero' in sent.messages[0].contents,false);
+ assert.match(JSON.stringify(sent),/รอร้านตรวจสอบราคา/);
+});
 
 test('derives canonical template id from public package ids',()=>{
   assert.equal(mod._test.templateIdFromWebPackageId('TPL-BUNDLE','EVT-1'),'TPL-BUNDLE');
