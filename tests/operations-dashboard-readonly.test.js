@@ -238,3 +238,45 @@ test('fresh private source with matching Core and Web Ready dates remains readab
  assert.equal(x.records[0].phoneReady,true);
  assert.equal(x.records[0].bundleReady,true);
 });
+
+test('ready inventory does not override missing, locked or conflicting Owner Locks',()=>{
+ for(const locks of [undefined,[],[{event_id:'EVT-20261203-BTS-ARIRANG',lock_state:''}],[{event_id:'EVT-20261203-BTS-ARIRANG',lock_state:'LOCKED'}],[{event_id:'EVT-20261203-BTS-ARIRANG',lock_state:'REOPENED'},{event_id:'EVT-20261203-BTS-ARIRANG',lock_state:'SEEN_CORE'}]]){
+  const d=positiveStockFixture();
+  if(locks===undefined)delete d.data.visibility_locks;
+  else d.data.visibility_locks=locks;
+  const row=Ops.normalize(d,NOW).records[0];
+  assert.equal(row.stock,2,'keep audit stock count');
+  assert.equal(row.phoneReady,false,'do not claim bookable phone without verified Owner Lock');
+  assert.equal(row.bundleReady,false,'do not claim bookable bundle without verified Owner Lock');
+  assert.ok(row.gate.some(g=>g.includes('Owner Lock')),'explicit Owner Lock gate');
+ }
+});
+test('ready inventory cannot hide unknown Booking status, missing identity or duplicate identity',()=>{
+ for(const bookings of [
+  [{event_id:'EVT-20261203-BTS-ARIRANG',booking_id:'X1',booking_status:'unknown_future_status'}],
+  [{event_id:'EVT-20261203-BTS-ARIRANG',booking_status:'confirmed'}],
+  [{event_id:'EVT-20261203-BTS-ARIRANG',booking_id:'X1',booking_status:'confirmed'},{event_id:'EVT-20261203-BTS-ARIRANG',booking_id:'X1',booking_status:'cancelled'}]
+ ]){
+  const d=positiveStockFixture({bookings});
+  const row=Ops.normalize(d,NOW).records[0];
+  assert.equal(row.phoneReady,false);
+  assert.equal(row.bundleReady,false);
+  assert.equal(row.bookings,null);
+  assert.ok(row.gate.includes('Booking ไม่ครบ/ID ซ้ำ/สถานะไม่รู้จัก'));
+ }
+});
+test('ready inventory is withheld when active price or package identity is ambiguous',()=>{
+ const missingPrice=positiveStockFixture();
+ missingPrice.data.web_packages[1].price=null;
+ let row=Ops.normalize(missingPrice,NOW).records[0];
+ assert.equal(row.phoneReady,false);assert.equal(row.bundleReady,false);
+ const duplicates=positiveStockFixture();
+ duplicates.data.web_packages.push({...duplicates.data.web_packages[0],package_id:'P4'});
+ row=Ops.normalize(duplicates,NOW).records[0];
+ assert.equal(row.ambiguous,true);assert.equal(row.phoneReady,false);assert.equal(row.bundleReady,false);
+});
+test('fresh verified private source retains availability while unverified advertising stays HOLD',()=>{
+ const row=Ops.normalize(positiveStockFixture(),NOW).records[0];
+ assert.equal(row.phoneReady,true);assert.equal(row.bundleReady,true);
+ assert.ok(row.gate.includes('ยังไม่ยืนยัน Production และ X Post Log สด'));
+});
