@@ -42,6 +42,9 @@ function config(env=process.env){
     gasProjectId:t(env.KK_OWNER_CANONICAL_GAS_PROJECT_ID),gasDeploymentId:t(env.KK_OWNER_CANONICAL_GAS_DEPLOYMENT_ID),
     gasClientId:t(env.KK_OWNER_CANONICAL_OAUTH_CLIENT_ID),gasClientSecret:String(env.KK_OWNER_CANONICAL_OAUTH_CLIENT_SECRET||''),
     gasRefreshToken:String(env.KK_OWNER_CANONICAL_OAUTH_REFRESH_TOKEN||''),
+    gasHealthAttemptId:String(env.KK_OWNER_CANONICAL_GAS_HEALTH_ATTEMPT_ID||''),
+    deploymentSourceSha:String(env.VERCEL_GIT_COMMIT_SHA||''),
+    deploymentId:String(env.VERCEL_DEPLOYMENT_ID||''),deploymentEnvironment:String(env.VERCEL_ENV||''),
     bindingMatches:storeMode==='vercel-oidc'?expected===LedgerBridge.PROJECT_REF:!!ref&&!!expected&&ref===expected
   };
 }

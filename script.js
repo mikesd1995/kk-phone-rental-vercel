@@ -382,6 +382,61 @@ function updateLanguageButtons(){
     btn.classList.toggle("active",active); btn.setAttribute("aria-pressed",active?"true":"false");
   });
 }
+function applyPublicLegalLanguage(){
+  // Keep footer/legal checkout language consistent with the main TH/EN switch.
+  // The legal pages themselves are script-free translated static documents.
+  var isEn=currentLang==="en";
+  var copy=isEn?{
+    footerCustomer:"Customer support",footerSteps:"How to rent",footerLine:"Contact LINE OA",
+    footerPolicies:"Information & policies",footerTerms:"Terms of Service",footerPrivacy:"Privacy Policy",
+    dialogKicker:"Before booking",dialogTitle:"Review rental terms",
+    dialogDescription:"Review the terms before opening LINE to send a booking or waitlist enquiry.",
+    checkPrefix:"I have read and accept ",checkTerms:"the Terms of Service",
+    checkMiddle:" and acknowledge ",checkPrivacy:"the Privacy Policy",
+    dialogNote:"We prepare an acknowledgement of the 6 November 2026 Terms in your LINE draft. Review it and press Send yourself. The booking is not confirmed until the shop responds and confirms it.",
+    cancel:"Cancel",continueLine:"Accept and open LINE"
+  }:{
+    footerCustomer:"บริการลูกค้า",footerSteps:"ขั้นตอนการเช่า",footerLine:"ติดต่อ LINE OA",
+    footerPolicies:"ข้อมูลและข้อตกลง",footerTerms:"เงื่อนไขการใช้บริการ",footerPrivacy:"นโยบายความเป็นส่วนตัว",
+    dialogKicker:"ก่อนดำเนินการจอง",dialogTitle:"ยืนยันเงื่อนไขการเช่า",
+    dialogDescription:"โปรดตรวจสอบเงื่อนไขก่อนเปิด LINE เพื่อส่งคำขอจองหรือจองคิวหลุด",
+    checkPrefix:"ฉันได้อ่านและยอมรับ ",checkTerms:"เงื่อนไขการใช้บริการ",
+    checkMiddle:" และรับทราบ ",checkPrivacy:"นโยบายความเป็นส่วนตัว",
+    dialogNote:"ระบบจะเตรียมข้อความยอมรับเงื่อนไขฉบับ 6 พ.ย. 2569 ต่อท้ายคำขอใน LINE ลูกค้าต้องตรวจสอบและกดส่งเอง จึงจะมีข้อความยืนยันในแชต คิวยังไม่สำเร็จจนกว่าร้านยืนยัน",
+    cancel:"ยกเลิก",continueLine:"ยอมรับและเปิด LINE"
+  };
+  var values=[
+    ["#kk-footer-customer-title",copy.footerCustomer],
+    ["#kk-footer-how-to-rent",copy.footerSteps],
+    ["#kk-footer-line-contact",copy.footerLine],
+    ["#kk-footer-policies-title",copy.footerPolicies],
+    ["#kk-footer-terms-link",copy.footerTerms],
+    ["#kk-footer-privacy-link",copy.footerPrivacy],
+    [".kk-booking-agreement-kicker",copy.dialogKicker],
+    ["#kk-booking-agreement-title",copy.dialogTitle],
+    ["#kk-booking-agreement-description",copy.dialogDescription],
+    [".kk-terms-check-prefix",copy.checkPrefix],
+    [".kk-terms-check-middle",copy.checkMiddle],
+    [".kk-booking-agreement-note",copy.dialogNote],
+    ["#kk-booking-terms-cancel",copy.cancel],
+    ["#kk-booking-terms-continue",copy.continueLine]
+  ];
+  values.forEach(function(entry){
+    var node=document.querySelector(entry[0]);
+    if(node)node.textContent=entry[1];
+  });
+  var termsRoute=isEn?"/en/terms/":"/terms/";
+  var privacyRoute=isEn?"/en/privacy/":"/privacy/";
+  var terms=document.getElementById("kk-footer-terms-link");
+  if(terms)terms.setAttribute("href",termsRoute);
+  var privacy=document.getElementById("kk-footer-privacy-link");
+  if(privacy)privacy.setAttribute("href",privacyRoute);
+  var nav=document.querySelector("footer .legal-footer-nav");
+  if(nav)nav.setAttribute("aria-label",isEn?"Service documents":"ข้อมูลการใช้บริการ");
+  var checkLinks=document.querySelectorAll("#kk-booking-agreement .kk-booking-agreement-check a");
+  if(checkLinks[0]){checkLinks[0].textContent=copy.checkTerms;checkLinks[0].setAttribute("href",termsRoute);}
+  if(checkLinks[1]){checkLinks[1].textContent=copy.checkPrivacy;checkLinks[1].setAttribute("href",privacyRoute);}
+}
 function applyStaticLanguage(){
   document.documentElement.lang=currentLang;
   setText(".skip-link","skip_link");
@@ -446,6 +501,7 @@ function applyStaticLanguage(){
   setText("#faq-title","faq_title");
   for(var i=1;i<=8;i++)setFaqLanguage(i,"faq_q"+i,"faq_a"+i);
   setText("#faq-close-btn","close");
+  applyPublicLegalLanguage();
   updateLanguageButtons();
 }
 function updateLanguageUrl(){
@@ -1523,7 +1579,10 @@ function buildBookingMsg(c,p){
     "⏰ "+tr("line_pickup")+": ",
     "",
     "👤 "+tr("line_nickname")+": ",
-    "📞 "+tr("line_phone")+": "
+    "📞 "+tr("line_phone")+": ",
+    "",
+    "✅ ยืนยันยอมรับเงื่อนไขการเช่า KK Phone Rental (KK-TERMS-2026-11-06)",
+    "ℹ️ รับทราบนโยบายความเป็นส่วนตัว: https://kk-phone-rental.vercel.app/privacy/"
   ].join("\n");
 }
 function getBookingUrl(c,p){ return LINE_OA+encodeURIComponent(buildBookingMsg(c,p)); }
@@ -1537,7 +1596,10 @@ function buildWaitlistMsg(c,p){
     "",
     tr("line_nickname")+" : ",
     tr("line_phone")+" : ",
-    tr("waitlist_note")
+    tr("waitlist_note"),
+    "",
+    "✅ ยืนยันยอมรับเงื่อนไขการเช่า KK Phone Rental (KK-TERMS-2026-11-06)",
+    "ℹ️ รับทราบนโยบายความเป็นส่วนตัว: https://kk-phone-rental.vercel.app/privacy/"
   ].join("\n");
 }
 function getWaitlistUrl(c,p){ return LINE_OA+encodeURIComponent(buildWaitlistMsg(c,p)); }

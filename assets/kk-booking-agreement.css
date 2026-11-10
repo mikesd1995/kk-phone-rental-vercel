@@ -1,0 +1,104 @@
+/* Customer-facing footer and pre-LINE terms acknowledgement.
+   Scoped to these components; does not touch catalogue, stock or admin. */
+footer.kk-public-footer {
+  padding: 28px 0 14px !important;
+  margin: 32px 0 0 !important;
+  border-top: 1px solid var(--v6-line, #dfe3e8) !important;
+  color: var(--v6-ink, #111827) !important;
+  text-align: left !important;
+}
+footer.kk-public-footer .kk-footer-main {
+  display: grid;
+  grid-template-columns: minmax(210px, 1.1fr) minmax(260px, 1fr);
+  align-items: start;
+  gap: 32px;
+}
+footer.kk-public-footer .kk-footer-columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
+footer.kk-public-footer .kk-footer-column { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+footer.kk-public-footer .kk-footer-column h2 { margin: 0 0 9px; color: var(--v6-ink,#111827); font-size: 13px; font-weight: 800; line-height: 1.4; }
+footer.kk-public-footer .kk-footer-column a,
+footer.kk-public-footer .legal-footer-nav a {
+  display: inline-flex; min-height: 44px; align-items: center; padding: 8px 0;
+  color: var(--v6-sub,#667085); font-size: 13px; font-weight: 550; text-decoration: none; line-height: 1.45;
+}
+footer.kk-public-footer .kk-footer-column a:hover,
+footer.kk-public-footer .legal-footer-nav a:hover { color: var(--v6-accent,#1378f3); text-decoration: underline; }
+footer.kk-public-footer .legal-footer-nav { display: flex; flex-direction: column; align-items: flex-start; gap: 0; margin: 0; }
+footer.kk-public-footer .kk-footer-bottom {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+  gap: 8px 20px; margin-top: 17px; padding-top: 14px;
+  border-top: 1px solid var(--v6-line,#dfe3e8);
+  color: var(--v6-sub,#667085); font-size: 11px; font-weight: 450; line-height: 1.6;
+}
+footer.kk-public-footer .legal-footer-google { max-width: none; margin: 0; color: inherit; }
+footer.kk-public-footer .legal-footer-google p { font-size: 11px; line-height: 1.5; }
+footer.kk-public-footer .legal-footer-google a { min-height: 44px; color: inherit; padding: 8px 0; font-size: 11px; }
+footer.kk-public-footer .footer-brand { font-size: 25px !important; }
+footer.kk-public-footer .footer-tagline { font-size: 13px !important; }
+footer.kk-public-footer .trust-note { font-size: 12px !important; }
+html[data-theme="dark"] footer.kk-public-footer .kk-footer-column h2 { color: #e4ecf8; }
+html[data-theme="dark"] footer.kk-public-footer .kk-footer-column a,
+html[data-theme="dark"] footer.kk-public-footer .legal-footer-nav a,
+html[data-theme="dark"] footer.kk-public-footer .legal-footer-google a { color: #aabbd2; }
+@media(max-width:760px) {
+  footer.kk-public-footer .kk-footer-main { grid-template-columns: 1fr; gap: 22px; }
+}
+@media(max-width:420px) {
+  footer.kk-public-footer .kk-footer-columns { gap: 12px; }
+  footer.kk-public-footer .kk-footer-column h2 { font-size: 12px; }
+  footer.kk-public-footer .kk-footer-column a,footer.kk-public-footer .legal-footer-nav a { font-size: 12px; }
+}
+
+.kk-booking-agreement-backdrop[hidden] { display: none !important; }
+.kk-booking-agreement-backdrop {
+  position: fixed; inset: 0; z-index: 2400;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(5,15,32,.72); backdrop-filter: blur(7px);
+}
+.kk-booking-agreement-card {
+  width: min(100%, 485px);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: clamp(22px,5vw,32px);
+  border: 1px solid var(--v6-line,#dfe3e8);
+  border-radius: 24px;
+  background: var(--v6-paper,#fff);
+  color: var(--v6-ink,#111827);
+  box-shadow: 0 24px 70px rgba(0,0,0,.28);
+  font-family: "Noto Sans Thai","Kanit",system-ui,sans-serif;
+  line-height: 1.6;
+}
+.kk-booking-agreement-kicker {
+  display: inline-block; margin-bottom: 6px;
+  font-size: 11px; font-weight: 800; letter-spacing: .04em;
+  color: var(--v6-accent,#1378f3);
+}
+.kk-booking-agreement-card h2 { margin: 0 0 9px; font-size: clamp(22px,4.5vw,28px); line-height: 1.35; font-weight: 800; }
+.kk-booking-agreement-card #kk-booking-agreement-description { margin: 0 0 18px; font-size: 14px; color: var(--v6-sub,#667085); }
+.kk-booking-agreement-check {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 16px; background: var(--v6-bg,#f7f7f4);
+  border: 1px solid var(--v6-line,#dfe3e8); border-radius: 14px;
+  font-size: 14px; font-weight: 550; cursor: pointer;
+}
+.kk-booking-agreement-check input {
+  flex: 0 0 auto; width: 21px; height: 21px; margin: 2px 0 0;
+  accent-color: var(--v6-accent,#1378f3); cursor: pointer;
+}
+.kk-booking-agreement-card a { color: var(--v6-accent,#1378f3); font-weight: 750; text-underline-offset: 3px; }
+.kk-booking-agreement-note { margin: 14px 0 20px; color: var(--v6-sub,#667085); font-size: 12px; line-height: 1.7; }
+.kk-booking-agreement-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.kk-booking-agreement-actions button {
+  min-height: 48px; padding: 12px 16px; border-radius: 12px;
+  font: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
+}
+.kk-booking-terms-cancel { flex: 1; background: var(--v6-bg,#f7f7f4); border: 1px solid var(--v6-line,#dfe3e8); color: var(--v6-ink,#111827); }
+.kk-booking-terms-continue { flex: 2; background: #06c755; border: 1px solid #06c755; color: #fff; }
+.kk-booking-terms-continue:disabled { opacity: .43; cursor: not-allowed; filter: grayscale(.45); }
+.kk-booking-agreement-card :focus-visible { outline: 3px solid var(--v6-accent,#1378f3); outline-offset: 3px; }
+@media(max-width:420px) {
+  .kk-booking-agreement-backdrop { align-items: flex-end; padding: 0; }
+  .kk-booking-agreement-card { width: 100%; max-height: 92dvh; border-radius: 24px 24px 0 0; padding: 24px 18px max(22px,env(safe-area-inset-bottom)); }
+  .kk-booking-agreement-actions { flex-direction: column-reverse; }
+  .kk-booking-agreement-actions button { width: 100%; }
+}

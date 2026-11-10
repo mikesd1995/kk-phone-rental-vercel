@@ -34,19 +34,28 @@ test('homepage contains Organization, Service and visible FAQ structured data',(
   assert.equal(html.includes('"name":"ไฟล์บน Google Drive เก็บไว้ได้กี่วัน?"'),true);
 });
 
-test('server event-share URL stays valid without reintroducing a removed share control',()=>{
+test('event-share URL helper uses the current origin and encodes event IDs within the server route',()=>{
   const js=fs.readFileSync('script.js','utf8');
-  const start=js.indexOf('function eventShareUrl(c){');
-  const end=js.indexOf('function resetMeta(){',start);
-  assert.ok(start>=0 && end>start,'public event-share helper must remain present');
-  const scope={window:{location:{origin:'https://kk-phone-rental.vercel.app'}},
-    eventUrl:()=>'/event-fallback'};
-  vm.createContext(scope);
-  vm.runInContext(js.slice(start,end),scope);
-  assert.equal(scope.eventShareUrl({id:'EVT-2026 FANMEET'}),
-    'https://kk-phone-rental.vercel.app/event/EVT-2026%20FANMEET');
-  assert.doesNotMatch(js,/getElementById\("event-share-btn"\)/,
-    'minimal event modal must not silently regain the share CTA');
+  const helper=js.match(/function eventShareUrl\(c\)\{[\s\S]*?\n\}/);
+  assert.ok(helper,'the production event-share URL helper must be available');
+  const context={
+    window:{location:{origin:'https://kk-phone-rental.vercel.app',href:'https://kk-phone-rental.vercel.app/?event=old#modal'}},
+    eventUrl:()=>{ throw new Error('valid event IDs must use the server event route'); }
+  };
+  vm.runInNewContext(helper[0]+'\nthis.shareUrl=eventShareUrl;',context);
+  const cases=[
+    {id:'EVT-20260927-ATLAS-RISING-UP-CONCERT',want:'https://kk-phone-rental.vercel.app/event/EVT-20260927-ATLAS-RISING-UP-CONCERT'},
+    {id:'EVT-1 /?#&=%',want:'https://kk-phone-rental.vercel.app/event/EVT-1%20%2F%3F%23%26%3D%25'},
+    {id:'EVT%2Fpart',want:'https://kk-phone-rental.vercel.app/event/EVT%252Fpart'}
+  ];
+  for(const {id,want} of cases){
+    const actual=context.shareUrl({id});
+    assert.equal(actual,want);
+    const url=new URL(actual);
+    assert.equal(url.origin,'https://kk-phone-rental.vercel.app');
+    assert.equal(url.search,'','event IDs must not inject a query');
+    assert.equal(url.hash,'','event IDs must not inject a fragment');
+  }
 });
 
 test('runtime warning tracer is installed',()=>{

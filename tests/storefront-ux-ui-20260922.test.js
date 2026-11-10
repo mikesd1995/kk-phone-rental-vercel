@@ -8,6 +8,20 @@ const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const js=fs.readFileSync(path.join(root,'script.js'),'utf8');
 const v5=fs.readFileSync(path.join(root,'assets','kk-storefront-v5.css'),'utf8');
 
+function hasDatedCacheVersion(assetPath){
+  try{
+    const url=new URL(assetPath,'https://storefront.invalid');
+    if(url.origin!=='https://storefront.invalid'||url.searchParams.getAll('v').length!==1)return false;
+    const version=url.searchParams.get('v')||'';
+    if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(version))return false;
+    const date=version.match(/(?:^|-)(\d{8})(?:-|$)/)?.[1];
+    if(!date)return false;
+    const iso=[date.slice(0,4),date.slice(4,6),date.slice(6,8)].join('-');
+    const timestamp=Date.parse(iso+'T00:00:00Z');
+    return Number.isFinite(timestamp)&&new Date(timestamp).toISOString().slice(0,10)===iso;
+  }catch{return false;}
+}
+
 test('storefront exposes an explicit clear-filter control',()=>{
   assert.match(html,/id="clear-browse-btn"/);
   assert.match(js,/function clearBrowseFilters\(\)/);
@@ -44,10 +58,20 @@ test('V5 intentionally removes the floating sticky LINE CTA',()=>{
 });
 
 test('new storefront assets are cache-busted',()=>{
-  assert.match(html,/\/assets\/kk-storefront-v5\.css\?v=202610\d{2}-/);
-  assert.match(html,/script\.js\?v=storefront-[a-z0-9-]+-202610\d{2}/);
-  assert.doesNotMatch(html,/rel="preload" as="image" href="\/assets\/kk-brand-hero-final-20260920\.png"/);
-  assert.match(html,/<meta name="theme-color" content="#f4f6f8">/);
+  const cssAsset=html.match(/href="([^"\s]*\/assets\/kk-storefront-v5\.css\?[^"\s]+)"/)?.[1]||'';
+  const scriptAsset=html.match(/src="(script\.js\?[^"\s]+)"/)?.[1]||'';
+  assert.equal(hasDatedCacheVersion(cssAsset),true,'storefront CSS needs one dated cache version');
+  assert.equal(hasDatedCacheVersion(scriptAsset),true,'storefront JavaScript needs one dated cache version');
+  assert.equal(/rel="preload" as="image" href="\/assets\/kk-brand-hero-final-20260920\.png"/.test(html),false,'retired hero must not be preloaded');
+  assert.equal(/<meta name="theme-color" content="#f4f6f8">/.test(html),true,'default theme color remains present');
+});
+
+test('dated asset guard accepts existing and future calendar months without a fixed release prefix',()=>{
+  for(const asset of ['/assets/kk-storefront-v5.css?v=20261009-layout','script.js?v=storefront-v6-7-20261030','script.js?v=terms-evidence-20261106','script.js?v=layout-20270101'])assert.equal(hasDatedCacheVersion(asset),true,asset);
+});
+
+test('dated asset guard still rejects missing ambiguous and invalid cache versions',()=>{
+  for(const asset of ['script.js','script.js?v=','script.js?v=terms-evidence','script.js?v=release-20260230','script.js?v=release-20261301','script.js?v=terms-20261106&v=other-20261106','https://external.invalid/script.js?v=terms-20261106'])assert.equal(hasDatedCacheVersion(asset),false,asset);
 });
 
 
