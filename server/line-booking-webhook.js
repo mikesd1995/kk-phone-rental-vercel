@@ -231,9 +231,24 @@ async function processEvent(event, env=process.env, fetchImpl=fetch){
   if(!event || event.type!=='message' || !event.replyToken || !event.message || event.message.type!=='text') return {handled:false};
   const booking=parseBookingText(event.message.text);
   if(!booking) return {handled:false};
+  // Both resolvers read the same public Web Ready snapshot. Share this
+  // event-local in-flight read so a slow upstream does not double the fetch
+  // work before LINE's single-use reply token is consumed. No cross-event
+  // cache: a later customer request still observes current visibility/stock.
+  let webReadySnapshot;
+  const sharedFetch=async (url, options)=>{
+    if(url!==PUBLIC_DATA_BASE+WEB_READY_QUERY) return fetchImpl(url,options);
+    if(!webReadySnapshot) webReadySnapshot=Promise.resolve().then(()=>
+      fetchImpl(url,options)).then(async response=>({
+        ok:response.ok,
+        text:response.ok ? await response.text() : ''
+      }));
+    const snapshot=await webReadySnapshot;
+    return {ok:snapshot.ok,text:async()=>snapshot.text};
+  };
   const [poster,canonical]=await Promise.all([
-    resolvePoster(booking,fetchImpl).catch(()=> ''),
-    resolveCanonicalPackage(booking,fetchImpl).catch(()=> null)
+    resolvePoster(booking,sharedFetch).catch(()=> ''),
+    resolveCanonicalPackage(booking,sharedFetch).catch(()=> null)
   ]);
   booking.poster_image_url=poster;
 
