@@ -25,3 +25,9 @@ jobs:
           test "$(git rev-parse HEAD)" = "$PINNED_SHA"
           node --check tests/p0-webready-phone-owner-cutover-20261108.test.cjs
           node --test tests/p0-webready-phone-owner-cutover-20261108.test.cjs
+
+      - name: Full repository regression and syntax (offline, no provider credentials)
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run check
+          npm test
