@@ -11,7 +11,7 @@ test('processes booking and replies with Flex hero using canonical package price
 test('failed Web Ready read is shared and customer gets safe unconfirmed reply without booking mutation',async()=>{
  const calls=[];
  const event={type:'message',replyToken:'SYNTHETIC_REPLY',message:{
-  type:'text',text:'สนใจเช่า vivo X300 Pro + Lens\\nงาน : LYKN REFLEXION CONCERT\\nวันที่ : 18 ต.ค. 2026\\nสถานที่ : IMPACT Arena'
+  type:'text',text:'สนใจเช่า vivo X300 Pro + Lens\nงาน : LYKN REFLEXION CONCERT\nวันที่ : 18 ต.ค. 2026\nสถานที่ : IMPACT Arena'
  }};
  const fetchImpl=async(url,opt)=>{
    calls.push({url:String(url),opt});
