@@ -280,3 +280,14 @@ test('fresh verified private source retains availability while unverified advert
  assert.equal(row.phoneReady,true);assert.equal(row.bundleReady,true);
  assert.ok(row.gate.includes('ยังไม่ยืนยัน Production และ X Post Log สด'));
 });
+
+test('Owner Lock and Booking verification problems are tracked as separate QA worklists',()=>{
+ const noLock=positiveStockFixture({visibility_locks:[]});
+ const lockRow=Ops.normalize(noLock,NOW).records[0];
+ assert.ok(lockRow.qa.some(x=>x.includes('Owner Locks')));
+ assert.equal(lockRow.phoneReady,false);
+ const badBooking=positiveStockFixture({bookings:[{event_id:'EVT-20261203-BTS-ARIRANG',booking_id:'QA1',booking_status:'not_recognized'}]});
+ const bookingRow=Ops.normalize(badBooking,NOW).records[0];
+ assert.ok(bookingRow.qa.some(x=>x.includes('Booking ตรวจไม่ผ่าน')));
+ assert.equal(bookingRow.phoneReady,false);
+});
