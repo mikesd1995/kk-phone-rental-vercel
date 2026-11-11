@@ -11,7 +11,7 @@ const BOOKING = 'BK-20261112-001';
 const CUSTOMER = 'U' + 'c'.repeat(32);
 const OWNER = 'U' + 'o'.repeat(32);
 const HEADERS = ['outbox_id','booking_id','decision','state',
-  'retry_key','provider_message_id','updated_at','created_at'];
+  'retry_key','provider_message_id','recipient','message_type','updated_at','created_at'];
 const RETRY = '23ce4567-e89b-42d3-a456-426614174002';
 const env = () => ({
   KK_LINE_BOOKING_AUTOMATION_ENABLED: 'true',
@@ -94,6 +94,7 @@ function appsScriptHarness({outboxEnabled=true,header=HEADERS,booking='pending'}
     decide:p=>context.kkApiDecideLineBookingPendingDurable_(p),
     claim:p=>context.kkApiClaimLineBookingDecisionDelivery_(p),
     settle:p=>context.kkApiSettleLineBookingDecisionDelivery_(p),
+    readiness:()=>context.kkApiLineOwnerOutboxReadiness_(),
     bookingSheet,ledger,
     crashAtFlush:n=>{failOnFlush=n;},
     flushCount:()=>flushes
@@ -111,6 +112,9 @@ test('canonical Apps Script: INTENT is durable before booking status and READY',
   assert.equal(s.bookingSheet.rows[4][2],'confirmed');
   assert.equal(s.ledger.rows.length,2);
   assert.equal(s.ledger.rows[1][1],BOOKING);
+  assert.equal(s.ledger.rows[1][6],CUSTOMER);
+  assert.equal(s.ledger.rows[1][7],'CUSTOMER_DECISION');
+  assert.deepEqual(JSON.parse(JSON.stringify(s.readiness())),{outbox_mode:'KK_LINE_OWNER_OUTBOX_V1',ready:true,columns:10});
   assert.equal(s.ledger.rows[1][3],'READY');
   assert.match(s.ledger.rows[1][0],/^LINE_OWNER_V1_[a-f0-9]{48}$/);
   assert.equal(s.decide(decision).outbox_state,'READY');
@@ -191,6 +195,7 @@ function transport({initial='READY',provider='OK',claim='OK',settle='OK'}={}) {
   const fetchImpl=async(url,options)=>{
     const request=JSON.parse(options.body);calls.push({url,request,options});
     if(url.startsWith('https://script.google.com/')) {
+      if(request.action==='lineOwnerOutboxReadiness')return response({ok:true,outbox_mode:'KK_LINE_OWNER_OUTBOX_V1',ready:true,columns:10});
       const baseline={ok:true,booking_id:BOOKING,decision:'approve',outbox_id:outboxId,
         outbox_mode:'KK_LINE_OWNER_OUTBOX_V1'};
       if(request.action==='decideLineBookingPending')return response({
@@ -227,7 +232,7 @@ test('server: decision, claim, provider with durable retry key, settle, then own
   assert.equal(r.status,'CONFIRMED');assert.equal(r.delivery_status,'SENT');
   assert.equal(r.provider_receipt,true);assert.equal(r.customer_notifications,1);
   assert.deepEqual(t.calls.map(c=>c.url.startsWith('https://script.google.com/')?c.request.action:c.url.split('/').pop()),
-    ['decideLineBookingPending','claimLineBookingDecisionDelivery','push','settleLineBookingDecisionDelivery','reply']);
+    ['lineOwnerOutboxReadiness','decideLineBookingPending','claimLineBookingDecisionDelivery','push','settleLineBookingDecisionDelivery','reply']);
   const push=t.calls.find(c=>c.url.endsWith('/push'));
   assert.match(push.options.headers['X-Line-Retry-Key'],/^[0-9a-f-]{36}$/);
   assert.equal(push.request.to,CUSTOMER);
@@ -235,12 +240,12 @@ test('server: decision, claim, provider with durable retry key, settle, then own
 });
 test('server: already SENT does not claim, send or re-reply',async()=>{
   const t=transport({initial:'SENT'}),r=await approve(t);
-  assert.equal(r.status,'ALREADY_NOTIFIED');assert.equal(t.calls.length,1);
+  assert.equal(r.status,'ALREADY_NOTIFIED');assert.equal(t.calls.length,2);
 });
 test('server: refused claim cannot reach provider',async()=>{
   const t=transport({claim:'BAD'}),r=await approve(t);
   assert.equal(r.status,'DELIVERY_REVIEW_REQUIRED');
-  assert.equal(t.calls.length,2);
+  assert.equal(t.calls.length,3);
 });
 test('server: provider timeout/rejection/missing receipt all settle UNCERTAIN without resend',async()=>{
   for(const provider of ['THROW','FAIL','NO_RECEIPT']){
@@ -265,10 +270,33 @@ test('server: writer without outbox proof stops before claim and provider',async
   t.fetchImpl=async(url,opt)=>{
     const r=await fetchOrig(url,opt);
     if(url.startsWith('https://script.google.com/')){
-      const x=JSON.parse(await r.text());delete x.outbox_mode;return response(x);
+      const x=JSON.parse(await r.text());
+      if(JSON.parse(opt.body).action==='decideLineBookingPending')delete x.outbox_mode;
+      return response(x);
     }
     return r;
   };
   await assert.rejects(()=>approve(t),err=>err.code==='LINE_OWNER_OUTBOX_READBACK_REQUIRED');
-  assert.equal(t.calls.length,1);
+  assert.equal(t.calls.length,2);
+});
+
+test('server: unavailable outbox preflight blocks booking decision and provider',async()=>{
+  const t=transport(),original=t.fetchImpl;
+  t.fetchImpl=async(url,options)=>{
+    if(url.startsWith('https://script.google.com/') &&
+      JSON.parse(options.body).action==='lineOwnerOutboxReadiness'){
+      t.calls.push({url,request:JSON.parse(options.body),options});
+      return response({ok:false},503);
+    }
+    return original(url,options);
+  };
+  await assert.rejects(()=>approve(t),err=>err.code==='LINE_BOOKING_UPSTREAM_FAILED');
+  assert.deepEqual(t.calls.map(c=>c.request.action),['lineOwnerOutboxReadiness']);
+});
+test('canonical Apps Script: recipient drift after intent cannot authorize claim',()=>{
+  const s=appsScriptHarness(),r=s.decide(decision);
+  s.bookingSheet.rows[4][5]='U'+'z'.repeat(32);
+  assert.throws(()=>s.claim({...decision,outbox_id:r.outbox_id,retry_key:RETRY}),
+    /IDENTITY_OR_STATE_MISMATCH/);
+  assert.equal(s.ledger.rows[1][3],'READY');
 });
