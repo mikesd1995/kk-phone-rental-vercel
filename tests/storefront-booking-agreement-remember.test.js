@@ -66,7 +66,9 @@ function fixture({storageDenied=false,cookieDenied=false,shared}={}){
 test('the first-visit UI storage stays version-bound without asserting LINE evidence',()=>{
   assert.match(source,/var termsVersion = 'KK-TERMS-2026-11-06'/);
   assert.equal(Terms.VERSION,'KK-TERMS-2026-11-06');
-  assert.doesNotMatch(source,/fetch\(|sendBeacon|XMLHttpRequest|terms_accepted_at|line_user_id|service_role_key/i);
+  assert.doesNotMatch(source,/sendBeacon|XMLHttpRequest|terms_accepted_at|line_user_id|service_role_key/i);
+  assert.match(source,/customerLoginEnabled === true/);
+  assert.match(source,/if \(identityEnabled\) return remoteAccepted;/);
 });
 test('first website entry immediately shows unchecked Terms, not a checkout popup',()=>{
   const f=fixture();
