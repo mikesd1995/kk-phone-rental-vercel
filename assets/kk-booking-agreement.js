@@ -21,7 +21,8 @@
   var remoteAccepted = false;
   var csrf = '';
   var originalConfirmText = confirm.textContent;
-  var statusNote = document.querySelector('.kk-booking-agreement-note');
+  var statusNote = typeof document.querySelector === 'function' ?
+    document.querySelector('.kk-booking-agreement-note') : null;
   var originalNote = statusNote ? statusNote.textContent : '';
 
   // Version-bound, first-party functional storage. No names, phone or LINE IDs.
