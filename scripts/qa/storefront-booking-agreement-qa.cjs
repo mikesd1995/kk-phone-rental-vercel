@@ -137,7 +137,7 @@ async function runViewport(browser,width,scheme){
     await page.locator('#language-switch [data-lang="th"]').click();
     assert.equal(await page.locator('#kk-footer-terms-link').getAttribute('href'),'/terms/');
     assert.equal(await page.locator('#kk-footer-privacy-link').getAttribute('href'),'/privacy/');
-    assert.equal(await page.evaluate(()=>window.__kkQaApproved),2);
+    assert.equal(await page.evaluate(()=>window.__kkQaApproved),1,'after reload only one local synthetic click is counted');
     assert.equal(externalRequests.length,0,'QA must not reach LINE');
     return {width,scheme,acknowledgment:'PASS',no_provider_request:true,box,screenshots};
   }finally{
