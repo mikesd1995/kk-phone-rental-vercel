@@ -14,9 +14,20 @@
   var confirmedInPage = false;
   var lastFocused = null;
   var previousOverflow = '';
+  // OFF by default. Enabling requires deployed/verified API, LINE provider,
+  // private acceptance store and server release gates at the same exact SHA.
+  var identityEnabled = Boolean(window.KK_CONFIG && window.KK_CONFIG.customerLoginEnabled === true);
+  var identityState = identityEnabled ? 'loading' : 'disabled';
+  var remoteAccepted = false;
+  var csrf = '';
+  var originalConfirmText = confirm.textContent;
+  var statusNote = document.querySelector('.kk-booking-agreement-note');
+  var originalNote = statusNote ? statusNote.textContent : '';
 
   // Version-bound, first-party functional storage. No names, phone or LINE IDs.
   function hasSeenCurrentTermsPrompt() {
+    // Never mistake a browser cookie for a verified person when auth is ON.
+    if (identityEnabled) return remoteAccepted;
     if (confirmedInPage) return true;
     try {
       if (window.localStorage.getItem(promptKey) === termsVersion) return true;
@@ -63,15 +74,101 @@
     }
   }
 
-  check.addEventListener('change', function () {
-    confirm.disabled = !check.checked;
-  });
+  function updateIdentityUi() {
+    if (!identityEnabled) {
+      confirm.textContent = originalConfirmText;
+      if (statusNote) statusNote.textContent = originalNote;
+    } else if (identityState === 'guest') {
+      confirm.textContent = 'เชื่อม LINE เพื่อบันทึกการยอมรับ';
+      if (statusNote) statusNote.textContent =
+        'ต้องเชื่อมบัญชี LINE เพื่อบันทึกหลักฐานการยอมรับไว้หลังบ้าน หลังเข้าสู่ระบบกรุณากดยืนยันอีกครั้ง';
+    } else if (identityState === 'unavailable') {
+      confirm.textContent = 'ลองเชื่อม LINE อีกครั้ง';
+      if (statusNote) statusNote.textContent =
+        'ระบบบันทึกการยอมรับชั่วคราวไม่พร้อม ยังไม่บันทึกข้อมูล กรุณาลองใหม่';
+    } else {
+      confirm.textContent = originalConfirmText;
+      if (statusNote) statusNote.textContent =
+        'ระบบบันทึกการยอมรับฉบับปัจจุบันหลังบ้านเฉพาะ LINE ที่ยืนยันตัวตนแล้ว ไม่ใส่ข้อความเงื่อนไขใน LINE จอง';
+    }
+    confirm.disabled = !check.checked || identityState === 'loading' || identityState === 'saving';
+  }
+  check.addEventListener('change', updateIdentityUi);
 
-  // Explicit first-entry confirmation only. Never open LINE automatically.
-  confirm.addEventListener('click', function () {
+  async function loadVerifiedIdentity() {
+    if (!identityEnabled) return;
+    identityState = 'loading';
+    updateIdentityUi();
+    try {
+      var response = await window.fetch('/api/kk-customer-auth?action=session', {
+        method: 'GET', credentials: 'same-origin', cache: 'no-store',
+        headers: { Accept: 'application/json' }
+      });
+      // Do NOT fall back to localStorage when the verified backend was enabled.
+      if (!response.ok) throw new Error('SESSION_NOT_VERIFIED');
+      var session = await response.json();
+      if (!session || session.terms_version !== termsVersion) throw new Error('TERMS_VERSION_MISMATCH');
+      csrf = '';
+      if (session.authenticated === true) {
+        if (session.skip_agreement === true) {
+          remoteAccepted = true;
+          rememberCurrentTermsPrompt();
+          closeAgreement();
+          return;
+        }
+        csrf = typeof session.csrf === 'string' ? session.csrf : '';
+        if (!csrf) throw new Error('CSRF_UNAVAILABLE');
+        identityState = 'authenticated';
+      } else if (session.authenticated === false && session.skip_agreement === false) {
+        identityState = 'guest';
+      } else {
+        throw new Error('INVALID_SESSION_STATE');
+      }
+    } catch (_) {
+      identityState = 'unavailable';
+    }
+    updateIdentityUi();
+    openAgreement();
+  }
+
+  // Only an authenticated, affirmative POST with a verified DB readback counts.
+  // A login redirect does NOT record acceptance or reuse an unchecked browser flag.
+  confirm.addEventListener('click', async function () {
     if (!check.checked || confirm.disabled || gate.hidden) return;
-    rememberCurrentTermsPrompt();
-    closeAgreement();
+    if (!identityEnabled) {
+      rememberCurrentTermsPrompt();
+      closeAgreement();
+      return;
+    }
+    if (identityState === 'unavailable') {
+      await loadVerifiedIdentity();
+      return;
+    }
+    if (identityState === 'guest') {
+      window.location.assign('/api/kk-customer-auth?action=start');
+      return;
+    }
+    if (identityState !== 'authenticated' || !csrf) return;
+    identityState = 'saving';
+    updateIdentityUi();
+    try {
+      var response = await window.fetch('/api/kk-customer-auth?action=accept', {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'X-KK-CSRF': csrf },
+        body: JSON.stringify({ accept: true, terms_version: termsVersion })
+      });
+      if (!response.ok) throw new Error('ACCEPTANCE_WRITE_FAILED');
+      var receipt = await response.json();
+      if (!receipt || receipt.status !== 'ACCEPTED' || receipt.skip_agreement !== true ||
+          receipt.terms_version !== termsVersion) throw new Error('ACCEPTANCE_READBACK_REQUIRED');
+      remoteAccepted = true;
+      rememberCurrentTermsPrompt();
+      closeAgreement();
+    } catch (_) {
+      // No cookie and no LINE booking when the private acceptance write failed.
+      identityState = 'unavailable';
+      updateIdentityUi();
+    }
   });
 
   // A synthetic/programmatic click cannot skip an unanswered first-visit gate.
@@ -111,4 +208,5 @@
 
   // Defer executes after HTML parsing, before the customer can reach checkout.
   openAgreement();
+  if (identityEnabled) loadVerifiedIdentity();
 })();
