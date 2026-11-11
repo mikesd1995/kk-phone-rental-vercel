@@ -10,6 +10,8 @@
 1. Canonical `idempotent_replay: true` suppresses both customer push and owner reply; returns manual-delivery-review marker.
 2. Customer LINE push HTTP 503 is sanitized; owner success reply is not sent.
 3. Non-boolean canonical replay evidence fails closed without LINE sends.
+4. Ambiguous customer push transport failure cannot produce an owner success reply; provider exception details stay sanitized.
+5. Canonical booking identity mismatch prevents all LINE sends.
 
 These tests exercise local injected fetch mocks. They do not prove provider delivery, deployed Apps Script compatibility, or exactly-once semantics. Native exact-head CI must pass before any merge.
 
