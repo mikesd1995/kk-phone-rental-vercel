@@ -158,5 +158,12 @@ test('SQL migration is private source only and does not edit existing booking/in
   assert.match(sql,/revoke all on table public\.kk_customer_terms_evidence from public, anon, authenticated/);
   assert.match(sql,/on conflict \(provider_id, line_user_id, terms_version\) do nothing/);
   assert.match(sql,/grant execute on function public\.kk_customer_terms_accept/);
+  assert.match(sql,/create or replace function public\\.kk_customer_terms_lookup_for_line_webhook/);
+  assert.match(sql,/revoke all on function public\\.kk_customer_terms_lookup_for_line_webhook\\(text,text,text\\)/);
+  assert.match(sql,/grant execute on function public\\.kk_customer_terms_lookup_for_line_webhook\\(text,text,text\\)/);
+  assert.match(sql,/p_line_user_id ~ '\\^U\\[0-9a-f\\]\\{32\\}\\
+  assert.doesNotMatch(sql,/drop table|alter table public\.kk_inbox_|alter table public\.bookings/i);
+});
+/);
   assert.doesNotMatch(sql,/drop table|alter table public\.kk_inbox_|alter table public\.bookings/i);
 });
