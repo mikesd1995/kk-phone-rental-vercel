@@ -96,6 +96,7 @@ function appsScriptHarness({outboxEnabled=true,header=HEADERS,booking='pending'}
   vm.runInContext(source.slice(start,end),context,{filename:'AppsScriptOwnerOutbox.gs'});
   const api={
     decide:p=>context.kkApiDecideLineBookingPendingDurable_({...p,outbox_dispatch_key:DISPATCH}),
+    decideRaw:p=>context.kkApiDecideLineBookingPendingDurable_(p),
     claim:p=>context.kkApiClaimLineBookingDecisionDelivery_(p),
     settle:p=>context.kkApiSettleLineBookingDecisionDelivery_(p),
     readiness:p=>context.kkApiLineOwnerOutboxReadiness_(p),
@@ -362,8 +363,8 @@ test('server: readiness carries private dispatcher credential only to authentica
 
 test('canonical GAS: generic admin key cannot approve governed LINE booking without dispatcher',()=>{
   const s=appsScriptHarness();
-  const handler=s.decide;
-  assert.equal(typeof handler,'function');
+  assert.throws(()=>s.decideRaw(decision),/DISPATCH_UNAUTHORIZED/);
+  assert.throws(()=>s.decideRaw({...decision,outbox_dispatch_key:'wrong'}),/DISPATCH_UNAUTHORIZED/);
   assert.equal(s.bookingSheet.rows[4][2],'pending');
   assert.equal(s.ledger.rows.length,1);
   const source=fs.readFileSync(path.join(__dirname,'..','apps-script/Code.gs'),'utf8');
