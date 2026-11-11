@@ -95,7 +95,7 @@ function appsScriptHarness({outboxEnabled=true,header=HEADERS,booking='pending'}
   vm.createContext(context);
   vm.runInContext(source.slice(start,end),context,{filename:'AppsScriptOwnerOutbox.gs'});
   const api={
-    decide:p=>context.kkApiDecideLineBookingPendingDurable_(p),
+    decide:p=>context.kkApiDecideLineBookingPendingDurable_({...p,outbox_dispatch_key:DISPATCH}),
     claim:p=>context.kkApiClaimLineBookingDecisionDelivery_(p),
     settle:p=>context.kkApiSettleLineBookingDecisionDelivery_(p),
     readiness:p=>context.kkApiLineOwnerOutboxReadiness_(p),
@@ -206,9 +206,12 @@ function transport({initial='READY',provider='OK',claim='OK',settle='OK'}={}) {
       }
       const baseline={ok:true,booking_id:BOOKING,decision:'approve',outbox_id:outboxId,
         outbox_mode:'KK_LINE_OWNER_OUTBOX_V1'};
-      if(request.action==='decideLineBookingPending')return response({
+      if(request.action==='decideLineBookingPending'){
+        if(request.outbox_dispatch_key!==DISPATCH)return response({ok:false},403);
+        return response({
         ...baseline,booking_status:'confirmed',idempotent_replay:true,outbox_state:initial,customer_contact:CUSTOMER
-      });
+        });
+      }
       if(request.action==='claimLineBookingDecisionDelivery'){
         if(claim==='BAD')return response({...baseline,claimed:false,outbox_state:'CLAIMED'});
         return response({...baseline,claimed:true,retry_key:request.retry_key,
@@ -355,4 +358,21 @@ test('server: readiness carries private dispatcher credential only to authentica
   assert.match(readiness.url,/^https:\/\/script\.google\.com\/macros\/s\//);
   assert.equal(readiness.request.outbox_dispatch_key,DISPATCH);
   assert.equal(t.calls.filter(c=>c.request.action==='decideLineBookingPending').length,1);
+});
+
+test('canonical GAS: generic admin key cannot approve governed LINE booking without dispatcher',()=>{
+  const s=appsScriptHarness();
+  const handler=s.decide;
+  assert.equal(typeof handler,'function');
+  assert.equal(s.bookingSheet.rows[4][2],'pending');
+  assert.equal(s.ledger.rows.length,1);
+  const source=fs.readFileSync(path.join(__dirname,'..','apps-script/Code.gs'),'utf8');
+  assert.match(source,/function kkApiDecideLineBookingPendingDurable_\(payload\)\s*\{[\s\S]{0,320}kkLineOwnerOutboxRequireDispatch_\(payload\)/);
+  assert.match(source,/key === 'outbox_dispatch_key'/);
+});
+test('server: authenticated canonical decision includes dispatch credential',async()=>{
+  const t=transport();
+  await approve(t);
+  const change=t.calls.find(c=>c.request.action==='decideLineBookingPending');
+  assert.equal(change.request.outbox_dispatch_key,DISPATCH);
 });
