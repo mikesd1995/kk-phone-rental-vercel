@@ -1461,10 +1461,10 @@ function doPost(e) {
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
     }
-    if (action && !['snapshot','phase1Health','privateCoreRead','lineDecisionOutboxReadiness','inspectLineBookingDecisionDelivery'].includes(action)) kkAuditLog_(action, payload, result, startedAt);
+    if (action && !['lineDecisionOutboxReadiness','inspectLineBookingDecisionDelivery'].includes(action) && action !== 'snapshot' && action !== 'phase1Health' && action !== 'privateCoreRead') kkAuditLog_(action, payload, result, startedAt);
     return kkApiJson_(kkApiOk_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, result || {})));
   } catch (err) {
-    if (keyOk && !['privateCoreRead','lineDecisionOutboxReadiness','inspectLineBookingDecisionDelivery'].includes(action)) kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
+    if (keyOk && !['lineDecisionOutboxReadiness','inspectLineBookingDecisionDelivery'].includes(action) && action !== 'privateCoreRead') kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
     if(action==='privateCoreRead') return kkApiJson_({ok:false,admin_api_version:KK_ADMIN_VERSION,error_code:'PRIVATE_CORE_READ_UNAVAILABLE',error:'Private Core read unavailable'});
     return kkApiJson_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, kkApiFail_(err)));
   }
