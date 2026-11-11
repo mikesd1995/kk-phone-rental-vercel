@@ -389,21 +389,21 @@ function applyPublicLegalLanguage(){
   var copy=isEn?{
     footerCustomer:"Customer support",footerSteps:"How to rent",footerLine:"Contact LINE OA",
     footerPolicies:"Information & policies",footerTerms:"Terms of Service",footerPrivacy:"Privacy Policy",
-    dialogKicker:"Before booking",dialogTitle:"Review rental terms",
-    dialogDescription:"Review the terms before opening LINE to send a booking or waitlist enquiry.",
+    dialogKicker:"Before browsing",dialogTitle:"Review rental terms",
+    dialogDescription:"Please review and confirm the rental terms once before browsing events. LINE bookings will then open without a second prompt.",
     checkPrefix:"I have read and accept ",checkTerms:"the Terms of Service",
     checkMiddle:" and acknowledge ",checkPrivacy:"the Privacy Policy",
-    dialogNote:"We prepare an acknowledgement of the 6 November 2026 Terms in your LINE draft. Review it and press Send yourself. The booking is not confirmed until the shop responds and confirms it.",
-    cancel:"Cancel",continueLine:"Accept and open LINE"
+    dialogNote:"We remember this confirmation for the current Terms version in this browser only. No legal acknowledgement is added to the LINE draft. Please send your enquiry in LINE and wait for the shop to confirm availability.",
+    continueLine:"Confirm and browse events"
   }:{
     footerCustomer:"บริการลูกค้า",footerSteps:"ขั้นตอนการเช่า",footerLine:"ติดต่อ LINE OA",
     footerPolicies:"ข้อมูลและข้อตกลง",footerTerms:"เงื่อนไขการใช้บริการ",footerPrivacy:"นโยบายความเป็นส่วนตัว",
-    dialogKicker:"ก่อนดำเนินการจอง",dialogTitle:"ยืนยันเงื่อนไขการเช่า",
-    dialogDescription:"โปรดตรวจสอบเงื่อนไขก่อนเปิด LINE เพื่อส่งคำขอจองหรือจองคิวหลุด",
+    dialogKicker:"ก่อนเริ่มใช้งาน",dialogTitle:"ยืนยันเงื่อนไขการเช่า",
+    dialogDescription:"อ่านเงื่อนไขและกดยืนยันครั้งแรกก่อนเลือกงาน จากนั้นจองผ่าน LINE ได้ตามปกติ",
     checkPrefix:"ฉันได้อ่านและยอมรับ ",checkTerms:"เงื่อนไขการใช้บริการ",
     checkMiddle:" และรับทราบ ",checkPrivacy:"นโยบายความเป็นส่วนตัว",
-    dialogNote:"ระบบจะเตรียมข้อความยอมรับเงื่อนไขฉบับ 6 พ.ย. 2569 ต่อท้ายคำขอใน LINE ลูกค้าต้องตรวจสอบและกดส่งเอง จึงจะมีข้อความยืนยันในแชต คิวยังไม่สำเร็จจนกว่าร้านยืนยัน",
-    cancel:"ยกเลิก",continueLine:"ยอมรับและเปิด LINE"
+    dialogNote:"ระบบจะจำการกดยืนยันสำหรับเบราว์เซอร์และเงื่อนไขฉบับนี้เท่านั้น โดยไม่แนบข้อความเงื่อนไขซ้ำใน LINE กรุณากดส่งคำขอใน LINE และรอร้านยืนยันคิว",
+    continueLine:"ยืนยันและเลือกงาน"
   };
   var values=[
     ["#kk-footer-customer-title",copy.footerCustomer],
@@ -418,7 +418,6 @@ function applyPublicLegalLanguage(){
     [".kk-terms-check-prefix",copy.checkPrefix],
     [".kk-terms-check-middle",copy.checkMiddle],
     [".kk-booking-agreement-note",copy.dialogNote],
-    ["#kk-booking-terms-cancel",copy.cancel],
     ["#kk-booking-terms-continue",copy.continueLine]
   ];
   values.forEach(function(entry){
@@ -1580,9 +1579,7 @@ function buildBookingMsg(c,p){
     "",
     "👤 "+tr("line_nickname")+": ",
     "📞 "+tr("line_phone")+": ",
-    "",
-    "✅ ยืนยันยอมรับเงื่อนไขการเช่า KK Phone Rental (KK-TERMS-2026-11-06)",
-    "ℹ️ รับทราบนโยบายความเป็นส่วนตัว: https://kk-phone-rental.vercel.app/privacy/"
+
   ].join("\n");
 }
 function getBookingUrl(c,p){ return LINE_OA+encodeURIComponent(buildBookingMsg(c,p)); }
@@ -1597,9 +1594,7 @@ function buildWaitlistMsg(c,p){
     tr("line_nickname")+" : ",
     tr("line_phone")+" : ",
     tr("waitlist_note"),
-    "",
-    "✅ ยืนยันยอมรับเงื่อนไขการเช่า KK Phone Rental (KK-TERMS-2026-11-06)",
-    "ℹ️ รับทราบนโยบายความเป็นส่วนตัว: https://kk-phone-rental.vercel.app/privacy/"
+
   ].join("\n");
 }
 function getWaitlistUrl(c,p){ return LINE_OA+encodeURIComponent(buildWaitlistMsg(c,p)); }

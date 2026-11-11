@@ -1,11 +1,10 @@
 'use strict';
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
-const Terms = require('../server/kk-booking-terms-evidence');
-
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const vm=require('node:vm');
+const Terms=require('../server/kk-booking-terms-evidence');
 const source=fs.readFileSync(path.resolve(__dirname,'../assets/kk-booking-agreement.js'),'utf8');
 
 function fixture({storageDenied=false,cookieDenied=false,shared}={}){
@@ -18,20 +17,17 @@ function fixture({storageDenied=false,cookieDenied=false,shared}={}){
       querySelectorAll(){return [];}
     };
   }
-  const [gate,dialog,check,confirm,cancel]=Array.from({length:5},element);
-  gate.hidden=true;
-  confirm.disabled=true;
+  const [gate,dialog,check,confirm]=Array.from({length:4},element);
+  gate.hidden=true;confirm.disabled=true;
   const ids={
     'kk-booking-agreement':gate,
     'kk-booking-agreement-dialog':dialog,
     'kk-booking-terms-check':check,
-    'kk-booking-terms-continue':confirm,
-    'kk-booking-terms-cancel':cancel
+    'kk-booking-terms-continue':confirm
   };
   const document={
     get cookie(){if(cookieDenied)throw Error('cookies denied');return cookieJar.raw;},
-    set cookie(value){
-      if(cookieDenied)throw Error('cookies denied');
+    set cookie(value){if(cookieDenied)throw Error('cookies denied');
       const part=String(value).split(';')[0];
       cookieJar.raw=cookieJar.raw.split('; ').filter(x=>x&&!x.startsWith(part.split('=')[0]+'=')).concat(part).join('; ');
     },
@@ -55,101 +51,95 @@ function fixture({storageDenied=false,cookieDenied=false,shared}={}){
     if(!prevented)navigations++;
     return prevented;
   }
-  const line={href:'https://line.me/R/ti/p/%40827blnmo',click(){dispatch(line);}};
-  const unrelated={href:'https://example.com/',click(){dispatch(unrelated);}};
+  function escape(){
+    let prevented=false;
+    listeners.get('keydown')({key:'Escape',preventDefault(){prevented=true;},stopImmediatePropagation(){}});
+    return prevented;
+  }
+  const line={href:'https://line.me/R/ti/p/%40827blnmo'};
+  const unrelated={href:'https://example.com/'};
   vm.runInNewContext(source,{document,window,location:{href:'https://kk-phone-rental.vercel.app/'},URL});
-  return {gate,check,confirm,cancel,line,unrelated,values,cookieJar,dispatch,
-    get navigations(){return navigations;},
-    get blockedClicks(){return blockedClicks;}
+  return {gate,check,confirm,line,unrelated,values,cookieJar,dispatch,escape,
+    get navigations(){return navigations;},get blockedClicks(){return blockedClicks;}
   };
 }
-test('the UI storage version stays aligned with the signed LINE terms marker',()=>{
+test('the first-visit UI storage stays version-bound without asserting LINE evidence',()=>{
   assert.match(source,/var termsVersion = 'KK-TERMS-2026-11-06'/);
   assert.equal(Terms.VERSION,'KK-TERMS-2026-11-06');
+  assert.doesNotMatch(source,/fetch\(|sendBeacon|XMLHttpRequest|terms_accepted_at|line_user_id|service_role_key/i);
 });
-test('first booking remains opt-in; only explicit confirmation remembers UX and preserves LINE link',()=>{
+test('first website entry immediately shows unchecked Terms, not a checkout popup',()=>{
   const f=fixture();
-  assert.equal(f.dispatch(f.line),true);
   assert.equal(f.gate.hidden,false);
   assert.equal(f.check.checked,false);
   assert.equal(f.confirm.disabled,true);
+  assert.equal(f.dispatch(f.line),true,'do not allow LINE until first entry confirmed');
   assert.equal(f.navigations,0);
   f.check.checked=true;
   f.check.handlers.change();
-  assert.equal(f.confirm.disabled,false);
   f.confirm.handlers.click();
   assert.equal(f.gate.hidden,true);
-  assert.equal(f.navigations,1);
+  assert.equal(f.navigations,0,'confirmation must never launch LINE');
   assert.equal(f.values.get('kk_booking_terms_prompt_version'),Terms.VERSION);
   assert.match(f.cookieJar.raw,/kk_booking_terms_prompt_version=KK-TERMS-2026-11-06/);
-  assert.equal(f.dispatch(f.line),false,'repeat booking opens LINE without another prompt');
-  assert.equal(f.gate.hidden,true);
+  assert.equal(f.dispatch(f.line),false,'first booking opens LINE directly');
+  assert.equal(f.dispatch(f.line),false,'repeat booking never reopens a modal');
   assert.equal(f.navigations,2);
 });
-test('cancelling cannot write browser acknowledgement',()=>{
+test('Escape cannot silently bypass mandatory first-entry confirmation',()=>{
   const f=fixture();
-  f.dispatch(f.line);
-  f.cancel.handlers.click();
-  assert.equal(f.gate.hidden,true);
+  assert.equal(f.escape(),true);
+  assert.equal(f.gate.hidden,false);
   assert.equal(f.values.size,0);
   assert.equal(f.dispatch(f.line),true);
 });
-test('a changed Terms version forces a fresh unchecked acknowledgement',()=>{
-  const f=fixture();
-  f.values.set('kk_booking_terms_prompt_version','KK-TERMS-2026-11-05');
-  assert.equal(f.dispatch(f.line),true);
+test('version changes trigger immediate first-entry prompt, before any booking click',()=>{
+  const shared={values:new Map([['kk_booking_terms_prompt_version','KK-TERMS-2026-11-05']]),cookieJar:{raw:''}};
+  const f=fixture({shared});
   assert.equal(f.gate.hidden,false);
   assert.equal(f.check.checked,false);
+  assert.equal(f.confirm.disabled,true);
 });
-test('cookie fallback remembers current version across a fresh document when localStorage is denied',()=>{
+test('same browser reload skips the first-entry prompt for current version',()=>{
   const shared={values:new Map(),cookieJar:{raw:''}};
-  const f=fixture({storageDenied:true,shared});
-  f.dispatch(f.line);
-  f.check.checked=true;
-  f.check.handlers.change();
-  f.confirm.handlers.click();
-  assert.equal(f.navigations,1);
-  assert.match(shared.cookieJar.raw,/kk_booking_terms_prompt_version=KK-TERMS-2026-11-06/);
-  const next=fixture({storageDenied:true,shared});
-  assert.equal(next.dispatch(next.line),false,'cookie must skip repeat popup after a new page load');
+  const first=fixture({shared});
+  first.check.checked=true;first.check.handlers.change();first.confirm.handlers.click();
+  const next=fixture({shared});
   assert.equal(next.gate.hidden,true);
-});
-
-test('localStorage persists current-version preference across fresh document even when cookie is denied',()=>{
-  const shared={values:new Map(),cookieJar:{raw:''}};
-  const f=fixture({cookieDenied:true,shared});
-  f.dispatch(f.line);
-  f.check.checked=true;
-  f.check.handlers.change();
-  f.confirm.handlers.click();
-  assert.equal(shared.values.get('kk_booking_terms_prompt_version'),Terms.VERSION);
-  const next=fixture({cookieDenied:true,shared});
   assert.equal(next.dispatch(next.line),false);
 });
-
-test('both storage APIs denied still remember only within current page, never across reloads',()=>{
-  const f=fixture({storageDenied:true,cookieDenied:true});
-  f.dispatch(f.line);
-  f.check.checked=true;
-  f.check.handlers.change();
-  f.confirm.handlers.click();
-  assert.equal(f.dispatch(f.line),false,'no duplicate prompt in this page after explicit confirmation');
-  const next=fixture({storageDenied:true,cookieDenied:true});
-  assert.equal(next.dispatch(next.line),true,'fresh page safely re-prompts when persistence unavailable');
+test('cookie fallback remembers entry confirmation when localStorage is blocked',()=>{
+  const shared={values:new Map(),cookieJar:{raw:''}};
+  const first=fixture({storageDenied:true,shared});
+  assert.equal(first.gate.hidden,false);
+  first.check.checked=true;first.check.handlers.change();first.confirm.handlers.click();
+  assert.match(shared.cookieJar.raw,/KK-TERMS-2026-11-06/);
+  const next=fixture({storageDenied:true,shared});
+  assert.equal(next.gate.hidden,true);
+  assert.equal(next.dispatch(next.line),false);
 });
-
-test('stale cookie and localStorage must never skip changed Terms',()=>{
-  const shared={values:new Map(),cookieJar:{raw:'kk_booking_terms_prompt_version=KK-TERMS-2026-11-05'}};
-  const f=fixture({storageDenied:true,shared});
-  assert.equal(f.dispatch(f.line),true);
-  assert.equal(f.check.checked,false);
+test('localStorage fallback remembers entry confirmation when cookies are blocked',()=>{
+  const shared={values:new Map(),cookieJar:{raw:''}};
+  const first=fixture({cookieDenied:true,shared});
+  first.check.checked=true;first.check.handlers.change();first.confirm.handlers.click();
+  const next=fixture({cookieDenied:true,shared});
+  assert.equal(next.gate.hidden,true);
 });
-test('unrelated links are untouched and no server claims are made from local UX storage',()=>{
+test('when both storages are denied, only the current page remembers and next entry prompts',()=>{
+  const first=fixture({cookieDenied:true,storageDenied:true});
+  first.check.checked=true;first.check.handlers.change();first.confirm.handlers.click();
+  assert.equal(first.dispatch(first.line),false);
+  const second=fixture({cookieDenied:true,storageDenied:true});
+  assert.equal(second.gate.hidden,false);
+});
+test('stale first-party cookie cannot bypass updated Terms',()=>{
+  const f=fixture({storageDenied:true,shared:{values:new Map(),cookieJar:{raw:'kk_booking_terms_prompt_version=KK-TERMS-2026-11-05'}}});
+  assert.equal(f.gate.hidden,false);
+});
+test('unrelated link is not intercepted by LINE safety guard',()=>{
   const f=fixture();
   assert.equal(f.dispatch(f.unrelated),false);
-  assert.equal(f.gate.hidden,true);
+  assert.equal(f.gate.hidden,false);
   assert.match(source,/SameSite=Lax; Secure/);
   assert.match(source,/Max-Age=/);
-  assert.doesNotMatch(source,/fetch\(|sendBeacon|XMLHttpRequest/i);
-  assert.doesNotMatch(source,/terms_accepted_at|line_user_id|service_role_key/i);
 });
