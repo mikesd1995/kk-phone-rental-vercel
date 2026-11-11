@@ -235,7 +235,10 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
   const result=await appsScriptCall({
     action:'decideLineBookingPending',
     booking_id:parsed.booking_id,
-    decision
+    decision,
+    ...(enabled(env.KK_LINE_OWNER_OUTBOX_V1_ENABLED) ? {
+      outbox_dispatch_key:text(env.KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET)
+    } : {})
   },env,fetchImpl);
   const data=result&&result.data||result||{};
   // The canonical writer must confirm the same booking we authorized.
