@@ -213,7 +213,7 @@ test('GAS zero-write readiness proves private owner flag and does not audit or m
   const full=fs.readFileSync(path.join(__dirname,'../apps-script/Code.gs'),'utf8');
   assert.match(full,/action !== 'privateCoreRead'|privateCoreRead/);
   for(const action of ['lineDecisionOutboxReadiness','inspectLineBookingDecisionDelivery']){
-    const auditGuard=full.split('\n').find(line=>line.includes('kkAuditLog_(action, payload, result, startedAt)'))||'';
+    const auditGuard=full.split('\n').find(line=>line.includes('includes(action)) kkAuditLog_(action, payload, result, startedAt)'))||'';
     const errorGuard=full.split('\n').find(line=>line.includes('kkErrorLog_(action || (payload && payload.action) ||'))||'';
     assert.ok(auditGuard.includes(action),'read-only action must skip write-audit');
     assert.ok(errorGuard.includes(action),'read-only action must skip error-audit');
