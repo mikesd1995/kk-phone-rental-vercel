@@ -97,3 +97,51 @@ test('canonical decision response must include boolean replay evidence before an
   );
   assert.equal(sends, 0);
 });
+
+test('ambiguous transport failure after canonical commit never sends owner success', async () => {
+  const e = env();
+  const calls = [];
+  await assert.rejects(
+    () => Approval.processOwnerPostback(event('BK-TRANSPORT-UNKNOWN', e), e, async url => {
+      calls.push(url);
+      if (url.startsWith('https://script.google.com/')) {
+        return ok({
+          ok: true,
+          booking_id: 'BK-TRANSPORT-UNKNOWN',
+          booking_status: 'confirmed',
+          decision: 'approve',
+          idempotent_replay: false,
+          customer_contact: 'UCUSTOMER'
+        });
+      }
+      throw new Error('synthetic network error containing customer data');
+    }),
+    err => err && err.code === 'LINE_SEND_TRANSPORT_FAILED' &&
+      !String(err.message).includes('customer data')
+  );
+  assert.equal(calls.filter(url => /\/push$/.test(url)).length, 1);
+  assert.equal(calls.some(url => /\/reply$/.test(url)), false);
+});
+
+test('mismatched canonical booking identity blocks every LINE send', async () => {
+  const e = env();
+  let lineSends = 0;
+  await assert.rejects(
+    () => Approval.processOwnerPostback(event('BK-EXPECTED', e), e, async url => {
+      if (url.startsWith('https://script.google.com/')) {
+        return ok({
+          ok: true,
+          booking_id: 'BK-OTHER',
+          booking_status: 'confirmed',
+          decision: 'approve',
+          idempotent_replay: false,
+          customer_contact: 'UCUSTOMER'
+        });
+      }
+      lineSends++;
+      return ok({ ok: true });
+    }),
+    err => err && err.code === 'LINE_OWNER_DECISION_BOOKING_ID_MISMATCH'
+  );
+  assert.equal(lineSends, 0);
+});
