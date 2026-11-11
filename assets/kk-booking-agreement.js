@@ -13,17 +13,35 @@
   var bookingSelector = 'a.book-pill, a.waitlist-line-btn, a.sticky-line, a.line-btn';
   var termsVersion = 'KK-TERMS-2026-11-06';
   var promptKey = 'kk_booking_terms_prompt_version';
+  var cookieMaxAgeSeconds = 60 * 60 * 24 * 180;
+  var confirmedInPage = false;
 
-  // UI convenience only. Do not store identity, booking data, proof or secrets.
-  // Private mode/storage-disabled browsers correctly fall back to the checkbox.
+  // A functional first-party cookie backs up localStorage in browsers/WebViews
+  // where one storage API is denied. Neither record contains personal data or
+  // constitutes booking acceptance: only the customer-sent LINE message does.
   function hasSeenCurrentTermsPrompt() {
-    try { return window.localStorage.getItem(promptKey) === termsVersion; }
-    catch (_error) { return false; }
+    if (confirmedInPage) return true;
+    try {
+      if (window.localStorage.getItem(promptKey) === termsVersion) return true;
+    } catch (_error) { /* Try first-party cookie next. */ }
+    try {
+      return String(document.cookie || '').split(';').some(function (part) {
+        var pair = part.trim().split('=');
+        return pair.length === 2 &&
+          pair[0] === promptKey && decodeURIComponent(pair[1]) === termsVersion;
+      });
+    } catch (_error) { return false; }
   }
 
   function rememberCurrentTermsPrompt() {
+    // Only reached after an explicit, unchecked-by-default confirmation.
+    confirmedInPage = true;
     try { window.localStorage.setItem(promptKey, termsVersion); }
-    catch (_error) { /* No persistence: continue the safe existing LINE flow. */ }
+    catch (_error) { /* Functional cookie can still remember the prompt. */ }
+    try {
+      document.cookie = promptKey + '=' + encodeURIComponent(termsVersion) +
+        '; Path=/; Max-Age=' + cookieMaxAgeSeconds + '; SameSite=Lax; Secure';
+    } catch (_error) { /* Same-page memory works; next visit will prompt again. */ }
   }
   var pending = null;
   var approved = null;
