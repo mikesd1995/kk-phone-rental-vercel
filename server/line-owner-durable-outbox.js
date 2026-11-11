@@ -56,7 +56,8 @@ async function deliverDecision(context = {}, deps = {}) {
       {delivery_status: val(data.outbox_state) || 'UNKNOWN'});
   }
   if (typeof deps.appsScriptCall !== 'function'
-      || !deps.lineToken || typeof deps.fetchImpl !== 'function') {
+      || !deps.lineToken || !/^[A-Za-z0-9_-]{32,128}$/.test(val(deps.dispatchSecret))
+      || typeof deps.fetchImpl !== 'function') {
     const err = new Error('Durable owner notification transport unavailable');
     err.code = 'LINE_OWNER_OUTBOX_DEPENDENCIES_MISSING';
     throw err;
@@ -67,7 +68,8 @@ async function deliverDecision(context = {}, deps = {}) {
   try {
     claim = extract(await deps.appsScriptCall({
       action: 'claimLineBookingDecisionDelivery',
-      booking_id: bookingId, decision, outbox_id: outboxId, retry_key: retryKey
+      booking_id: bookingId, decision, outbox_id: outboxId, retry_key: retryKey,
+      outbox_dispatch_key: deps.dispatchSecret
     }));
   } catch (_) {
     return status(bookingId, 'DELIVERY_REVIEW_REQUIRED', {delivery_status: 'CLAIM_UNCERTAIN'});
@@ -87,7 +89,7 @@ async function deliverDecision(context = {}, deps = {}) {
       action: 'settleLineBookingDecisionDelivery',
       booking_id: bookingId, decision, outbox_id: outboxId,
       retry_key: retryKey, delivery_state: deliveryState,
-      provider_message_id: providerMessageId || ''
+      provider_message_id: providerMessageId || '',outbox_dispatch_key:deps.dispatchSecret
     }));
     if (!consistent(ack, bookingId, decision, outboxId) || ack.outbox_state !== deliveryState
         || (deliveryState === 'SENT' && val(ack.provider_message_id) !== providerMessageId)) {
