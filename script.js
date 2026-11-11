@@ -1270,15 +1270,13 @@ function getMonthOptions(concerts){
 }
 function availPkgs(c){ return (c.packages||[]).filter(function(p){return p.avail;}); }
 function availCnt(c){
-  // Event-level stock is the canonical shared pool. Never use MAX(package counts):
-  // phone_only and phone_lens_bundle draw from the same phones, so taking MAX can
-  // make a booked phone appear available again.
-  var ap=availPkgs(c);
-  var hasPhone=ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";});
-  var hasLensOnly=ap.some(function(p){return p.type==="lens_only";});
-  if(hasPhone) return Math.max(0,toNum(c&&c.phoneCnt));
-  if(hasLensOnly) return Math.max(0,toNum(c&&c.lensCnt));
-  return 0;
+  // Count NEW PHONE rentals only: lens-only availability is not phone stock.
+  // An explicit owner FULL/waitlist action wins over stale positive counts.
+  if(!c || String(c.action||"").toLowerCase()==="show_full")return 0;
+  var hasPhone=availPkgs(c).some(function(p){
+    return p.type==="phone_only"||p.type==="phone_lens_bundle";
+  });
+  return hasPhone ? Math.max(0,toNum(c.phoneCnt)) : 0;
 }
 function availTextFor(c){
   var ap=availPkgs(c), cnt=availCnt(c);
@@ -1586,6 +1584,22 @@ function buildBookingMsg(c,p){
   ].join("\n");
 }
 function getBookingUrl(c,p){ return LINE_OA+encodeURIComponent(buildBookingMsg(c,p)); }
+// A standalone lens can be an add-on to an existing rental; it must never
+// be interpreted as a new PHONE reservation by the signed LINE booking intake.
+function buildExistingRenterLensMsg(c,p){
+  return [
+    "สอบถามเพิ่มเลนส์สำหรับผู้จองมือถือแล้ว",
+    "🎫 "+tr("line_event")+": "+lineVal(c&&c.name),
+    "📅 "+tr("line_date")+": "+lineVal(c&&c.date),
+    "📍 "+tr("line_venue")+": "+lineVal(c&&c.venue),
+    "🔭 "+(currentLang==="en"?"Lens requested":"เลนส์ที่ต้องการ")+": "+lineVal(p&&p.model),
+    "🔖 รหัสจองมือถือเดิม: ",
+    "",
+    "✅ ยืนยันยอมรับเงื่อนไขการเช่า KK Phone Rental (KK-TERMS-2026-11-06)",
+    "ℹ️ รับทราบนโยบายความเป็นส่วนตัว: https://kk-phone-rental.vercel.app/privacy/"
+  ].join("\n");
+}
+function getExistingRenterLensUrl(c,p){return LINE_OA+encodeURIComponent(buildExistingRenterLensMsg(c,p));}
 function buildWaitlistMsg(c,p){
   return [
     tr("waitlist_title"),
@@ -1633,8 +1647,12 @@ function showModal(c,options){
 
   var list=document.getElementById("phone-list"); list.innerHTML="";
   var avail=availPkgs(c);
+  var phoneIsFull=availCnt(c)<=0;
 
-  if(!avail.length){
+  // If the only available item is a detachable lens, the EVENT is still
+  // fully booked for new phone rentals. Offer a true phone waitlist plus an
+  // explicitly separate lens inquiry for customers with an existing booking.
+  if(!avail.length || phoneIsFull){
     var fullBox=document.createElement("div");
     fullBox.className="full-booked-box waitlist-box";
     fullBox.textContent=tr("full_title");
@@ -1651,6 +1669,22 @@ function showModal(c,options){
     };
     fullBox.appendChild(waitBtn);
     list.appendChild(fullBox);
+    var existingRenterLens=avail.find(function(p){return p.type==="lens_only";});
+    if(existingRenterLens){
+      var lensAsk=document.createElement("a");
+      lensAsk.className="waitlist-line-btn";
+      lensAsk.href=getExistingRenterLensUrl(c,existingRenterLens);
+      lensAsk.target="_blank";
+      lensAsk.rel="noopener";
+      lensAsk.textContent=currentLang==="en"
+        ? "Already renting a phone? Ask about a lens add-on"
+        : "มีจองมือถือแล้ว? สอบถามเพิ่มเลนส์";
+      lensAsk.onclick=function(e){
+        e.stopPropagation();
+        track("lens_addon_inquiry_click",{event_id:c.id||"",event_name:c.name,source:"modal_phone_full"});
+      };
+      list.appendChild(lensAsk);
+    }
     openModal(); return;
   }
 
@@ -1669,13 +1703,22 @@ function showModal(c,options){
     } else {
       priceEl.textContent=tr("ask_price");
     }
-    var bookBtn=document.createElement("a"); bookBtn.className="badge book-pill"; bookBtn.textContent=p.inquiryOnly?tr("ask_this"):tr("book_this");
-    bookBtn.href=getBookingUrl(c,p); bookBtn.target="_blank"; bookBtn.rel="noopener";
-    bookBtn.setAttribute("aria-label",tr("book_aria",{package:p.model||"",event:c.name||""}));
+    var bookBtn=document.createElement("a"); bookBtn.className="badge book-pill";
+    var isExistingRenterLens=p.type==="lens_only";
+    bookBtn.textContent=isExistingRenterLens
+      ? (currentLang==="en"?"Ask for lens add-on":"สอบถามเพิ่มเลนส์ (มีจองมือถือแล้ว)")
+      : (p.inquiryOnly?tr("ask_this"):tr("book_this"));
+    bookBtn.href=isExistingRenterLens?getExistingRenterLensUrl(c,p):getBookingUrl(c,p);
+    bookBtn.target="_blank"; bookBtn.rel="noopener";
+    bookBtn.setAttribute("aria-label",isExistingRenterLens?bookBtn.textContent+": "+(p.model||"")+" - "+(c.name||""):tr("book_aria",{package:p.model||"",event:c.name||""}));
     // NEW: GA4 track booking click
     bookBtn.onclick=function(e){
       e.stopPropagation();
-      track("booking_click",{event_id:c.id||"", event_name:c.name, package_type:p.type||"", package:p.model, price:p.price, source:"modal"});
+      track(isExistingRenterLens?"lens_addon_inquiry_click":"booking_click",{
+        event_id:c.id||"",event_name:c.name,package_type:p.type||"",
+        package:p.model,price:p.price,
+        source:isExistingRenterLens?"modal_existing_renter_lens":"modal"
+      });
     };
     right.appendChild(priceEl); right.appendChild(bookBtn);
     row.appendChild(icon); row.appendChild(info); row.appendChild(right); list.appendChild(row);
