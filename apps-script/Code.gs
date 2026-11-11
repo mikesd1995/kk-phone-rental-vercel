@@ -1765,13 +1765,14 @@ function doPost(e) {
       case 'createBooking': result = kkApiCreateBooking_(payload); break;
       case 'createLineBookingPending': result = kkApiCreateLineBookingPending_(payload); break;
       case 'decideLineBookingPending': result = kkApiDecideLineBookingPending_(payload); break;
+      case 'lineOwnerOutboxReadiness': result = kkApiLineOwnerOutboxReadiness_(); break;
       case 'claimLineBookingDecisionDelivery': result = kkApiClaimLineBookingDecisionDelivery_(payload); break;
       case 'settleLineBookingDecisionDelivery': result = kkApiSettleLineBookingDecisionDelivery_(payload); break;
       case 'updateBooking': result = kkApiUpdateBooking_(payload); break;
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
     }
-    if (action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery') {
+    if (action === 'lineOwnerOutboxReadiness' || action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery') {
       kkAuditLog_(action, { booking_id: payload.booking_id }, {
         booking_id: result.booking_id, outbox_id: result.outbox_id, outbox_state: result.outbox_state
       }, startedAt);
@@ -3127,8 +3128,9 @@ function kkApiCreateLineBookingPending_(payload) {
 // Never auto-create a tab, overwrite owner locks, or auto-retry uncertain sends.
 const KK_LINE_OWNER_OUTBOX_VERSION_ = 'KK_LINE_OWNER_OUTBOX_V1';
 const KK_LINE_OWNER_OUTBOX_SHEET_ = '19_Line_Decision_Outbox';
+const KK_LINE_OWNER_OUTBOX_MESSAGE_TYPE_ = 'CUSTOMER_DECISION';
 const KK_LINE_OWNER_OUTBOX_HEADERS_ =
-  ['outbox_id','booking_id','decision','state','retry_key','provider_message_id','updated_at','created_at'];
+  ['outbox_id','booking_id','decision','state','retry_key','provider_message_id','recipient','message_type','updated_at','created_at'];
 
 function kkLineOwnerOutboxEnabled_() {
   return String(PropertiesService.getScriptProperties()
@@ -3146,7 +3148,7 @@ function kkLineOwnerOutboxId_(bookingId) {
 }
 function kkLineOwnerOutboxSheet_() {
   const sh = kkSheet_(KK_LINE_OWNER_OUTBOX_SHEET_);
-  const header = sh.getRange(1,1,1,8).getValues()[0].map(function(v){return String(v||'').trim();});
+  const header = sh.getRange(1,1,1,10).getValues()[0].map(function(v){return String(v||'').trim();});
   if (JSON.stringify(header) !== JSON.stringify(KK_LINE_OWNER_OUTBOX_HEADERS_))
     throw new Error('LINE_OWNER_OUTBOX_SCHEMA_MISMATCH');
   if (sh.getLastRow() > 20000) throw new Error('LINE_OWNER_OUTBOX_CAPACITY_REVIEW_REQUIRED');
@@ -3160,24 +3162,26 @@ function kkLineOwnerOutboxFind_(sh, outboxId) {
   for (let i=0;i<matches.length;i++) {
     if (String(matches[i][0]||'').trim() !== outboxId) continue;
     if (found) throw new Error('LINE_OWNER_OUTBOX_DUPLICATE_ID');
-    found = {row: i+2, cells: sh.getRange(i+2,1,1,8).getValues()[0]};
+    found = {row: i+2, cells: sh.getRange(i+2,1,1,10).getValues()[0]};
   }
   return found;
 }
-function kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId) {
+function kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId,recipient) {
   if (!record || String(record.cells[0]||'') !== outboxId ||
       String(record.cells[1]||'') !== bookingId ||
       String(record.cells[2]||'') !== decision ||
+      String(record.cells[7]||'') !== KK_LINE_OWNER_OUTBOX_MESSAGE_TYPE_ ||
+      (recipient && String(record.cells[6]||'') !== recipient) ||
       !['INTENT','READY','CLAIMED','SENT','UNCERTAIN'].includes(String(record.cells[3]||'')))
     throw new Error('LINE_OWNER_OUTBOX_IDENTITY_OR_STATE_MISMATCH');
   return record;
 }
 function kkLineOwnerOutboxWrite_(sh,row,cells) {
-  const values = cells.slice(0,8).map(function(v){return String(v==null?'':v);});
-  values[6] = new Date().toISOString();
-  sh.getRange(row,1,1,8).setValues([values]);
+  const values = cells.slice(0,10).map(function(v){return String(v==null?'':v);});
+  values[8] = new Date().toISOString();
+  sh.getRange(row,1,1,10).setValues([values]);
   SpreadsheetApp.flush();
-  const after = sh.getRange(row,1,1,8).getValues()[0].map(function(v){return String(v==null?'':v);});
+  const after = sh.getRange(row,1,1,10).getValues()[0].map(function(v){return String(v==null?'':v);});
   if (JSON.stringify(after) !== JSON.stringify(values))
     throw new Error('LINE_OWNER_OUTBOX_EXACT_READBACK_FAILED');
   return {row: row,cells: after};
@@ -3223,7 +3227,7 @@ function kkApiDecideLineBookingPendingDurable_(payload) {
     const target=decision==='approve'?'confirmed':'cancelled';
     const outboxId=kkLineOwnerOutboxId_(bookingId);
     let record=kkLineOwnerOutboxFind_(ledger,outboxId);
-    if (record) kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId);
+    if (record) kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId,canonical.contact);
     if (status===target) {
       // Crash after Booking commit but before READY write: recover the durable
       // intent. Old bookings without an intent are NOT retroactively sent.
@@ -3239,9 +3243,9 @@ function kkApiDecideLineBookingPendingDurable_(payload) {
     if (!record) {
       const now=new Date().toISOString();
       record=kkLineOwnerOutboxWrite_(ledger,ledger.getLastRow()+1,
-        [outboxId,bookingId,decision,'INTENT','','',now,now]);
+        [outboxId,bookingId,decision,'INTENT','','',canonical.contact,KK_LINE_OWNER_OUTBOX_MESSAGE_TYPE_,now,now]);
     }
-    kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId);
+    kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId,canonical.contact);
     // The INTENT was durably written and read back BEFORE the booking changes.
     const next=canonical.current.slice();next[2]=target;
     canonical.sh.getRange(canonical.row,1,1,20).setValues([next]);
@@ -3256,6 +3260,12 @@ function kkApiDecideLineBookingPendingDurable_(payload) {
     record=kkLineOwnerOutboxWrite_(ledger,record.row,ready);
     return kkLineOwnerOutboxEnvelope_(bookingId,decision,persisted,record,false);
   } finally {lock.releaseLock();}
+}
+function kkApiLineOwnerOutboxReadiness_() {
+  kkLineOwnerOutboxRequireEnabled_();
+  // Pure read-only schema preflight: this must succeed before changing Booking.
+  kkLineOwnerOutboxSheet_();
+  return {outbox_mode:KK_LINE_OWNER_OUTBOX_VERSION_,ready:true,columns:10};
 }
 function kkApiClaimLineBookingDecisionDelivery_(payload) {
   kkLineOwnerOutboxRequireEnabled_();
@@ -3272,6 +3282,7 @@ function kkApiClaimLineBookingDecisionDelivery_(payload) {
     const ledger=kkLineOwnerOutboxSheet_();
     const record=kkLineOwnerOutboxAssert_(kkLineOwnerOutboxFind_(ledger,outboxId),bookingId,decision,outboxId);
     const canonical=kkLineOwnerOutboxCanonical_(bookingId);
+    kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId,canonical.contact);
     const target=decision==='approve'?'confirmed':'cancelled';
     if (String(canonical.current[2]||'').toLowerCase().trim()!==target)
       throw new Error('LINE_OWNER_OUTBOX_BOOKING_NOT_COMMITTED');
@@ -3313,6 +3324,7 @@ function kkApiSettleLineBookingDecisionDelivery_(payload) {
     if (record.cells[3]!=='CLAIMED') throw new Error('LINE_OWNER_OUTBOX_ALREADY_SETTLED');
     // A second canonical booking readback before acknowledging provider receipt.
     const canonical=kkLineOwnerOutboxCanonical_(bookingId);
+    kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId,canonical.contact);
     if (String(canonical.current[2]||'').toLowerCase().trim()!==
         (decision==='approve'?'confirmed':'cancelled'))
       throw new Error('LINE_OWNER_OUTBOX_STATUS_DRIFT');
