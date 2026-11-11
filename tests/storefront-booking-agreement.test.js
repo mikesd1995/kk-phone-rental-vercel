@@ -42,7 +42,12 @@ test('LINE booking and waitlist links preserve existing business data but no lon
   assert.match(logic,/SameSite=Lax; Secure/);
   assert.match(logic,/Max-Age=/);
   assert.doesNotMatch(logic,/link\.click\(\)/);
-  assert.doesNotMatch(logic,/sessionStorage|fetch\(|sendBeacon|XMLHttpRequest/i);
+  assert.doesNotMatch(logic,/sessionStorage|sendBeacon|XMLHttpRequest/i);
+  assert.match(logic,/customerLoginEnabled === true/);
+  assert.match(logic,/kk-customer-auth\\?action=session/);
+  assert.match(logic,/kk-customer-auth\\?action=accept/);
+  assert.match(logic,/if \(identityEnabled\) return remoteAccepted;/);
+  assert.match(logic,/receipt\\.skip_agreement !== true/);
   assert.doesNotMatch(logic,/customer_id|line_user_id|phone_number|marketing_consent|termsAccepted=true/i);
 });
 
