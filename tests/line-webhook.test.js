@@ -210,6 +210,12 @@ test('missing or other identity receipt cannot create pending, owner card or fal
     assert.equal(result.automation_status,'TERMS_EVIDENCE_REQUIRED');
     assert.equal(result.booking_id,'');
     assert.deepEqual(calls.map(x=>x.type),['private-receipt','customer-reply']);
+    const reply=calls.find(x=>x.type==='customer-reply').body.messages[0];
+    assert.equal(reply.type,'text','not an accepted booking Flex when Terms evidence fails');
+    assert.match(reply.text,/ยังไม่ได้บันทึกคำขอจอง/);
+    assert.match(reply.text,/เชื่อม LINE และยอมรับเงื่อนไข/);
+    assert.doesNotMatch(reply.text,/ร้านได้รับคำขอเช่าแล้ว/);
+    assert.doesNotMatch(reply.text,/KK-TERMS-2026-11-06/);
   }
 });
 
