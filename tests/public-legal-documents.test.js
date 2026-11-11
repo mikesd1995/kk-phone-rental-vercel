@@ -154,7 +154,7 @@ test('English policy pages are complete, same-version public translations withou
   assert.match(enTerms, /KK-TERMS-2026-11-06/);
   assert.match(enTerms, /<time datetime="2026-11-06">6 November 2026<\/time>/);
   assert.match(enTerms, /does not process a payment/);
-  assert.match(enTerms, /not evidence that you sent an acknowledgement/);
+  assert.match(enTerms, /not a LINE customer-specific acceptance receipt/);
   assert.match(enPrivacy, /Google API Services User Data Policy/);
   assert.match(enPrivacy, /Limited Use/);
   assert.match(enPrivacy, /rights and how to submit a request/i);
@@ -177,7 +177,7 @@ test('homepage language selection translates legal footer and agreement without 
   assert.match(script, /isEn\?"\/en\/terms\/"\:"\/terms\/"/);
   assert.match(script, /isEn\?"\/en\/privacy\/"\:"\/privacy\/"/);
   assert.match(script, /"I have read and accept "/);
-  assert.match(script, /"Accept and open LINE"/);
+  assert.match(script, /"Confirm and browse events"/);
   assert.match(script, /"TERMS_ACK:"|KK-TERMS-2026-11-06/);
   assert.doesNotMatch(html, /id="kk-booking-terms-check"[^>]*checked/);
 });
