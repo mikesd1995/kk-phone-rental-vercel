@@ -2837,6 +2837,8 @@ function kkApiDecideLineBookingPending_(payload) {
 
     const next = current.slice();
     next[2] = targetStatus;
+    const cancelAudit = kkPrepareCancelledZeroPolicy_(current, next, 'line_pending_reject');
+    const cancelBefore = cancelAudit ? sh.getRange(row, 24, 1, 2).getValues()[0] : null;
     sh.getRange(row, 1, 1, 20).setValues([next]);
     SpreadsheetApp.flush();
 
@@ -2845,6 +2847,7 @@ function kkApiDecideLineBookingPending_(payload) {
     if (String(persisted[2] || '').toLowerCase().trim() !== targetStatus) throw new Error('Owner decision readback failed: ' + bookingId);
     if (kkBookingRequestIdFromNote_(persisted[19]) !== requestId) throw new Error('LINE request identity readback failed: ' + bookingId);
     if (String(persisted[5] || '').trim() !== customerContact) throw new Error('LINE customer contact readback failed: ' + bookingId);
+    const cancellationAuditStatus = kkAppendCancelledZeroReconciliation_(row, persisted, cancelAudit, cancelBefore);
 
     return {
       row_number: row,
@@ -2855,7 +2858,8 @@ function kkApiDecideLineBookingPending_(payload) {
       phone_asset_id: String(persisted[9] || '').trim(),
       lens_asset_id: String(persisted[10] || '').trim(),
       decision: decision,
-      idempotent_replay: false
+      idempotent_replay: false,
+      cancellation_audit_status: cancellationAuditStatus
     };
   } finally {
     lock.releaseLock();
@@ -2920,6 +2924,77 @@ function kkApiCreateBooking_(payload) {
   }
 }
 
+
+/**
+ * Owner cancellation bookkeeping policy (2026-11-11).
+ * Zero operational receipt/payment on cancellation; keep the pre-change values in
+ * the SAME booking's note before the canonical A:T write. Never assert a refund.
+ * The separate audit row is best-effort; this note is the durable fallback.
+ */
+function kkPrepareCancelledZeroPolicy_(current, next, source, timestamp) {
+  if (String(next[2] || '').toLowerCase().trim() !== 'cancelled') return null;
+  const priorStatus = String(current[2] || '').toLowerCase().trim();
+  if (['picked_up', 'returned', 'uploaded', 'completed'].includes(priorStatus)) {
+    throw new Error('CANCEL_AFTER_HANDOVER_REQUIRES_VERIFIED_REFUND_WORKFLOW');
+  }
+  const oldPayment = String(current[13] || '').toLowerCase().trim();
+  const oldAmount = current[14] === null || current[14] === undefined ? '' : String(current[14]);
+  const requestedPayment = String(next[13] || '').toLowerCase().trim();
+  const requestedAmount = next[14] === null || next[14] === undefined ? '' : String(next[14]);
+  const shouldRecord = priorStatus !== 'cancelled' || oldPayment !== 'unpaid' ||
+    Number(String(oldAmount).replace(/,/g, '')) !== 0 || requestedPayment !== 'unpaid' ||
+    Number(String(requestedAmount).replace(/,/g, '')) !== 0;
+  next[13] = 'unpaid';
+  next[14] = 0;
+  if (!shouldRecord) return null;
+  const at = timestamp || new Date().toISOString();
+  const note = '[KK_CANCEL_ZERO_POLICY_V1] at=' + at +
+    '; source=' + String(source || 'unknown') +
+    '; old_status=' + priorStatus + '; old_payment=' + oldPayment +
+    '; old_amount_received=' + oldAmount +
+    '; new_status=cancelled; new_payment=unpaid; new_amount_received=0;' +
+    ' original_quote_preserved=true; actual_refund_NOT_verified=true';
+  next[19] = (String(next[19] || '').trim() + '\n' + note).trim();
+  return { at: at, source: String(source || 'unknown'), prior_status: priorStatus,
+    prior_payment: oldPayment, prior_amount_received: oldAmount };
+}
+
+function kkAppendCancelledZeroReconciliation_(row, persisted, change, beforeAmounts) {
+  if (!change) return 'not_required';
+  try {
+    const ss = SpreadsheetApp.getActive();
+    const log = ss.getSheetByName('19_Booking_Reconciliation');
+    if (!log) throw new Error('BOOKING_RECONCILIATION_SHEET_MISSING');
+    const quote = beforeAmounts && beforeAmounts[0] !== undefined ? beforeAmounts[0] : '';
+    const beforeDue = beforeAmounts && beforeAmounts[1] !== undefined ? beforeAmounts[1] : '';
+    const bookingId = String(persisted[0] || '').trim();
+    const values = [
+      'AUTO_CANCEL_ZERO_V1', 'P1', 'COMMITTED_NO_REFUND_ASSERTED', bookingId,
+      String(persisted[3] || ''), String(persisted[4] || ''), 'cancelled', 'unpaid',
+      quote, change.prior_amount_received, beforeDue,
+      'Before: status=' + change.prior_status + '; payment=' + change.prior_payment +
+        '; amount_received=' + change.prior_amount_received +
+        '; balance_due=' + String(beforeDue) +
+        '; source=' + change.source + '; at=' + change.at,
+      'After: operational receipt 0, booking due 0 via Master Y cancellation guard. ' +
+        'This log preserves only the prior field values, NOT proof of any refund or receipt. ' +
+        'Fallback stamped into Master T at same booking row ' + row + '.',
+      change.at.slice(0, 10)
+    ];
+    const target = Math.max(log.getLastRow() + 1, 5);
+    log.getRange(target, 1, 1, 14).setValues([values]);
+    SpreadsheetApp.flush();
+    if (String(log.getRange(target, 4).getValue() || '') !== bookingId) {
+      throw new Error('CANCELLATION_AUDIT_READBACK_FAILED');
+    }
+    return 'verified';
+  } catch (err) {
+    Logger.log('CANCELLATION_AUDIT_PENDING; pre-change evidence is preserved in Master T: ' +
+      (err && err.message ? err.message : err));
+    return 'audit_pending_master_note_preserved';
+  }
+}
+
 function kkApiUpdateBooking_(payload) {
   const lock = kkAcquireDocumentLock_('write operation', 12000);
   try {
@@ -2950,6 +3025,8 @@ function kkApiUpdateBooking_(payload) {
       const existingRequestId = kkBookingRequestIdFromNote_(current[19]);
       next[19] = kkBookingNoteWithRequest_(payload.booking_note || '', existingRequestId);
     }
+    const cancelAudit = kkPrepareCancelledZeroPolicy_(current, next, 'admin_update_booking');
+    const cancelBefore = cancelAudit ? sh.getRange(row, 24, 1, 2).getValues()[0] : null;
     if (!String(next[4] || '').trim()) throw new Error('customer_name is required');
 
     const eventId = String(next[3] || '').trim();
@@ -2984,8 +3061,9 @@ function kkApiUpdateBooking_(payload) {
     if (String(persisted[2] || '').toLowerCase().trim() !== String(next[2] || '').toLowerCase().trim()) throw new Error('Booking status readback failed: ' + bookingId);
     if (String(persisted[13] || '').toLowerCase().trim() !== String(next[13] || '').toLowerCase().trim()) throw new Error('Booking payment readback failed: ' + bookingId);
     if (String(persisted[9] || '').trim() !== String(next[9] || '').trim() || String(persisted[10] || '').trim() !== String(next[10] || '').trim()) throw new Error('Booking asset readback failed: ' + bookingId);
+    const cancellationAuditStatus = kkAppendCancelledZeroReconciliation_(row, persisted, cancelAudit, cancelBefore);
 
-    return { row_number: row, booking_id: persisted[0] || '', booking_status: persisted[2], payment_status: persisted[13], phone_asset_id: persisted[9], lens_asset_id: persisted[10] };
+    return { row_number: row, booking_id: persisted[0] || '', booking_status: persisted[2], payment_status: persisted[13], phone_asset_id: persisted[9], lens_asset_id: persisted[10], cancellation_audit_status: cancellationAuditStatus };
   } finally {
     lock.releaseLock();
   }
