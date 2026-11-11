@@ -11,11 +11,13 @@ const BOOKING = 'BK-20261112-001';
 const CUSTOMER = 'U' + 'c'.repeat(32);
 const OWNER = 'U' + 'o'.repeat(32);
 const HEADERS = ['outbox_id','booking_id','decision','state',
-  'retry_key','provider_message_id','recipient','message_type','updated_at','created_at'];
+  'retry_key','provider_message_id','recipient','message_type','request_id','updated_at','created_at'];
 const RETRY = '23ce4567-e89b-42d3-a456-426614174002';
+const DISPATCH = 'synthetic_line_owner_dispatch_private_key_2026';
 const env = () => ({
   KK_LINE_BOOKING_AUTOMATION_ENABLED: 'true',
   KK_LINE_OWNER_OUTBOX_V1_ENABLED: 'true',
+  KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET: DISPATCH,
   KK_ADMIN_SCRIPT_URL: 'https://script.google.com/macros/s/SYNTHETIC/exec',
   KK_ADMIN_API_KEY: 'test-admin-key',
   KK_OWNER_LINE_USER_ID: OWNER,
@@ -67,7 +69,9 @@ function appsScriptHarness({outboxEnabled=true,header=HEADERS,booking='pending'}
   let lockHeld=false,flushes=0,failOnFlush=0;
   const context={
     SpreadsheetApp: {flush(){flushes++;if(failOnFlush===flushes)throw Error('synthetic crash after write');}},
-    PropertiesService:{getScriptProperties:()=>({getProperty:key=>key==='KK_LINE_OWNER_OUTBOX_V1_ENABLED'?(outboxEnabled?'true':'false'):''})},
+    PropertiesService:{getScriptProperties:()=>({getProperty:key=>key==='KK_LINE_OWNER_OUTBOX_V1_ENABLED'?(outboxEnabled?'true':'false'):
+        key==='KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET'?DISPATCH:
+        key==='KK_ADMIN_API_KEY'?'distinct-admin-key':''})},
     Utilities:{
       DigestAlgorithm:{SHA_256:'sha256'},Charset:{UTF_8:'utf8'},
       computeDigest:(_alg,input)=>Array.from(crypto.createHash('sha256').update(input).digest())
@@ -114,7 +118,8 @@ test('canonical Apps Script: INTENT is durable before booking status and READY',
   assert.equal(s.ledger.rows[1][1],BOOKING);
   assert.equal(s.ledger.rows[1][6],CUSTOMER);
   assert.equal(s.ledger.rows[1][7],'CUSTOMER_DECISION');
-  assert.deepEqual(JSON.parse(JSON.stringify(s.readiness())),{outbox_mode:'KK_LINE_OWNER_OUTBOX_V1',ready:true,columns:10});
+  assert.equal(s.ledger.rows[1][8],'line:'+'a'.repeat(48));
+  assert.deepEqual(JSON.parse(JSON.stringify(s.readiness())),{outbox_mode:'KK_LINE_OWNER_OUTBOX_V1',ready:true,columns:11});
   assert.equal(s.ledger.rows[1][3],'READY');
   assert.match(s.ledger.rows[1][0],/^LINE_OWNER_V1_[a-f0-9]{48}$/);
   assert.equal(s.decide(decision).outbox_state,'READY');
@@ -139,7 +144,7 @@ test('canonical Apps Script: wrong schema fails before mutating Booking',()=>{
 test('canonical Apps Script: one-time CLAIM -> SENT and no second claim',()=>{
   const s=appsScriptHarness();
   const r=s.decide(decision);
-  const p={...decision,outbox_id:r.outbox_id,retry_key:RETRY};
+  const p={...decision,outbox_id:r.outbox_id,retry_key:RETRY,outbox_dispatch_key:DISPATCH};
   const claim=s.claim(p);
   assert.equal(claim.claimed,true);
   assert.equal(claim.customer_contact,CUSTOMER);
@@ -155,14 +160,14 @@ test('canonical Apps Script: one-time CLAIM -> SENT and no second claim',()=>{
 });
 test('canonical Apps Script: uncertain provider state never reclaims',()=>{
   const s=appsScriptHarness();
-  const r=s.decide(decision),p={...decision,outbox_id:r.outbox_id,retry_key:RETRY};
+  const r=s.decide(decision),p={...decision,outbox_id:r.outbox_id,retry_key:RETRY,outbox_dispatch_key:DISPATCH};
   assert.equal(s.claim(p).claimed,true);
   assert.equal(s.settle({...p,delivery_state:'UNCERTAIN'}).outbox_state,'UNCERTAIN');
   assert.equal(s.claim(p).claimed,false);
   assert.throws(()=>s.settle({...p,delivery_state:'SENT',provider_message_id:'other'}),/ALREADY_SETTLED/);
 });
 test('canonical Apps Script: wrong decision/key and tampered booking state fail closed',()=>{
-  const s=appsScriptHarness(),r=s.decide(decision),p={...decision,outbox_id:r.outbox_id,retry_key:RETRY};
+  const s=appsScriptHarness(),r=s.decide(decision),p={...decision,outbox_id:r.outbox_id,retry_key:RETRY,outbox_dispatch_key:DISPATCH};
   assert.throws(()=>s.claim({...p,decision:'reject'}),/IDENTITY_OR_STATE_MISMATCH/);
   assert.throws(()=>s.claim({...p,outbox_id:'forged'}),/CLAIM_INVALID/);
   assert.equal(s.claim(p).claimed,true);
@@ -172,7 +177,7 @@ test('canonical Apps Script: wrong decision/key and tampered booking state fail 
 });
 test('canonical Apps Script: outbox disabled cannot claim even if sheet exists',()=>{
   const s=appsScriptHarness({outboxEnabled:false});
-  assert.throws(()=>s.claim({...decision,outbox_id:'x',retry_key:RETRY}),/DISABLED/);
+  assert.throws(()=>s.claim({...decision,outbox_id:'x',retry_key:RETRY,outbox_dispatch_key:DISPATCH}),/DISABLED/);
   assert.equal(s.bookingSheet.rows[4][2],'pending');
 });
 test('canonical Apps Script: historical approved booking creates no phantom notification',()=>{
@@ -195,7 +200,7 @@ function transport({initial='READY',provider='OK',claim='OK',settle='OK'}={}) {
   const fetchImpl=async(url,options)=>{
     const request=JSON.parse(options.body);calls.push({url,request,options});
     if(url.startsWith('https://script.google.com/')) {
-      if(request.action==='lineOwnerOutboxReadiness')return response({ok:true,outbox_mode:'KK_LINE_OWNER_OUTBOX_V1',ready:true,columns:10});
+      if(request.action==='lineOwnerOutboxReadiness')return response({ok:true,outbox_mode:'KK_LINE_OWNER_OUTBOX_V1',ready:true,columns:11});
       const baseline={ok:true,booking_id:BOOKING,decision:'approve',outbox_id:outboxId,
         outbox_mode:'KK_LINE_OWNER_OUTBOX_V1'};
       if(request.action==='decideLineBookingPending')return response({
@@ -296,7 +301,31 @@ test('server: unavailable outbox preflight blocks booking decision and provider'
 test('canonical Apps Script: recipient drift after intent cannot authorize claim',()=>{
   const s=appsScriptHarness(),r=s.decide(decision);
   s.bookingSheet.rows[4][5]='U'+'z'.repeat(32);
-  assert.throws(()=>s.claim({...decision,outbox_id:r.outbox_id,retry_key:RETRY}),
+  assert.throws(()=>s.claim({...decision,outbox_id:r.outbox_id,retry_key:RETRY,outbox_dispatch_key:DISPATCH}),
     /IDENTITY_OR_STATE_MISMATCH/);
+  assert.equal(s.ledger.rows[1][3],'READY');
+});
+
+test('server: missing dispatch secret stops BEFORE even reading canonical booking',async()=>{
+  const t=transport();
+  delete t.e.KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET;
+  await assert.rejects(()=>approve(t),err=>err.code==='LINE_OWNER_OUTBOX_DISPATCH_NOT_READY');
+  assert.equal(t.calls.length,0);
+});
+test('canonical GAS: forged dispatch credential cannot claim or settle',()=>{
+  const s=appsScriptHarness(),r=s.decide(decision);
+  const p={...decision,outbox_id:r.outbox_id,retry_key:RETRY};
+  assert.throws(()=>s.claim({...p,outbox_dispatch_key:'wrong'}),/DISPATCH_UNAUTHORIZED/);
+  assert.equal(s.ledger.rows[1][3],'READY');
+  assert.equal(s.claim({...p,outbox_dispatch_key:DISPATCH}).claimed,true);
+  assert.throws(()=>s.settle({...p,delivery_state:'SENT',provider_message_id:'line-msg-1',
+    outbox_dispatch_key:'wrong'}),/DISPATCH_UNAUTHORIZED/);
+  assert.equal(s.ledger.rows[1][3],'CLAIMED');
+});
+test('canonical GAS: a changed request ID never reuses a prior delivery intent',()=>{
+  const s=appsScriptHarness(),r=s.decide(decision);
+  s.bookingSheet.rows[4][19]='[KK_REQ:line:'+'b'.repeat(48)+']';
+  assert.throws(()=>s.claim({...decision,outbox_id:r.outbox_id,retry_key:RETRY,
+    outbox_dispatch_key:DISPATCH}),/IDENTITY_OR_STATE_MISMATCH/);
   assert.equal(s.ledger.rows[1][3],'READY');
 });
