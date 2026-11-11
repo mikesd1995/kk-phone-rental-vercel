@@ -1,0 +1,43 @@
+# LINE Owner Decision — Durable Outbox Source Candidate (2026-11-12)
+
+## Scope, predecessor, and release hold
+
+Stacked on PR #852 (branch fix/p0-gas-webready-phone-only-preflight-20261108) to keep the single Apps Script writer and avoid conflicts with the phone-stock cutover. Source only: NO merge, production deploy, booking/Sheets/Owner Lock or LINE provider mutation has been authorized.
+
+Touched: apps-script/Code.gs, server/line-booking-owner-approval.js, new server/line-owner-durable-outbox.js, dedicated synthetic tests and CI workflow. Existing LINE Inbox provider adapter kk-line-messaging-api.js is REUSED for real retry-key/receipt behavior. The owner-decision booking ledger is separate from Supabase operator Inbox outbound reservations because Booking is committed by the Google spreadsheet writer; their transaction boundaries are different.
+
+## Correctness contract
+
+Prior behavior: canonical approved/rejected booking was committed BEFORE an unrecorded LINE customer push; failures or restarts could leave the booking decided but notification lost.
+
+New opt-in source:
+1. Owner postback signature/identity verified. Authenticated read-only lineOwnerOutboxReadiness must prove the private schema and dual-config readiness BEFORE mutating Booking.
+2. Under the existing spreadsheet document lock, GAS writes and verifies an INTENT with booking ID + decision + immutable recipient + message type BEFORE updating the booking status.
+3. GAS commits confirmed/cancelled to 00_Master_Booking, checks exact ID/status/request/recipient readback, then marks the INTENT READY. A crash before READY is reconciled on the next matching owner decision, whether the Booking write has occurred or not; old bookings without an intent are never retroactively notified automatically.
+4. Existing server versions see idempotent_replay=true on the GAS opted-in path, suppressing legacy unclaimed pushes. Opted-in server requires a one-time CLAIMED + persisted UUID LINE retry key under the same document lock and immutable recipient before provider send.
+5. Reused provider adapter sends with X-Line-Retry-Key and requires real sentMessages[0].id. GAS then persists and reads back SENT + provider message ID. Only after this is the owner success reply attempted.
+6. Provider rejection, timeout, missing provider receipt, failed finalization => UNCERTAIN or CLAIMED with mandatory manual review and NO blind automatic resend. Repeat webhooks never mint another retry key. Owner reply failure cannot retroactively authorize a second customer push.
+
+This is a recoverable write-ahead state machine, NOT an atomic transaction across Sheets and LINE, exactly-once provider guarantee or proof a human read the message.
+
+## Owner-private provisioning — NOT EXECUTED
+
+Create a protected and non-public tab named exactly 19_Line_Decision_Outbox, A1:J1 columns exactly:
+
+outbox_id | booking_id | decision | state | retry_key | provider_message_id | recipient | message_type | updated_at | created_at
+
+Keep access restricted to the approved owner/GAS executor; it contains LINE user IDs. Do NOT expose via public API, Scanner, analytics, public Sheets, GitHub, or report exports. No runtime tab is auto-created by source. Missing/drifted header blocks a decision. At >20,000 rows new writes fail pending an approved archive/retention plan.
+
+The new GAS property and server env are both KK_LINE_OWNER_OUTBOX_V1_ENABLED, with value true required. Default missing/false preserves legacy source path. Do not enable these flags or deploy in this task. A half-rolled-out feature will suppress, not duplicate, notifications: coordinate both flags in an approved maintenance window with owner booking automation paused. On incident, pause KK_LINE_BOOKING_AUTOMATION_ENABLED first; do not revert to legacy sends on already-decided bookings. Legacy approved bookings without an intent require MANUAL delivery reconciliation.
+
+## Mandatory release/operational gates
+
+- Reconcile stacked PR with #852 without overwriting its formula preflight; audit #862/#865/#866 integration and deployed GAS drift #22.
+- Exact-head native Node 20 CI of synthetic crash/claim/provider/settlement tests, full repository regression and Apps Script syntax, independent code+security review.
+- Verify deployed GAS source SHA, private protected Sheet ACL/schema and Booking/Owner Lock snapshot. Prepare private rollback and an outbox incident/review UI with owner operational SLA.
+- Stage real provider tests: first and replay approve/reject, blocked contact, provider accepts then timeout, lost settlement ack, app restart, concurrent owner click, recipient drift and capacity exhaustion. Ensure no Inbox duplicate and no PII in public logs.
+- Obtain independent approval and explicit owner signoff, then authorized release with exact-SHA and production alias/readback. Do NOT close #861/#489 until provider and owner acceptance gates are evidenced.
+
+## Cross-chat continuation
+
+Working branch: feat/line-owner-durable-outbox-stacked-20261112, based on #852 head d478702760fb7fdb49b65e30bdc4ca11ee967552. Source remains behind release gates, NOT live. Read the latest PR HEAD and workflow run, not prior CI of other commits.
