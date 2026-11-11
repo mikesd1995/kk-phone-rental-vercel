@@ -234,6 +234,14 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
       // Do not create Pending or send an owner approval card for a LINE user
       // without a current authenticated receipt. Still acknowledge safely.
       automationStatus='TERMS_EVIDENCE_REQUIRED';
+      // No Pending row or owner card exists. The generic "received request"
+      // Flex would falsely imply that an unverified booking was admitted.
+      // Also safe for private evidence-store outages: verification unavailable.
+      await replyFlex(event.replyToken,{
+        type:'text',
+        text:'ยังไม่ได้บันทึกคำขอจองค่ะ\nระบบยังตรวจสอบหลักฐานการยอมรับเงื่อนไขจากบัญชี LINE นี้ไม่ได้ กรุณาเปิด https://kk-phone-rental.vercel.app/ เชื่อม LINE และยอมรับเงื่อนไข แล้วส่งคำขอใหม่อีกครั้ง หรือแจ้งร้านให้ช่วยตรวจสอบค่ะ'
+      },env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
+      return {handled:true,booking_id:'',automation_status:automationStatus};
     }else{
       pending=await OwnerApproval.createPendingBooking(event,booking,canonical,env,fetchImpl);
       await OwnerApproval.notifyOwner({
