@@ -6,7 +6,32 @@ test('verifies exact raw-body HMAC-SHA256 signature',()=>{const body='{"destinat
 test('parses current Thai storefront booking message',()=>{const b=mod._test.parseBookingText('สนใจเช่า vivo X300 Pro + Lens\nงาน : LYKN REFLEXION CONCERT\nวันที่ : 18 ต.ค. 2026\nสถานที่ : IMPACT Arena\nราคา : 1,290฿\n\nชื่อเล่น : \nเบอร์โทร : ');assert.equal(b.event_name,'LYKN REFLEXION CONCERT');assert.equal(b.package_name,'vivo X300 Pro + Lens');assert.equal(b.price_display,'1,290฿');});
 test('ignores unrelated customer text',()=>assert.equal(mod._test.parseBookingText('สวัสดีค่ะ'),null));
 test('resolves poster only from matching public event row',async()=>{const csv='event_id,event_name,event_date_text,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count\nEVT-1,LYKN REFLEXION CONCERT,18 ต.ค. 2026,IMPACT Arena,https://drive.google.com/thumbnail?id=approved-poster,show,เปิดจอง,1';const f=async()=>({ok:true,text:async()=>csv});const p=await mod._test.resolvePoster({event_name:'LYKN REFLEXION CONCERT',venue:'IMPACT Arena'},f);assert.equal(p,'https://kk-phone-rental.vercel.app/api/line-poster?event_id=EVT-1');});
-test('processes booking and replies with Flex hero using canonical package price',async()=>{const calls=[];const web='event_id,event_name,event_date_text,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count\nEVT-1,LYKN REFLEXION CONCERT,18 ต.ค. 2026,IMPACT Arena,https://drive.google.com/thumbnail?id=approved-poster,show,เปิดจอง,1';const pkg='package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case\nPKG-BUNDLE,EVT-1,phone_lens_bundle,VIVO_X300_PRO,Vivo X300 Pro,ZEISS,Lens Vivo,"1,290",1,available,30,,1,';const f=async(url,opt)=>{calls.push({url,opt});if(String(url).includes('09_Web_Packages'))return{ok:true,text:async()=>pkg};if(String(url).includes('08_Web_Ready'))return{ok:true,text:async()=>web};return{ok:true,text:async()=>''};};const event={type:'message',replyToken:'reply-1',message:{type:'text',text:'สนใจเช่า vivo X300 Pro + Lens\nงาน : LYKN REFLEXION CONCERT\nวันที่ : 18 ต.ค. 2026\nสถานที่ : IMPACT Arena\nราคา : 590 บาท'}};const out=await mod._test.processEvent(event,{LINE_CHANNEL_ACCESS_TOKEN:'token'},f);assert.equal(out.handled,true);const reply=calls.find(x=>String(x.url).includes('api.line.me'));assert.ok(reply);const sent=JSON.parse(reply.opt.body);assert.equal(sent.messages[0].type,'flex');assert.equal(sent.messages[0].contents.hero.url,'https://kk-phone-rental.vercel.app/api/line-poster?event_id=EVT-1');assert.match(JSON.stringify(sent),/1,290 บาท/);assert.doesNotMatch(JSON.stringify(sent),/ราคา  590 บาท/);assert.match(reply.opt.headers.Authorization,/^Bearer /);});
+test('processes booking and replies with Flex hero using canonical package price',async()=>{const calls=[];const web='event_id,event_name,event_date_text,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count\nEVT-1,LYKN REFLEXION CONCERT,18 ต.ค. 2026,IMPACT Arena,https://drive.google.com/thumbnail?id=approved-poster,show,เปิดจอง,1';const pkg='package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case\nPKG-BUNDLE,EVT-1,phone_lens_bundle,VIVO_X300_PRO,Vivo X300 Pro,ZEISS,Lens Vivo,"1,290",1,available,30,,1,';const f=async(url,opt)=>{calls.push({url,opt});if(String(url).includes('09_Web_Packages'))return{ok:true,text:async()=>pkg};if(String(url).includes('08_Web_Ready'))return{ok:true,text:async()=>web};return{ok:true,text:async()=>''};};const event={type:'message',replyToken:'reply-1',message:{type:'text',text:'สนใจเช่า vivo X300 Pro + Lens\nงาน : LYKN REFLEXION CONCERT\nวันที่ : 18 ต.ค. 2026\nสถานที่ : IMPACT Arena\nราคา : 590 บาท'}};const out=await mod._test.processEvent(event,{LINE_CHANNEL_ACCESS_TOKEN:'token'},f);assert.equal(out.handled,true);const reply=calls.find(x=>String(x.url).includes('api.line.me'));assert.ok(reply);const sent=JSON.parse(reply.opt.body);assert.equal(sent.messages[0].type,'flex');assert.equal(sent.messages[0].contents.hero.url,'https://kk-phone-rental.vercel.app/api/line-poster?event_id=EVT-1');assert.match(JSON.stringify(sent),/1,290 บาท/);assert.doesNotMatch(JSON.stringify(sent),/ราคา  590 บาท/);assert.match(reply.opt.headers.Authorization,/^Bearer /);assert.equal(calls.filter(x=>String(x.url).includes('08_Web_Ready')).length,1,'one Web Ready snapshot read per booking request');});
+
+test('failed Web Ready read is shared and customer gets safe unconfirmed reply without booking mutation',async()=>{
+ const calls=[];
+ const event={type:'message',replyToken:'SYNTHETIC_REPLY',message:{
+  type:'text',text:'สนใจเช่า vivo X300 Pro + Lens\nงาน : LYKN REFLEXION CONCERT\nวันที่ : 18 ต.ค. 2026\nสถานที่ : IMPACT Arena'
+ }};
+ const fetchImpl=async(url,opt)=>{
+   calls.push({url:String(url),opt});
+   if(String(url).includes('08_Web_Ready'))return {ok:false,status:503,text:async()=>{throw Error('should not read failed response');}};
+   if(String(url).includes('09_Web_Packages'))throw Error('must not fetch packages after failed source');
+   if(String(url).endsWith('/reply'))return {ok:true,status:200};
+   throw Error('unexpected provider call');
+ };
+ const result=await mod._test.processEvent(event,{LINE_CHANNEL_ACCESS_TOKEN:'SYNTHETIC_TOKEN'},fetchImpl);
+ assert.equal(result.handled,true);
+ assert.equal(result.booking_id,'');
+ assert.equal(result.automation_status,'REPLY_ONLY');
+ assert.equal(calls.filter(x=>x.url.includes('08_Web_Ready')).length,1);
+ assert.equal(calls.filter(x=>x.url.includes('09_Web_Packages')).length,0);
+ assert.equal(calls.filter(x=>x.url.endsWith('/reply')).length,1);
+ const sent=JSON.parse(calls.find(x=>x.url.endsWith('/reply')).opt.body);
+ assert.equal(sent.messages[0].type,'flex');
+ assert.equal('hero' in sent.messages[0].contents,false);
+ assert.match(JSON.stringify(sent),/รอร้านตรวจสอบราคา/);
+});
 
 test('derives canonical template id from public package ids',()=>{
   assert.equal(mod._test.templateIdFromWebPackageId('TPL-BUNDLE','EVT-1'),'TPL-BUNDLE');
@@ -103,4 +128,88 @@ test('owner-hidden event fails closed with no Apps Script booking and no PII in 
   assert.match(warnings[0],/FAIL_CLOSED_CANONICAL_REQUIRED/);
   assert.doesNotMatch(warnings[0],/LYKN REFLEXION CONCERT|SYNTHETIC_PRIVATE_WEBHOOK|0000000000/);
  }finally{console.warn=old;}
+});
+
+// P0 #861: LINE Reply API redacted diagnostics and provider failure categories.
+test('sanitized LINE reply diagnostics distinguish provider status without provider PII',()=>{
+  const cases=[
+    [400,'INVALID_REQUEST_OR_REPLY_TOKEN'],
+    [401,'PROVIDER_AUTH_OR_PERMISSION'],
+    [403,'PROVIDER_AUTH_OR_PERMISSION'],
+    [404,'PROVIDER_CLIENT_FAILURE'],
+    [429,'PROVIDER_RATE_LIMIT'],
+    [500,'PROVIDER_SERVER_FAILURE'],
+    [503,'PROVIDER_SERVER_FAILURE']
+  ];
+  for(const [status,category] of cases){
+    const err=Object.assign(new Error('SYNTHETIC_PHONE_0999999999 TOKEN_SUPER_SECRET'),{
+      code:'LINE_BOOKING_REPLY_FAILED',status,
+      providerBody:'SYNTHETIC_CUSTOMER_PRIVATE',
+      replyToken:'SYNTHETIC_TOKEN'
+    });
+    const out=mod._test.safeLineReplyDiagnostic(err);
+    assert.deepEqual(out,{code:'LINE_BOOKING_REPLY_FAILED',provider_http_status:status,provider_category:category});
+    assert.doesNotMatch(JSON.stringify(out),/0999999999|SUPER_SECRET|SYNTHETIC_CUSTOMER_PRIVATE|SYNTHETIC_TOKEN/);
+  }
+});
+
+test('transport and malformed status fail closed without arbitrary error details',()=>{
+  const original='CUSTOMER_PRIVATE_DETAILS_AND_ACCESS_TOKEN';
+  assert.deepEqual(
+    mod._test.safeLineReplyDiagnostic({code:'LINE_BOOKING_REPLY_TRANSPORT_FAILED',message:original,status:503}),
+    {code:'LINE_BOOKING_REPLY_TRANSPORT_FAILED',provider_http_status:null,provider_category:'TRANSPORT_ERROR'}
+  );
+  for(const status of [null,undefined,0,600,'401',NaN,Infinity,-1]){
+    const output=mod._test.safeLineReplyDiagnostic({code:'LINE_BOOKING_REPLY_FAILED',status,message:original});
+    assert.deepEqual(output,{code:'LINE_BOOKING_REPLY_FAILED',provider_http_status:null,provider_category:'UNKNOWN_REPLY_FAILURE'});
+  }
+  for(const malicious of [null,undefined,{},new Error(original),{code:'ATTACK_'+original,status:429,message:original}]){
+    const output=mod._test.safeLineReplyDiagnostic(malicious);
+    assert.deepEqual(output,{code:'WEBHOOK_PROCESSING_FAILED',provider_http_status:null,provider_category:'OTHER'});
+    assert.doesNotMatch(JSON.stringify(output),/CUSTOMER_PRIVATE|ACCESS_TOKEN/);
+  }
+});
+
+test('known owner/booking failures remain identifiable but private data is never logged',()=>{
+  const cases=[
+    ['LINE_BOOKING_AUTOMATION_NOT_READY','BOOKING_CONFIGURATION'],
+    ['LINE_BOOKING_UPSTREAM_TRANSPORT_FAILED','BOOKING_UPSTREAM'],
+    ['LINE_BOOKING_UPSTREAM_NON_JSON','BOOKING_UPSTREAM'],
+    ['LINE_BOOKING_UPSTREAM_FAILED','BOOKING_UPSTREAM'],
+    ['LINE_CUSTOMER_USER_ID_REQUIRED','BOOKING_VALIDATION'],
+    ['LINE_APPROVAL_DATA_INCOMPLETE','OWNER_APPROVAL'],
+    ['LINE_OWNER_DECISION_BOOKING_ID_MISMATCH','OWNER_APPROVAL'],
+    ['LINE_OWNER_DECISION_READBACK_MISMATCH','OWNER_APPROVAL'],
+    ['LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED','OWNER_APPROVAL'],
+    ['LINE_CUSTOMER_CONTACT_READBACK_REQUIRED','OWNER_APPROVAL'],
+    ['LINE_SEND_FAILED','LINE_PUSH_OR_REPLY'],
+    ['LINE_SEND_TRANSPORT_FAILED','LINE_PUSH_OR_REPLY']
+  ];
+  for(const [code,provider_category] of cases){
+    const error=Object.assign(new Error('PRIVATE_NAME PHONE_0999999999 SECRET_TOKEN'),{
+      code,status:429,replyToken:'PRIVATE_REPLY_TOKEN',customer:'PRIVATE_CUSTOMER_ID'
+    });
+    const out=mod._test.safeLineReplyDiagnostic(error);
+    assert.deepEqual(out,{code,provider_http_status:null,provider_category});
+    assert.doesNotMatch(JSON.stringify(out),/PRIVATE|0999999999|SECRET|CUSTOMER_ID/);
+  }
+  const injected=mod._test.safeLineReplyDiagnostic({code:'LINE_SEND_FAILED_PRIVATE_TOKEN',status:429});
+  assert.deepEqual(injected,{code:'WEBHOOK_PROCESSING_FAILED',provider_http_status:null,provider_category:'OTHER'});
+});
+
+test('LINE Reply API response status is preserved for redacted logging without reading response body',async()=>{
+  let bodyReads=0;
+  await assert.rejects(
+    ()=>mod._test.replyFlex('SYNTHETIC_REPLY',{type:'text',text:'demo'},'SYNTHETIC_ACCESS_TOKEN',async()=>({
+      ok:false,status:429,text:async()=>{bodyReads++;return 'PRIVATE_RESPONSE_TOKEN';}
+    })),
+    err=>{
+      assert.deepEqual(mod._test.safeLineReplyDiagnostic(err),{
+        code:'LINE_BOOKING_REPLY_FAILED',provider_http_status:429,provider_category:'PROVIDER_RATE_LIMIT'
+      });
+      assert.doesNotMatch(JSON.stringify(mod._test.safeLineReplyDiagnostic(err)),/PRIVATE_RESPONSE_TOKEN|SYNTHETIC_REPLY/);
+      return true;
+    }
+  );
+  assert.equal(bodyReads,0,'never consume untrusted LINE response bodies');
 });

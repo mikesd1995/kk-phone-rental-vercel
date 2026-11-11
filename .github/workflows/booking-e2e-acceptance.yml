@@ -61,6 +61,13 @@ jobs:
             tests/same-day-inventory-date-normalization.test.js \
             tests/booking-id-primary-close-regression-20261002.test.js
 
+
+      - name: Full repository regression (source-only, zero business writes)
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run code:context -- "P0 LINE Reply API redacted diagnostics and booking regression"
+          npm test
+
       - name: Assert no provider or production acceptance side effects
         run: |
           test -z "${KK_LINE_BOOKING_AUTOMATION_ENABLED:-}"
