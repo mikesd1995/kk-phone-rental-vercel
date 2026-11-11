@@ -1776,9 +1776,7 @@ function doPost(e) {
       kkAuditLog_(action, { booking_id: payload.booking_id }, {
         booking_id: result.booking_id, outbox_id: result.outbox_id, outbox_state: result.outbox_state
       }, startedAt);
-    } else if (action && action !== 'snapshot' && action !== 'phase1Health' && action !== 'privateCoreRead') {
-      kkAuditLog_(action, payload, result, startedAt);
-    }
+    } else if (action && action !== 'snapshot' && action !== 'phase1Health' && action !== 'privateCoreRead') kkAuditLog_(action, payload, result, startedAt);
     return kkApiJson_(kkApiOk_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, result || {})));
   } catch (err) {
     if (keyOk && (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery')) {
