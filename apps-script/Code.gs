@@ -889,23 +889,336 @@ function kkFormulaWebReadyAction_(rowNumber) {
   const lockedById = `COUNTIFS('18_Event_Visibility_Locks'!$B$2:$B,A${r},'18_Event_Visibility_Locks'!$G$2:$G,"LOCKED")>0`;
   const lockedByIdentity = `COUNTIFS('18_Event_Visibility_Locks'!$C$2:$C,B${r},'18_Event_Visibility_Locks'!$D$2:$D,IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,3,FALSE),""),'18_Event_Visibility_Locks'!$E$2:$E,D${r},'18_Event_Visibility_Locks'!$G$2:$G,"LOCKED")>0`;
   const historicalDifferentId = `COUNTIFS('18_Event_Visibility_Locks'!$C$2:$C,B${r},'18_Event_Visibility_Locks'!$D$2:$D,IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,3,FALSE),""),'18_Event_Visibility_Locks'!$E$2:$E,D${r},'18_Event_Visibility_Locks'!$B$2:$B,"<>"&A${r})>0`;
-  return `=IF(A${r}="","",IF(OR(${lockedById},${lockedByIdentity},${historicalDifferentId},IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,9,FALSE),"")<>"OK",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,6,FALSE),"")<>"open",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,7,FALSE),FALSE)<>TRUE),"hide",IF(MAX(G${r},H${r})>0,"show","show_full")))`;
+  return `=IF(A${r}="","",IF(OR(${lockedById},${lockedByIdentity},${historicalDifferentId},IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,9,FALSE),"")<>"OK",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,6,FALSE),"")<>"open",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,7,FALSE),FALSE)<>TRUE),"hide",IF(G${r}>0,"show","show_full")))`;
 }
 
-function kkRepairOwnerVisibilityLockFormulas_() {
-  const startRow = 5;
-  const endRow = 1000;
-  const rowCount = endRow - startRow + 1;
-  const webReadyAction = [];
-  const webPackageStatus = [];
-  for (let row = startRow; row <= endRow; row++) {
-    webReadyAction.push([kkFormulaWebReadyAction_(row)]);
-    webPackageStatus.push([kkFormulaWebPackageStatus_(row)]);
+function kkFormulaWebReadyBookingStatus_(rowNumber) {
+  const r = rowNumber;
+  // H is lens-only or bundle add-on stock; it must not reopen a sold-out phone rental.
+  // A hidden event remains hidden, and a full phone date stays visible for waitlist.
+  return `=IF(A${r}="","",IF(J${r}="hide","ซ่อนจากเว็บ",IF(AND(J${r}="show",G${r}>0),"เปิดจอง","เต็มแล้ว")))`;
+}
+
+// READ-ONLY owner preflight. Never overwrite a manual status or a drifted formula.
+// Live evidence on 2026-11-01: 09_Web_Packages!J144 is a deliberate literal "hidden"
+// on an existing-renter lens-only package. Package J is OUT OF SCOPE here.
+function kkPreflightOwnerVisibilityLockFormulas_() {
+  const startRow = 5, rowCount = 996;
+  const web = kkSheet_(KK.webReady);
+  const values = web.getRange(startRow, 1, rowCount, 10).getDisplayValues();
+  const formulas = web.getRange(startRow, 9, rowCount, 2).getFormulas();
+  const issues = [];
+  let populatedRows = 0, legacyRows = 0, alreadySafeRows = 0, blankRows = 0;
+  // Count the ACTUAL write blast radius, including the blank-event fill-down
+  // formulas. legacy_rows alone counts only populated event IDs and therefore
+  // substantially understates how many formula pairs Apply would replace.
+  let blankFormulaRows = 0, blankEmptyRows = 0,
+    plannedChangeRows = 0, safeFormulaPairsAll = 0,
+    phoneZeroMarkedOpen = 0, phoneZeroLensPositiveMarkedOpen = 0;
+  for (let i = 0; i < rowCount; i++) {
+    const r = startRow + i;
+    const v = values[i] || [];
+    const f = formulas[i] || [];
+    const id = String(v[0] || '').trim();
+    const status = String(f[0] || '').trim();
+    const action = String(f[1] || '').trim();
+    // Owner-gated cutover MUST compare complete A1 expressions. Checking only
+    // substrings lets an altered formula piggyback on known stock/lock fragments.
+    const safeStatus = kkFormulaWebReadyBookingStatus_(r);
+    const safeAction = kkFormulaWebReadyAction_(r);
+    const legacyStatus = '=IF(A' + r + '="","",IF(J' + r +
+      '="hide","ซ่อนจากเว็บ",IF(MAX(G' + r + ',H' + r +
+      ')>0,"เปิดจอง","เต็มแล้ว")))';
+    const legacyAction = safeAction.replace(
+      'IF(G' + r + '>0,"show","show_full")',
+      'IF(MAX(G' + r + ',H' + r + ')>0,"show","show_full")'
+    );
+    const recognized = (status === legacyStatus || status === safeStatus) &&
+      (action === legacyAction || action === safeAction);
+    if (!id) {
+      blankRows++;
+      // A blank event ID with other A:H data is an orphan, not a safe empty
+      // fill-down slot. Block BEFORE formula writes or owner approval.
+      if (v.slice(1, 8).some(value =>
+          String(value == null ? '' : value).trim())) issues.push(r);
+      // Empty event rows may still contain legitimate fill-down formulas.
+      // Count them as planned writes; a truly blank cell pair stays untouched.
+      if (status || action) {
+        if (!recognized) issues.push(r);
+        else {
+          blankFormulaRows++;
+          if (status === safeStatus && action === safeAction) safeFormulaPairsAll++;
+          else plannedChangeRows++;
+        }
+      } else if (String(v[8] || '').trim() || String(v[9] || '').trim()) {
+        issues.push(r);
+      } else blankEmptyRows++;
+      continue;
+    }
+    populatedRows++;
+    if (!recognized) issues.push(r);
+    else if (status !== safeStatus || action !== safeAction) {
+      legacyRows++;
+      plannedChangeRows++;
+    } else {
+      alreadySafeRows++;
+      safeFormulaPairsAll++;
+    }
+    // Aggregate anomaly counts only: never log event IDs or customer data.
+    // These are actual rendered I/J values, not proof of a valid booking.
+    const phoneCount = Number(String(v[6] == null ? '' : v[6]).replace(/,/g, ''));
+    const lensCount = Number(String(v[7] == null ? '' : v[7]).replace(/,/g, ''));
+    if (String(v[6] == null ? '' : v[6]).trim() &&
+        Number.isFinite(phoneCount) && phoneCount === 0 &&
+        String(v[9] || '').trim() === 'show' &&
+        String(v[8] || '').trim() === 'เปิดจอง') {
+      phoneZeroMarkedOpen++;
+      if (Number.isFinite(lensCount) && lensCount > 0)
+        phoneZeroLensPositiveMarkedOpen++;
+    }
   }
-  kkSheet_(KK.webReady).getRange(startRow, 10, rowCount, 1).setFormulas(webReadyAction);
-  kkSheet_(KK.webPackages).getRange(startRow, 10, rowCount, 1).setFormulas(webPackageStatus);
-  SpreadsheetApp.flush();
-  return rowCount;
+  return {
+    status: issues.length || populatedRows === 0 ? 'BLOCKED' : 'READY_FOR_OWNER_APPROVAL',
+    pass: issues.length === 0 && populatedRows > 0,
+    checked_rows: rowCount,
+    populated_rows: populatedRows,
+    blank_rows: blankRows,
+    // A no-write preflight receipt. Expected live baseline at 8 Nov:
+    // 996 scanned, 438 populated, 557 blank-event formula pairs, 1 truly
+    // empty pair, 995 planned writes (1990 formula cells), 2 phone-zero OPEN.
+    blank_formula_rows: blankFormulaRows,
+    blank_without_formula_rows: blankEmptyRows,
+    legacy_rows: legacyRows,
+    already_safe_rows: alreadySafeRows,
+    planned_change_rows: plannedChangeRows,
+    planned_change_cells: plannedChangeRows * 2,
+    safe_formula_pairs_all: safeFormulaPairsAll,
+    phone_zero_marked_open: phoneZeroMarkedOpen,
+    phone_zero_lens_positive_marked_open: phoneZeroLensPositiveMarkedOpen,
+    unexpected_rows: issues.slice(0, 25),
+    unexpected_count: issues.length,
+    production_writes: 0
+  };
+}
+
+// Explicit owner repair only, never executed by public snapshot/API routes.
+// A successful dry run is NOT release approval. Owner must retain a rollback copy.
+// Plan only exact-known legacy formula rows. An already-safe or deliberately
+// blank owner row is never overwritten by a bulk Stock repair.
+function kkWebReadyOwnerRepairSpans_(previous, ids, generated, startRow) {
+  if (!Array.isArray(previous) || !Array.isArray(ids) ||
+      !Array.isArray(generated) || previous.length !== generated.length ||
+      ids.length !== generated.length) {
+    throw new Error('WEB_READY_FORMULA_ROLLBACK_SNAPSHOT_INVALID');
+  }
+  const spans = [];
+  let first = -1, next = [], before = [];
+  function flush() {
+    if (first >= 0) spans.push({startRow: startRow + first,
+      formulas: next, before: before});
+    first = -1;
+    next = [];
+    before = [];
+  }
+  for (let i = 0; i < generated.length; i++) {
+    const row = startRow + i;
+    const pair = previous[i], expected = generated[i], id = ids[i];
+    if (!Array.isArray(pair) || pair.length !== 2 ||
+        typeof pair[0] !== 'string' || typeof pair[1] !== 'string' ||
+        !Array.isArray(expected) || expected.length !== 2 ||
+        !Array.isArray(id) || typeof id[0] === 'undefined') {
+      throw new Error('WEB_READY_FORMULA_ROLLBACK_SNAPSHOT_INVALID');
+    }
+    const status = pair[0], action = pair[1];
+    if (status === expected[0] && action === expected[1]) {
+      flush();
+      continue;
+    }
+    if (status === '' && action === '' && !String(id[0] || '').trim()) {
+      flush();
+      continue;
+    }
+    const legacyStatus = '=IF(A' + row + '="","",IF(J' + row +
+      '="hide","ซ่อนจากเว็บ",IF(MAX(G' + row + ',H' + row +
+      ')>0,"เปิดจอง","เต็มแล้ว")))';
+    const legacyAction = expected[1].replace(
+      'IF(G' + row + '>0,"show","show_full")',
+      'IF(MAX(G' + row + ',H' + row + ')>0,"show","show_full")'
+    );
+    if (!((status === legacyStatus || status === expected[0]) &&
+          (action === legacyAction || action === expected[1]))) {
+      throw new Error('WEB_READY_FORMULA_SNAPSHOT_DRIFT');
+    }
+    if (first < 0) first = i;
+    next.push(expected);
+    before.push(pair);
+  }
+  flush();
+  // A strangely fragmented workbook is an owner conflict, not permission to
+  // issue unbounded provider writes. Inspect it before rerunning a repair.
+  if (spans.length > 25) throw new Error('WEB_READY_FORMULA_REPAIR_FRAGMENTED');
+  return spans;
+}
+
+// Inspect recalculated DISPLAY values after owner-only formula replacement.
+// Formula-text readback alone can report a false success if Google Sheets still
+// renders an OPEN phone slot with G=0. This function is pure/read-only; no PII,
+// identifiers or raw cell contents appear in its returned diagnostic receipt.
+function kkValidateOwnerWebReadyPhoneResults_(rows, startRow) {
+  const offset = Number(startRow == null ? 5 : startRow);
+  if (!Array.isArray(rows) || rows.length !== 996 || offset !== 5)
+    throw new Error('WEB_READY_OWNER_RESULTS_SHAPE_INVALID');
+  let populated = 0, open = 0, full = 0, hidden = 0, blank = 0;
+  const issues = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i], at = offset + i;
+    if (!Array.isArray(row) || row.length < 10)
+      throw new Error('WEB_READY_OWNER_RESULTS_SHAPE_INVALID');
+    const id = String(row[0] == null ? '' : row[0]).trim();
+    if (!id) {
+      // An orphan row can hide a real formula/data issue behind blank event ID.
+      if (row.some(v => String(v == null ? '' : v).trim())) issues.push(at);
+      else blank++;
+      continue;
+    }
+    populated++;
+    const rawPhone = String(row[6] == null ? '' : row[6]).replace(/,/g, '').trim();
+    const count = Number(rawPhone);
+    const status = String(row[8] == null ? '' : row[8]).trim();
+    const action = String(row[9] == null ? '' : row[9]).trim();
+    if (!rawPhone || !Number.isSafeInteger(count) || count < 0) {
+      issues.push(at);
+      continue;
+    }
+    if (action === 'hide' && status === 'ซ่อนจากเว็บ') hidden++;
+    else if (action === 'show' && count > 0 && status === 'เปิดจอง') open++;
+    else if (action === 'show_full' && count === 0 && status === 'เต็มแล้ว') full++;
+    else issues.push(at);
+  }
+  return {
+    pass: issues.length === 0 && populated > 0,
+    verified_event_rows: populated,
+    verified_open: open,
+    verified_full: full,
+    verified_hidden: hidden,
+    empty_rows: blank,
+    invalid_count: issues.length,
+    invalid_rows: issues.slice(0, 25),
+    owner_production_writes: 0
+  };
+}
+
+// Assert upstream A:H is unchanged across the provider write boundary. This
+// includes event, date, poster, phone/lens availability and owner-controlled
+// details but returns only a count; it never exposes identifiers.
+function kkOwnerWebReadyUpstreamChanged_(before, after) {
+  if (!Array.isArray(before) || !Array.isArray(after) ||
+      before.length !== 996 || after.length !== 996)
+    throw new Error('WEB_READY_OWNER_UPSTREAM_SHAPE_INVALID');
+  let changed = 0;
+  for (let i = 0; i < before.length; i++) {
+    if (!Array.isArray(before[i]) || !Array.isArray(after[i]) ||
+        before[i].length < 10 || after[i].length < 10)
+      throw new Error('WEB_READY_OWNER_UPSTREAM_SHAPE_INVALID');
+    for (let j = 0; j < 8; j++) {
+      if (String(before[i][j] == null ? '' : before[i][j]) !==
+          String(after[i][j] == null ? '' : after[i][j])) {
+        changed++;
+        break;
+      }
+    }
+  }
+  return changed;
+}
+
+// Explicit owner repair only, never executed by public snapshot/API routes.
+// Preserve existing source and owner locks. External backup still required
+// before any authorized owner invocation.
+function kkRepairOwnerVisibilityLockFormulas_() {
+  const lock = kkAcquireDocumentLock_('owner Web Ready I:J formula repair', 12000);
+  try {
+    const preflight = kkPreflightOwnerVisibilityLockFormulas_();
+    if (!preflight.pass) throw new Error(
+      'WEB_READY_FORMULA_PREFLIGHT_BLOCKED: unexpected rows=' +
+      preflight.unexpected_rows.join(',')
+    );
+    const startRow = 5, rowCount = 996, endRow = startRow + rowCount - 1;
+    const safe = [];
+    for (let row = startRow; row <= endRow; row++) {
+      safe.push([
+        kkFormulaWebReadyBookingStatus_(row),
+        kkFormulaWebReadyAction_(row)
+      ]);
+    }
+    const web = kkSheet_(KK.webReady);
+    const beforeValues = web.getRange(startRow, 1, rowCount, 10).getDisplayValues();
+    const previous = web.getRange(startRow, 9, rowCount, 2).getFormulas();
+    const ids = web.getRange(startRow, 1, rowCount, 1).getDisplayValues();
+    // Fail closed on drift after preflight and before any write. A blank row
+    // without formulas is kept blank; a safe row is kept unchanged.
+    const spans = kkWebReadyOwnerRepairSpans_(previous, ids, safe, startRow);
+    if (!spans.length) {
+      // Idempotence is safe only when the displayed customer outcome is also
+      // correct. A no-op must not certify stale OPEN phones or invalid rows.
+      const verified = kkValidateOwnerWebReadyPhoneResults_(beforeValues, startRow);
+      if (!verified.pass || verified.verified_event_rows !== preflight.populated_rows)
+        throw new Error('WEB_READY_OWNER_ALREADY_SAFE_FORMULAS_BAD_VALUES');
+      return 0;
+    }
+    let attempted = 0;
+    try {
+      for (const span of spans) {
+        attempted++;
+        web.getRange(span.startRow, 9, span.formulas.length, 2)
+          .setFormulas(span.formulas);
+      }
+      SpreadsheetApp.flush();
+      for (const span of spans) {
+        const got = web.getRange(span.startRow, 9, span.formulas.length, 2)
+          .getFormulas();
+        if (got.length !== span.formulas.length ||
+            span.formulas.some((pair, i) => !got[i] ||
+              got[i][0] !== pair[0] || got[i][1] !== pair[1])) {
+          throw new Error('WEB_READY_FORMULA_READBACK_MISMATCH');
+        }
+      }
+      // Validate actual recalculated outcomes rather than treating exact
+      // formula text as proof that customers see the correct booking status.
+      const afterValues = web.getRange(startRow, 1, rowCount, 10).getDisplayValues();
+      if (kkOwnerWebReadyUpstreamChanged_(beforeValues, afterValues) > 0)
+        throw new Error('WEB_READY_OWNER_UPSTREAM_CHANGED');
+      const verified = kkValidateOwnerWebReadyPhoneResults_(afterValues, startRow);
+      if (!verified.pass || verified.verified_event_rows !== preflight.populated_rows)
+        throw new Error('WEB_READY_OWNER_RECALCULATION_NOT_SAFE');
+    } catch (writeError) {
+      // Restore only spans that may have been touched, in reverse order.
+      // Provider error messages and private owner formulas never leave this API.
+      try {
+        for (let i = attempted - 1; i >= 0; i--) {
+          const span = spans[i];
+          web.getRange(span.startRow, 9, span.before.length, 2)
+            .setFormulas(span.before);
+        }
+        SpreadsheetApp.flush();
+        for (let i = attempted - 1; i >= 0; i--) {
+          const span = spans[i];
+          const got = web.getRange(span.startRow, 9, span.before.length, 2)
+            .getFormulas();
+          if (got.length !== span.before.length ||
+              span.before.some((pair, j) => !got[j] ||
+                got[j][0] !== pair[0] || got[j][1] !== pair[1])) {
+            throw new Error('WEB_READY_ROLLBACK_READBACK_MISMATCH');
+          }
+        }
+      } catch (rollbackError) {
+        throw new Error('WEB_READY_FORMULA_REPAIR_ROLLBACK_FAILED');
+      }
+      throw new Error('WEB_READY_FORMULA_REPAIR_ROLLED_BACK');
+    }
+    return spans.reduce((n, span) => n + span.formulas.length, 0);
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // Storefront policy: standalone lens rental is hidden by default.
