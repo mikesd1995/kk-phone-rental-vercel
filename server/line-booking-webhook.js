@@ -171,6 +171,44 @@ async function resolveCanonicalPackage(booking, fetchImpl=fetch){
   if(!templateId) return null;
   return {event_id:eventId,package_id:packageId,template_id:templateId,package_name:packageLabel(row),price_display:price};
 }
+function safeLineReplyDiagnostic(err){
+  if(err && err.code==='LINE_BOOKING_REPLY_TRANSPORT_FAILED'){
+    return {code:'LINE_BOOKING_REPLY_TRANSPORT_FAILED',provider_http_status:null,provider_category:'TRANSPORT_ERROR'};
+  }
+  if(err && err.code==='LINE_BOOKING_REPLY_FAILED'){
+    const status=Number.isInteger(err.status) && err.status>=100 && err.status<=599 ? err.status : null;
+    let category='UNKNOWN_REPLY_FAILURE';
+    if(status===400) category='INVALID_REQUEST_OR_REPLY_TOKEN';
+    else if(status===401 || status===403) category='PROVIDER_AUTH_OR_PERMISSION';
+    else if(status===429) category='PROVIDER_RATE_LIMIT';
+    else if(status!==null && status>=500) category='PROVIDER_SERVER_FAILURE';
+    else if(status!==null && status>=400) category='PROVIDER_CLIENT_FAILURE';
+    return {code:'LINE_BOOKING_REPLY_FAILED',provider_http_status:status,provider_category:category};
+  }
+  // Preserve only explicitly recognized internal failure codes. Never log
+  // arbitrary err.message, err.code, URLs, recipient IDs or provider bodies.
+  const SAFE_INTERNAL_FAILURES={
+    LINE_BOOKING_AUTOMATION_NOT_READY:'BOOKING_CONFIGURATION',
+    LINE_BOOKING_UPSTREAM_TRANSPORT_FAILED:'BOOKING_UPSTREAM',
+    LINE_BOOKING_UPSTREAM_NON_JSON:'BOOKING_UPSTREAM',
+    LINE_BOOKING_UPSTREAM_FAILED:'BOOKING_UPSTREAM',
+    LINE_CUSTOMER_USER_ID_REQUIRED:'BOOKING_VALIDATION',
+    LINE_APPROVAL_DATA_INCOMPLETE:'OWNER_APPROVAL',
+    LINE_OWNER_DECISION_BOOKING_ID_MISMATCH:'OWNER_APPROVAL',
+    LINE_OWNER_DECISION_READBACK_MISMATCH:'OWNER_APPROVAL',
+    LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED:'OWNER_APPROVAL',
+    LINE_CUSTOMER_CONTACT_READBACK_REQUIRED:'OWNER_APPROVAL',
+    LINE_SEND_FAILED:'LINE_PUSH_OR_REPLY',
+    LINE_SEND_TRANSPORT_FAILED:'LINE_PUSH_OR_REPLY'
+  };
+  const code=err&&typeof err.code==='string'?err.code:'';
+  if(Object.prototype.hasOwnProperty.call(SAFE_INTERNAL_FAILURES,code)){
+    // This is not necessarily a Reply API status; do not misattribute it.
+    return {code,provider_http_status:null,provider_category:SAFE_INTERNAL_FAILURES[code]};
+  }
+  return {code:'WEBHOOK_PROCESSING_FAILED',provider_http_status:null,provider_category:'OTHER'};
+}
+
 async function replyFlex(replyToken, message, token, fetchImpl=fetch){
   let r;
   try{
@@ -192,9 +230,22 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
   if(!event || event.type!=='message' || !event.replyToken || !event.message || event.message.type!=='text') return {handled:false};
   const booking=parseBookingText(event.message.text);
   if(!booking) return {handled:false};
+  // One event-local WebReady fetch. Do not cache across customer requests.
+  // Preserve exact snapshot while poster and canonical price resolve in parallel.
+  let webReadySnapshot;
+  const sharedFetch=async (url, options)=>{
+    if(url!==PUBLIC_DATA_BASE+WEB_READY_QUERY) return fetchImpl(url,options);
+    if(!webReadySnapshot) webReadySnapshot=Promise.resolve().then(()=>
+      fetchImpl(url,options)).then(async response=>({
+        ok:response.ok,
+        text:response.ok ? await response.text() : ''
+      }));
+    const snapshot=await webReadySnapshot;
+    return {ok:snapshot.ok,text:async()=>snapshot.text};
+  };
   const [poster,canonical]=await Promise.all([
-    resolvePoster(booking,fetchImpl).catch(()=> ''),
-    resolveCanonicalPackage(booking,fetchImpl).catch(()=> null)
+    resolvePoster(booking,sharedFetch).catch(()=> ''),
+    resolveCanonicalPackage(booking,sharedFetch).catch(()=> null)
   ]);
   booking.poster_image_url=poster;
 
@@ -299,6 +350,6 @@ module.exports=async function handler(req,res){
     res.statusCode=200;
     return res.end('OK');
   }
-  catch(err){console.error('[line-webhook]',err&&err.message?err.message:'processing failed');res.statusCode=500;return res.end('Processing failed');}
+  catch(err){console.error('[line-webhook]',JSON.stringify(safeLineReplyDiagnostic(err)));res.statusCode=500;return res.end('Processing failed');}
 };
-module.exports._test={inboxPersistFn,rawBody,validSignature,parseBookingText,parseCsv,norm,canonicalDate,resolveEventRow,resolvePoster,resolveCanonicalPackage,templateIdFromWebPackageId,packageLabel,formatCanonicalPrice,replyFlex,processEvent,OwnerApproval};
+module.exports._test={safeLineReplyDiagnostic,inboxPersistFn,rawBody,validSignature,parseBookingText,parseCsv,norm,canonicalDate,resolveEventRow,resolvePoster,resolveCanonicalPackage,templateIdFromWebPackageId,packageLabel,formatCanonicalPrice,replyFlex,processEvent,OwnerApproval};
