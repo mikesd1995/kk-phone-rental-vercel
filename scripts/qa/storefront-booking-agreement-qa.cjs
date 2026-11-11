@@ -119,7 +119,10 @@ async function runViewport(browser,width,scheme){
     assert.equal(await page.locator('#kk-footer-terms-link').getAttribute('href'),'/en/terms/');
     assert.equal(await page.locator('#kk-footer-privacy-link').getAttribute('href'),'/en/privacy/');
     assert.equal((await page.locator('#kk-footer-customer-title').textContent()).trim(),'Customer support');
-    await page.evaluate(()=>localStorage.setItem('kk_booking_terms_prompt_version','KK-TERMS-2026-11-05'));
+    await page.evaluate(()=>{
+      localStorage.setItem('kk_booking_terms_prompt_version','KK-TERMS-2026-11-05');
+      document.cookie='kk_booking_terms_prompt_version=KK-TERMS-2026-11-05; Path=/; SameSite=Lax; Secure';
+    });
     await trigger.click();
     assert.equal(await gate.isVisible(),true,'stale version must show English prompt');
     assert.equal(await check.isChecked(),false,'new-version English checkout must be unchecked');
