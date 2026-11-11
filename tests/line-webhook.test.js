@@ -264,3 +264,38 @@ test('signed line receipt gate rejects unverified provider and malformed user be
     providerId:PROVIDER_ID,lineUserId:USER_ID,receipt:EVIDENCE,nowMs:0
   }).accepted,false);
 });
+
+
+test('incomplete clean LINE booking asks for nickname before Pending or slow external reads',async()=>{
+  const e=identityEvent();
+  e.message.text=e.message.text.replace('👤 ชื่อเล่น: Synthetic Customer','👤 ชื่อเล่น: ');
+  const calls=[];
+  const fake=async (url,options)=>{
+    calls.push({url:String(url),body:JSON.parse(options.body)});
+    if(!String(url).endsWith('/reply')) throw Error('no external read or booking write allowed');
+    return {ok:true};
+  };
+  const out=await mod._test.processEvent(e,identityEnv(),fake,{signatureVerified:true});
+  assert.equal(out.automation_status,'CUSTOMER_DETAILS_REQUIRED');
+  assert.equal(out.booking_id,'');
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].body.messages[0].type,'text');
+  assert.match(calls[0].body.messages[0].text,/กรุณาระบุชื่อเล่น/);
+  assert.doesNotMatch(calls[0].body.messages[0].text,/KK-TERMS|รับทราบนโยบายความเป็นส่วนตัว/);
+});
+
+test('customer identity absent asks for direct LINE OA chat without a Booking write',async()=>{
+  const e=identityEvent();
+  delete e.source.userId;
+  const calls=[];
+  const out=await mod._test.processEvent(e,identityEnv(),async (url,options)=>{
+    calls.push(String(url));
+    assert.ok(String(url).endsWith('/reply'),'no public sheet, private DB, Apps Script or owner push');
+    const body=JSON.parse(options.body);
+    assert.match(body.messages[0].text,/แชทส่วนตัวกับ LINE OA/);
+    return {ok:true};
+  },{signatureVerified:true});
+  assert.equal(out.automation_status,'CUSTOMER_DETAILS_REQUIRED');
+  assert.equal(out.booking_id,'');
+  assert.equal(calls.length,1);
+});
