@@ -25,7 +25,7 @@ test('booking acknowledgement is opt-in, visible at checkout and independent of 
 
 test('existing package, waitlist and sticky booking URLs are retained, but client enforces gate',()=>{
   const js=fs.readFileSync(path.join(root,'script.js'),'utf8');
-  assert.match(js, /bookBtn.href=getBookingUrl\(c,p\)/);
+  assert.match(js, /bookBtn.href=isExistingRenterLens\?getExistingRenterLensUrl\(c,p\):getBookingUrl\(c,p\)/);
   assert.match(js, /waitBtn.href=getWaitlistUrl\(c,null\)/);
   assert.match(logic, /a\.book-pill, a\.waitlist-line-btn, a\.sticky-line, a\.line-btn/);
   assert.match(logic, /event\.preventDefault\(\);[\s\S]*?event\.stopImmediatePropagation\(\);[\s\S]*?openAgreement\(link\)/);
