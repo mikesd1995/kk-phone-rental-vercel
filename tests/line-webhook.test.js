@@ -104,3 +104,160 @@ test('owner-hidden event fails closed with no Apps Script booking and no PII in 
   assert.doesNotMatch(warnings[0],/LYKN REFLEXION CONCERT|SYNTHETIC_PRIVATE_WEBHOOK|0000000000/);
  }finally{console.warn=old;}
 });
+
+
+// identity-backed consent: signed event only; no actual provider or Booking writes.
+const Terms = require('../server/kk-booking-terms-evidence');
+const IdentityReceipt = require('../server/kk-line-booking-terms-receipt');
+const VerifiedPolicy = require('../server/kk-customer-accept-once-policy');
+const USER_ID = 'U' + 'a'.repeat(32);
+const PROVIDER_ID = 'synthetic-line-provider-kk';
+const EVIDENCE = Object.freeze({
+  provider_id: PROVIDER_ID, line_user_id: USER_ID,
+  terms_version: Terms.VERSION, accepted_at: '2026-11-11T12:00:00+07:00',
+  evidence_source: 'AUTHENTICATED_WEB_ACTION',
+  evidence_reference: 'web:synthetic-verified-acceptance-12345', evidence_verified: true
+});
+function identityEnv() {
+  return {
+    KK_CUSTOMER_LOGIN_ENABLED: 'true',
+    KK_LINE_LOGIN_PROVIDER_VERIFIED: 'true',
+    KK_CUSTOMER_AUTH_MIGRATION_VERIFIED: 'true',
+    KK_LINE_LOGIN_PROVIDER_ID: PROVIDER_ID,
+    KK_CUSTOMER_AUTH_SUPABASE_URL: 'https://example.supabase.co',
+    KK_CUSTOMER_AUTH_SUPABASE_SERVICE_ROLE_KEY: 'synthetic-server-only-service-role-key',
+    KK_LINE_BOOKING_AUTOMATION_ENABLED: 'true',
+    KK_ADMIN_SCRIPT_URL: 'https://script.google.com/macros/s/SYNTHETIC/exec',
+    KK_ADMIN_API_KEY: 'synthetic-apps-script-key',
+    LINE_CHANNEL_ACCESS_TOKEN: 'synthetic-line-token',
+    LINE_CHANNEL_SECRET: 'synthetic-signing-secret',
+    KK_OWNER_LINE_USER_ID: 'UOWNER'
+  };
+}
+function identityEvent(textOverride) {
+  return {
+    type: 'message', replyToken: 'SYNTHETIC_REPLY_TOKEN',
+    webhookEventId: 'SYNTHETIC_SIGNED_EVENT',
+    source: {type: 'user', userId: USER_ID},
+    message: {type: 'text', text: textOverride || [
+      'สนใจเช่ามือถือ',
+      '🎫 งาน: LYKN REFLEXION CONCERT',
+      '📅 วันที่: 18 ต.ค. 2026',
+      '📍 สถานที่: IMPACT Arena',
+      '📱 รุ่น: vivo X300 Pro + Lens',
+      '💰 ราคา: 590 บาท'
+    ].join('\n')}
+  };
+}
+function syntheticLineFetch(calls, evidence=EVIDENCE) {
+  return async (url, options={}) => {
+    const u = String(url);
+    const body=options.body?JSON.parse(options.body):null;
+    if(u.includes('08_Web_Ready'))return {ok:true,text:async()=>syntheticVisibleRow()};
+    if(u.includes('09_Web_Packages'))return {ok:true,text:async()=>PACKAGES};
+    if(u.includes('/rpc/kk_customer_terms_lookup_for_line_webhook')){
+      calls.push({type:'private-receipt',url:u,body,options});
+      return {ok:true,json:async()=>evidence?[evidence]:[]};
+    }
+    if(u.startsWith('https://script.google.com/')){
+      calls.push({type:'booking-write',url:u,body});
+      return {ok:true,status:200,text:async()=>JSON.stringify({
+        ok:true, booking_id:'BK-SYNTHETIC-CONSENT-001',
+        row_number:28,booking_status:'pending'
+      })};
+    }
+    if(u.endsWith('/push')||u.endsWith('/reply')){
+      calls.push({type:u.endsWith('/push')?'owner-push':'customer-reply',body});
+      return {ok:true,status:200};
+    }
+    throw Error('unexpected synthetic external call');
+  };
+}
+
+test('verified signed LINE sender matches private current-version consent and receives Pending owner card',async()=>{
+  const calls=[],env=identityEnv();
+  const result=await mod._test.processEvent(identityEvent(),env,syntheticLineFetch(calls),{signatureVerified:true});
+  assert.equal(result.handled,true);
+  assert.equal(result.automation_status,'PENDING_OWNER_APPROVAL');
+  assert.equal(result.booking_id,'BK-SYNTHETIC-CONSENT-001');
+  assert.deepEqual(calls.map(x=>x.type),[
+    'private-receipt','booking-write','owner-push','customer-reply'
+  ]);
+  assert.deepEqual(calls[0].body,{
+    p_provider_id:PROVIDER_ID,p_line_user_id:USER_ID,p_terms_version:Terms.VERSION
+  });
+  assert.equal(calls[0].options.headers.apikey,env.KK_CUSTOMER_AUTH_SUPABASE_SERVICE_ROLE_KEY);
+  assert.equal(calls[1].body.action,'createLineBookingPending');
+  assert.equal(calls[1].body.booking_status,'pending');
+  assert.equal(calls[2].body.to,'UOWNER');
+  assert.match(JSON.stringify(calls[2].body.messages),/ยอมรับเงื่อนไขแล้ว/);
+  assert.match(JSON.stringify(calls[2].body.messages),/ยืนยัน LINE User ID จากหลักฐานหลังบ้าน/);
+  assert.doesNotMatch(JSON.stringify(calls[3].body.messages),/KK-TERMS-2026-11-06/);
+  assert.equal(calls[3].body.messages.length,1);
+});
+
+test('missing or other identity receipt cannot create pending, owner card or false confirmation',async()=>{
+  for(const evidence of [null,{...EVIDENCE,provider_id:'other-provider'},
+    {...EVIDENCE,line_user_id:'U'+'b'.repeat(32)},
+    {...EVIDENCE,evidence_verified:false},
+    {...EVIDENCE,terms_version:'KK-TERMS-2026-11-05'}]){
+    const calls=[];
+    const result=await mod._test.processEvent(identityEvent(),identityEnv(),
+      syntheticLineFetch(calls,evidence),{signatureVerified:true});
+    assert.equal(result.automation_status,'TERMS_EVIDENCE_REQUIRED');
+    assert.equal(result.booking_id,'');
+    assert.deepEqual(calls.map(x=>x.type),['private-receipt','customer-reply']);
+  }
+});
+
+test('legacy legal lines and browser-like text never bypass server receipt when identity mode is enabled',async()=>{
+  const calls=[],msg=identityEvent().message.text+'\n'+Terms.ACK_LINE+'\n'+Terms.PRIVACY_LINE;
+  const out=await mod._test.processEvent(identityEvent(msg),identityEnv(),
+    syntheticLineFetch(calls,null),{signatureVerified:true});
+  assert.equal(out.automation_status,'TERMS_EVIDENCE_REQUIRED');
+  assert.equal(calls.some(x=>x.type==='booking-write'||x.type==='owner-push'),false);
+});
+
+test('unsigned input never queries identity DB or creates booking, despite a forged user ID',async()=>{
+  const calls=[];
+  const out=await mod._test.processEvent(identityEvent(),identityEnv(),
+    syntheticLineFetch(calls,EVIDENCE),{signatureVerified:false});
+  assert.equal(out.automation_status,'TERMS_EVIDENCE_REQUIRED');
+  assert.deepEqual(calls.map(x=>x.type),['customer-reply']);
+});
+
+test('private consent store downtime fails closed without untrusted error or PII',async()=>{
+  const calls=[];
+  const safeFetch=syntheticLineFetch(calls,EVIDENCE);
+  const failed=async(url,opts)=>{
+    if(String(url).includes('/rpc/kk_customer_terms_lookup_for_line_webhook')){
+      calls.push({type:'private-receipt'});
+      throw Error('private customer identifier / secret must never leak');
+    }
+    return safeFetch(url,opts);
+  };
+  const out=await mod._test.processEvent(identityEvent(),identityEnv(),failed,{signatureVerified:true});
+  assert.equal(out.automation_status,'TERMS_EVIDENCE_REQUIRED');
+  assert.deepEqual(calls.map(x=>x.type),['private-receipt','customer-reply']);
+});
+
+test('signed line receipt gate rejects unverified provider and malformed user before DB',async()=>{
+  const calls=[];
+  for(const env of [{...identityEnv(),KK_LINE_LOGIN_PROVIDER_VERIFIED:'false'}, identityEnv()]){
+    const event=identityEvent();
+    if(env.KK_LINE_LOGIN_PROVIDER_VERIFIED==='true')event.source.userId='UNVERIFIED';
+    const result=await IdentityReceipt.lookupSignedLineAcceptance(event,env,async()=>{
+      calls.push('external');throw Error('must never call private data');
+    },{signatureVerified:true});
+    assert.equal(result.accepted,false);
+  }
+  assert.deepEqual(calls,[]);
+  const verified=VerifiedPolicy.decideSignedWebhookAcceptance({
+    providerId:PROVIDER_ID,lineUserId:USER_ID,receipt:EVIDENCE,
+    nowMs:Date.parse('2026-11-12T00:00:00+07:00')
+  });
+  assert.equal(verified.accepted,true);
+  assert.equal(VerifiedPolicy.decideSignedWebhookAcceptance({
+    providerId:PROVIDER_ID,lineUserId:USER_ID,receipt:EVIDENCE,nowMs:0
+  }).accepted,false);
+});
