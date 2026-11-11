@@ -1772,7 +1772,10 @@ function doPost(e) {
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
     }
-    if (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery') {
+    if (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery' ||
+        (action === 'decideLineBookingPending' && result && result.outbox_mode === KK_LINE_OWNER_OUTBOX_VERSION_)) {
+      // This ledger contains LINE recipient IDs and credentials; the admin audit
+      // stores only transition metadata, never the customer contact or secret.
       kkAuditLog_(action, { booking_id: payload.booking_id }, {
         booking_id: result.booking_id, outbox_id: result.outbox_id, outbox_state: result.outbox_state
       }, startedAt);
