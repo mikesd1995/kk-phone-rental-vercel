@@ -19,7 +19,7 @@ test('web-originated booking drafts are compact and do not inject legal attestat
  const privacy=fs.readFileSync(path.join(root,'privacy/index.html'),'utf8');
  assert.equal(Evidence.VERSION,'KK-TERMS-2026-11-06');
  assert.match(terms,/<meta name="kk-terms-version" content="KK-TERMS-2026-11-06">/);
- assert.match(terms,/<time datetime="2026-11-06">6 พฤศจิกายน 2569<\\/time>/);
+ assert.ok(terms.includes('<time datetime="2026-11-06">6 พฤศจิกายน 2569</time>'));
  assert.match(privacy,/เว็บไซต์ไม่แนบข้อความยืนยันนี้อัตโนมัติ/);
  const booking=source.slice(source.indexOf('function buildBookingMsg'),source.indexOf('function getBookingUrl'));
  const waitlist=source.slice(source.indexOf('function buildWaitlistMsg'),source.indexOf('function getWaitlistUrl'));
