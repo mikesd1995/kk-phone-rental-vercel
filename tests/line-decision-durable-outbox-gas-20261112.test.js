@@ -65,7 +65,7 @@ function makeGas(opts={}){
     },
     Date
   };
-  const accessors='\n;({decide:kkApiDecideLineBookingPending_,claim:kkApiClaimLineBookingDecisionDelivery_,ack:kkApiAckLineBookingDecisionDelivery_,uncertain:kkApiMarkLineBookingDecisionUncertain_,outbox:kkLineDecisionOutboxRead_})';
+  const accessors='\n;({decide:kkApiDecideLineBookingPending_,claim:kkApiClaimLineBookingDecisionDelivery_,ack:kkApiAckLineBookingDecisionDelivery_,uncertain:kkApiMarkLineBookingDecisionUncertain_,inspect:kkApiInspectLineBookingDecisionDelivery_,outbox:kkLineDecisionOutboxRead_})';
   const fn=vm.runInNewContext(source+accessors,scope);
   return {...fn,properties,writes,lockEvents,
     row:()=>row.slice(),state:()=>fn.outbox(BOOKING)};
@@ -154,7 +154,8 @@ test('GAS API routes require all guarded delivery actions and document locks',()
   for(const action of [
     'claimLineBookingDecisionDelivery',
     'ackLineBookingDecisionDelivery',
-    'markLineBookingDecisionUncertain'
+    'markLineBookingDecisionUncertain',
+    'inspectLineBookingDecisionDelivery'
   ]){
     assert.ok(source.includes("case '"+action+"':"),'action routing '+action);
   }
@@ -170,4 +171,29 @@ test('GAS code deployment alone stays legacy until owner enables private paired 
   assert.equal(result.delivery_state,'LEGACY_DISABLED');
   assert.equal(gas.state(),null);
   assert.throws(()=>gas.claim({booking_id:BOOKING,decision:'approve'}),/disabled/);
+});
+
+test('owner-only GAS inspection reports state without customer contact, claim ID, or receipt ID',()=>{
+  const gas=makeGas();
+  const before=gas.inspect({booking_id:BOOKING});
+  assert.equal(before.delivery_state,'LEGACY_UNVERIFIED');
+  assert.equal(before.requires_manual_review,true);
+  const intent=gas.decide({booking_id:BOOKING,decision:'approve'});
+  assert.equal(intent.delivery_state,'PREPARED');
+  const prepared=gas.inspect({booking_id:BOOKING});
+  assert.equal(prepared.delivery_state,'PREPARED');
+  assert.equal(prepared.provider_receipt_recorded,false);
+  const claim=gas.claim({booking_id:BOOKING,decision:'approve'});
+  assert.equal(gas.inspect({booking_id:BOOKING}).requires_manual_review,true);
+  gas.ack({booking_id:BOOKING,decision:'approve',claim_id:claim.claim_id,provider_message_id:'line_msg_123'});
+  const writesBefore=gas.writes.length;
+  const inspected=gas.inspect({booking_id:BOOKING});
+  assert.equal(inspected.delivery_state,'SENT');
+  assert.equal(inspected.provider_receipt_recorded,true);
+  assert.equal(inspected.requires_manual_review,false);
+  assert.equal(gas.writes.length,writesBefore);
+  const serial=JSON.stringify(inspected);
+  assert.equal(serial.includes(CUSTOMER),false);
+  assert.equal(serial.includes(claim.claim_id),false);
+  assert.equal(serial.includes('line_msg_123'),false);
 });
