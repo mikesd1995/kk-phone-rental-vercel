@@ -9,6 +9,7 @@ const {createPostgrestStore} = require('./kk-inbox-postgrest-store');
 const LineMessaging = require('./kk-line-messaging-api');
 const OwnerApproval = require('./line-booking-owner-approval');
 const TermsEvidence = require('./kk-booking-terms-evidence');
+const IdentityReceipt = require('./kk-line-booking-terms-receipt');
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 const PUBLIC_DATA_BASE = 'https://kk-phone-rental.vercel.app/api/kk-data';
@@ -187,7 +188,7 @@ async function replyFlex(replyToken, message, token, fetchImpl=fetch){
     throw err;
   }
 }
-async function processEvent(event, env=process.env, fetchImpl=fetch){
+async function processEvent(event, env=process.env, fetchImpl=fetch, options={}){
   if(!event || event.type!=='message' || !event.replyToken || !event.message || event.message.type!=='text') return {handled:false};
   const booking=parseBookingText(event.message.text);
   if(!booking) return {handled:false};
@@ -201,20 +202,37 @@ async function processEvent(event, env=process.env, fetchImpl=fetch){
   let pending=null;
   let automationStatus=readiness.ready?'CANONICAL_REQUIRED':'REPLY_ONLY';
   if(readiness.ready && canonical){
-    pending=await OwnerApproval.createPendingBooking(event,booking,canonical,env,fetchImpl);
-    await OwnerApproval.notifyOwner({
-      booking_id:pending.booking_id,
-      event_name:booking.event_name,
-      event_date:booking.event_date,
-      package_name:canonical.package_name,
-      price_display:canonical.price_display,
-      nickname:booking.nickname,
-      phone:booking.phone,
-      pickup_time:booking.pickup_time,
-      terms_status:booking.terms_acknowledged===true ? 'LINE_MESSAGE_CONFIRMED' : 'NOT_CONFIRMED',
-      terms_version:booking.terms_version||''
-    },env,fetchImpl);
-    automationStatus='PENDING_OWNER_APPROVAL';
+    // Only a signature-verified webhook identity may unlock a backend Terms
+    // receipt. In authenticated mode, old text/Cookies cannot bypass this gate.
+    let termsStatus=booking.terms_acknowledged===true ? 'LINE_MESSAGE_CONFIRMED' : 'NOT_CONFIRMED';
+    if(env.KK_CUSTOMER_LOGIN_ENABLED==='true'){
+      const receipt=await IdentityReceipt.lookupSignedLineAcceptance(
+        event,env,fetchImpl,{signatureVerified:options.signatureVerified===true}
+      );
+      termsStatus=receipt.status;
+      if(receipt.accepted===true) booking.terms_version=TermsEvidence.VERSION;
+    }
+    if(env.KK_CUSTOMER_LOGIN_ENABLED==='true' &&
+       termsStatus!=='VERIFIED_LINE_IDENTITY_TERMS_ACCEPTED'){
+      // Do not create Pending or send an owner approval card for a LINE user
+      // without a current authenticated receipt. Still acknowledge safely.
+      automationStatus='TERMS_EVIDENCE_REQUIRED';
+    }else{
+      pending=await OwnerApproval.createPendingBooking(event,booking,canonical,env,fetchImpl);
+      await OwnerApproval.notifyOwner({
+        booking_id:pending.booking_id,
+        event_name:booking.event_name,
+        event_date:booking.event_date,
+        package_name:canonical.package_name,
+        price_display:canonical.price_display,
+        nickname:booking.nickname,
+        phone:booking.phone,
+        pickup_time:booking.pickup_time,
+        terms_status:termsStatus,
+        terms_version:booking.terms_version||''
+      },env,fetchImpl);
+      automationStatus='PENDING_OWNER_APPROVAL';
+    }
   }else if(readiness.ready && !canonical){
     console.warn('[line-booking-automation]',JSON.stringify({
       status:'FAIL_CLOSED_CANONICAL_REQUIRED',
@@ -258,7 +276,7 @@ module.exports=async function handler(req,res){
     for(const event of events){
       const ownerDecision=await OwnerApproval.processOwnerPostback(event,process.env,fetch);
       if(ownerDecision.handled) continue;
-      await processEvent(event,process.env,fetch);
+      await processEvent(event,process.env,fetch,{signatureVerified:true});
     }
     await inboxPromise;
     res.statusCode=200;
