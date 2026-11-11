@@ -12,7 +12,7 @@ Prior behavior: canonical approved/rejected booking was committed BEFORE an unre
 
 New opt-in source:
 1. Owner postback signature/identity verified. Authenticated read-only lineOwnerOutboxReadiness must prove the private schema and dual-config readiness BEFORE mutating Booking.
-2. Under the existing spreadsheet document lock, GAS writes and verifies an INTENT with booking ID + decision + immutable recipient + message type BEFORE updating the booking status.
+2. Under the existing spreadsheet document lock, GAS writes and verifies an INTENT with booking ID + decision + immutable recipient + original governed request ID + message type BEFORE updating the booking status.
 3. GAS commits confirmed/cancelled to 00_Master_Booking, checks exact ID/status/request/recipient readback, then marks the INTENT READY. A crash before READY is reconciled on the next matching owner decision, whether the Booking write has occurred or not; old bookings without an intent are never retroactively notified automatically.
 4. Existing server versions see idempotent_replay=true on the GAS opted-in path, suppressing legacy unclaimed pushes. Opted-in server requires a one-time CLAIMED + persisted UUID LINE retry key under the same document lock and immutable recipient before provider send.
 5. Reused provider adapter sends with X-Line-Retry-Key and requires real sentMessages[0].id. GAS then persists and reads back SENT + provider message ID. Only after this is the owner success reply attempted.
@@ -22,13 +22,13 @@ This is a recoverable write-ahead state machine, NOT an atomic transaction acros
 
 ## Owner-private provisioning — NOT EXECUTED
 
-Create a protected and non-public tab named exactly 19_Line_Decision_Outbox, A1:J1 columns exactly:
+Create a protected and non-public tab named exactly 19_Line_Decision_Outbox, A1:K1 columns exactly:
 
-outbox_id | booking_id | decision | state | retry_key | provider_message_id | recipient | message_type | updated_at | created_at
+outbox_id | booking_id | decision | state | retry_key | provider_message_id | recipient | message_type | request_id | updated_at | created_at
 
 Keep access restricted to the approved owner/GAS executor; it contains LINE user IDs. Do NOT expose via public API, Scanner, analytics, public Sheets, GitHub, or report exports. No runtime tab is auto-created by source. Missing/drifted header blocks a decision. At >20,000 rows new writes fail pending an approved archive/retention plan.
 
-The new GAS property and server env are both KK_LINE_OWNER_OUTBOX_V1_ENABLED, with value true required. Default missing/false preserves legacy source path. Do not enable these flags or deploy in this task. A half-rolled-out feature will suppress, not duplicate, notifications: coordinate both flags in an approved maintenance window with owner booking automation paused. On incident, pause KK_LINE_BOOKING_AUTOMATION_ENABLED first; do not revert to legacy sends on already-decided bookings. Legacy approved bookings without an intent require MANUAL delivery reconciliation.
+The new GAS property and server env are both KK_LINE_OWNER_OUTBOX_V1_ENABLED, with value true required. Additionally set a separate, non-admin KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET in protected GAS Script Properties and the server-only Vercel environment (32-128 characters, URL-safe letters/digits/hyphens/underscores). Never reuse the admin key, publish this secret, or place it in GitHub. Claim and settlement actions require BOTH the existing admin API key and this dedicated credential; the preflight fails if dispatch configuration is absent. Default missing/false preserves legacy source path. Do not enable these flags or deploy in this task. A half-rolled-out feature will suppress, not duplicate, notifications: coordinate both flags in an approved maintenance window with owner booking automation paused. On incident, pause KK_LINE_BOOKING_AUTOMATION_ENABLED first; do not revert to legacy sends on already-decided bookings. Legacy approved bookings without an intent require MANUAL delivery reconciliation.
 
 ## Mandatory release/operational gates
 
