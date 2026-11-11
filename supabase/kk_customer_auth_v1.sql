@@ -125,6 +125,70 @@ begin
   limit 1;
 end; $$;
 
+-- The signed LINE Messaging API webhook must look up consent by its own
+-- verified event.source.userId; no browser cookie, nickname or phone matches.
+-- Only the server-held service_role can execute this bounded read.
+create or replace function public.kk_customer_terms_lookup_for_line_webhook(
+  p_provider_id text, p_line_user_id text, p_terms_version text
+) returns table(provider_id text, line_user_id text, terms_version text,
+                accepted_at timestamptz, evidence_source text,
+                evidence_reference text, evidence_verified boolean)
+language sql security invoker set search_path = ''
+as $
+  select e.provider_id, e.line_user_id, e.terms_version, e.accepted_at,
+         e.evidence_source, e.evidence_reference, e.evidence_verified
+  from public.kk_customer_terms_evidence e
+  where e.provider_id = p_provider_id and e.line_user_id = p_line_user_id
+    and e.terms_version = p_terms_version and e.evidence_verified is true
+    and p_provider_id is not null and length(p_provider_id) between 1 and 128
+    and p_line_user_id ~ '^U[0-9a-f]{32}
+revoke all on function public.kk_customer_session_lookup(text) from public, anon, authenticated;
+revoke all on function public.kk_customer_session_revoke(text) from public, anon, authenticated;
+revoke all on function public.kk_customer_terms_lookup(text,text) from public, anon, authenticated;
+revoke all on function public.kk_customer_terms_accept(text,text,text) from public, anon, authenticated;
+grant execute on function public.kk_customer_session_create(text,text,text,timestamptz) to service_role;
+grant execute on function public.kk_customer_session_lookup(text) to service_role;
+grant execute on function public.kk_customer_session_revoke(text) to service_role;
+grant execute on function public.kk_customer_terms_lookup(text,text) to service_role;
+grant execute on function public.kk_customer_terms_accept(text,text,text) to service_role;
+
+commit;
+
+-- Security review gates before running migration:
+-- 1) confirm this is the OWNER-approved Supabase project and preserve full schema rollback.
+-- 2) test anon/authenticated cannot SELECT/INSERT/UPDATE or invoke any of these RPCs.
+-- 3) ensure previous table/function names did not exist with other ownership/privileges.
+-- 4) separately agree Terms evidence retention, access audit and lawful erasure handling.
+-- 5) only then set backend feature flag; no auto-schema mutation from app runtime.
+
+    and p_terms_version ~ '^KK-TERMS-[0-9]{4}-[0-9]{2}-[0-9]{2}
+revoke all on function public.kk_customer_session_lookup(text) from public, anon, authenticated;
+revoke all on function public.kk_customer_session_revoke(text) from public, anon, authenticated;
+revoke all on function public.kk_customer_terms_lookup(text,text) from public, anon, authenticated;
+revoke all on function public.kk_customer_terms_accept(text,text,text) from public, anon, authenticated;
+grant execute on function public.kk_customer_session_create(text,text,text,timestamptz) to service_role;
+grant execute on function public.kk_customer_session_lookup(text) to service_role;
+grant execute on function public.kk_customer_session_revoke(text) to service_role;
+grant execute on function public.kk_customer_terms_lookup(text,text) to service_role;
+grant execute on function public.kk_customer_terms_accept(text,text,text) to service_role;
+
+commit;
+
+-- Security review gates before running migration:
+-- 1) confirm this is the OWNER-approved Supabase project and preserve full schema rollback.
+-- 2) test anon/authenticated cannot SELECT/INSERT/UPDATE or invoke any of these RPCs.
+-- 3) ensure previous table/function names did not exist with other ownership/privileges.
+-- 4) separately agree Terms evidence retention, access audit and lawful erasure handling.
+-- 5) only then set backend feature flag; no auto-schema mutation from app runtime.
+
+  limit 1;
+$;
+
+revoke all on function public.kk_customer_terms_lookup_for_line_webhook(text,text,text)
+  from public, anon, authenticated;
+grant execute on function public.kk_customer_terms_lookup_for_line_webhook(text,text,text)
+  to service_role;
+
 revoke all on function public.kk_customer_session_create(text,text,text,timestamptz) from public, anon, authenticated;
 revoke all on function public.kk_customer_session_lookup(text) from public, anon, authenticated;
 revoke all on function public.kk_customer_session_revoke(text) from public, anon, authenticated;
