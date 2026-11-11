@@ -125,7 +125,7 @@ test('legacy booking already confirmed without outbox never prepares a second se
   assert.equal(result.idempotent_replay,true);
   assert.equal(result.outbox_version,'');
   assert.equal(result.delivery_state,'LEGACY_UNVERIFIED');
-  assert.equal(gas.properties.size,0);
+  assert.equal(gas.state(),null);
   assert.throws(()=>gas.claim({booking_id:BOOKING,decision:'approve'}),/intent missing/);
 });
 
