@@ -1782,9 +1782,7 @@ function doPost(e) {
     if (keyOk && (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery')) {
       kkErrorLog_(action, {booking_id: String(payload.booking_id || '').trim()}, 
         new Error('LINE_OWNER_OUTBOX_ACTION_FAILED'), startedAt);
-    } else if (keyOk && action !== 'privateCoreRead') {
-      kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
-    }
+    } else if (keyOk && action !== 'privateCoreRead') kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
     if(action==='privateCoreRead') return kkApiJson_({ok:false,admin_api_version:KK_ADMIN_VERSION,error_code:'PRIVATE_CORE_READ_UNAVAILABLE',error:'Private Core read unavailable'});
     return kkApiJson_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, kkApiFail_(err)));
   }
