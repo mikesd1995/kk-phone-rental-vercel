@@ -92,7 +92,7 @@ function kkSafeStringify_(value, maxLen) {
   const limit = maxLen || 1500;
   try {
     const clean = JSON.parse(JSON.stringify(value || {}, function(key, val) {
-      if (key === 'apiKey' || key === 'readKey' || key === 'KK_CORE_PRIVATE_READ_KEY') return '[redacted]';
+      if (key === 'apiKey' || key === 'readKey' || key === 'KK_CORE_PRIVATE_READ_KEY' || key === 'outbox_dispatch_key') return '[redacted]';
       if (key === 'base64') return '[base64 omitted]';
       if (typeof val === 'string' && val.length > 300) return val.slice(0, 300) + '…';
       return val;
@@ -3227,7 +3227,9 @@ function kkLineOwnerOutboxEnvelope_(bookingId,decision,canonical,record,replay) 
   };
 }
 function kkApiDecideLineBookingPendingDurable_(payload) {
-  kkLineOwnerOutboxRequireEnabled_();
+  // A generic Admin API key is insufficient to approve a governed LINE booking.
+  // Only the signed owner webhook's designated private dispatcher can decide.
+  kkLineOwnerOutboxRequireDispatch_(payload);
   const lock=kkAcquireDocumentLock_('LINE owner booking decision and outbox',12000);
   try {
     const bookingId=String(payload.booking_id||'').trim();
