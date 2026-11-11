@@ -1765,7 +1765,7 @@ function doPost(e) {
       case 'createBooking': result = kkApiCreateBooking_(payload); break;
       case 'createLineBookingPending': result = kkApiCreateLineBookingPending_(payload); break;
       case 'decideLineBookingPending': result = kkApiDecideLineBookingPending_(payload); break;
-      case 'lineOwnerOutboxReadiness': result = kkApiLineOwnerOutboxReadiness_(); break;
+      case 'lineOwnerOutboxReadiness': result = kkApiLineOwnerOutboxReadiness_(payload); break;
       case 'claimLineBookingDecisionDelivery': result = kkApiClaimLineBookingDecisionDelivery_(payload); break;
       case 'settleLineBookingDecisionDelivery': result = kkApiSettleLineBookingDecisionDelivery_(payload); break;
       case 'updateBooking': result = kkApiUpdateBooking_(payload); break;
@@ -3275,8 +3275,11 @@ function kkApiDecideLineBookingPendingDurable_(payload) {
     return kkLineOwnerOutboxEnvelope_(bookingId,decision,persisted,record,false);
   } finally {lock.releaseLock();}
 }
-function kkApiLineOwnerOutboxReadiness_() {
-  kkLineOwnerOutboxRequireEnabled_();
+function kkApiLineOwnerOutboxReadiness_(payload) {
+  // Verify the *same* private dispatcher credential that claim/settle use.
+  // Without this preflight, a mismatched deploy could commit a Booking decision
+  // and only then discover that it cannot authorize the customer notification.
+  kkLineOwnerOutboxRequireDispatch_(payload);
   // Pure read-only schema preflight: this must succeed before changing Booking.
   kkLineOwnerOutboxSheet_();
   if(!kkLineOwnerOutboxDispatchReady_())throw new Error('LINE_OWNER_OUTBOX_DISPATCH_NOT_READY');
