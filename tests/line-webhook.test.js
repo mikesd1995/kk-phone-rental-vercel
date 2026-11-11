@@ -266,36 +266,46 @@ test('signed line receipt gate rejects unverified provider and malformed user be
 });
 
 
-test('incomplete clean LINE booking asks for nickname before Pending or slow external reads',async()=>{
+test('canonical bookable event with blank nickname asks for details without Booking or consent lookup',async()=>{
   const e=identityEvent();
   e.message.text=e.message.text.replace('👤 ชื่อเล่น: Synthetic Customer','👤 ชื่อเล่น: ');
   const calls=[];
-  const fake=async (url,options)=>{
-    calls.push({url:String(url),body:JSON.parse(options.body)});
-    if(!String(url).endsWith('/reply')) throw Error('no external read or booking write allowed');
-    return {ok:true};
+  const fake=async (url,options={})=>{
+    const u=String(url);
+    calls.push({url:u,body:options.body?JSON.parse(options.body):null});
+    if(u.includes('08_Web_Ready'))return {ok:true,text:async()=>syntheticVisibleRow()};
+    if(u.includes('09_Web_Packages'))return {ok:true,text:async()=>PACKAGES};
+    if(u.endsWith('/reply'))return {ok:true};
+    throw Error('no private database, Apps Script or owner send allowed');
   };
   const out=await mod._test.processEvent(e,identityEnv(),fake,{signatureVerified:true});
   assert.equal(out.automation_status,'CUSTOMER_DETAILS_REQUIRED');
   assert.equal(out.booking_id,'');
-  assert.equal(calls.length,1);
-  assert.equal(calls[0].body.messages[0].type,'text');
-  assert.match(calls[0].body.messages[0].text,/กรุณาระบุชื่อเล่น/);
-  assert.doesNotMatch(calls[0].body.messages[0].text,/KK-TERMS|รับทราบนโยบายความเป็นส่วนตัว/);
+  const replies=calls.filter(x=>x.url.endsWith('/reply'));
+  assert.equal(replies.length,1);
+  assert.equal(replies[0].body.messages[0].type,'text');
+  assert.match(replies[0].body.messages[0].text,/กรุณาระบุชื่อเล่น/);
+  assert.doesNotMatch(replies[0].body.messages[0].text,/KK-TERMS|รับทราบนโยบายความเป็นส่วนตัว/);
+  assert.equal(calls.some(x=>x.url.includes('script.google.com')||x.url.includes('/rpc/')||x.url.endsWith('/push')),false);
 });
 
-test('customer identity absent asks for direct LINE OA chat without a Booking write',async()=>{
+test('canonical bookable event without customer LINE identity gets a safe reply only',async()=>{
   const e=identityEvent();
   delete e.source.userId;
   const calls=[];
-  const out=await mod._test.processEvent(e,identityEnv(),async (url,options)=>{
-    calls.push(String(url));
-    assert.ok(String(url).endsWith('/reply'),'no public sheet, private DB, Apps Script or owner push');
-    const body=JSON.parse(options.body);
-    assert.match(body.messages[0].text,/แชทส่วนตัวกับ LINE OA/);
-    return {ok:true};
+  const out=await mod._test.processEvent(e,identityEnv(),async (url,options={})=>{
+    const u=String(url);
+    calls.push(u);
+    if(u.includes('08_Web_Ready'))return {ok:true,text:async()=>syntheticVisibleRow()};
+    if(u.includes('09_Web_Packages'))return {ok:true,text:async()=>PACKAGES};
+    if(u.endsWith('/reply')){
+      assert.match(JSON.parse(options.body).messages[0].text,/แชทส่วนตัวกับ LINE OA/);
+      return {ok:true};
+    }
+    throw Error('no private database, Apps Script or owner send allowed');
   },{signatureVerified:true});
   assert.equal(out.automation_status,'CUSTOMER_DETAILS_REQUIRED');
   assert.equal(out.booking_id,'');
-  assert.equal(calls.length,1);
+  assert.equal(calls.filter(x=>x.endsWith('/reply')).length,1);
+  assert.equal(calls.some(x=>x.includes('script.google.com')||x.includes('/rpc/')||x.endsWith('/push')),false);
 });
