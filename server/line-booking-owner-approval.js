@@ -215,7 +215,7 @@ async function pushMessageWithReceipt(to,message,env=process.env,fetchImpl=fetch
   return {provider_message_id:messageId};
 }
 
-async function processDurableOwnerDelivery(parsed,decision,expected,event,env,fetchImpl){
+async function processDurableOwnerDelivery(parsed,decision,expected,event,env,fetchImpl,verifiedContact){
   const bookingId=parsed.booking_id;
   const readback=await appsScriptCall({
     action:'claimLineBookingDecisionDelivery',booking_id:bookingId,decision
@@ -238,7 +238,8 @@ async function processDurableOwnerDelivery(parsed,decision,expected,event,env,fe
   const recipient=text(claim.customer_contact),claimId=text(claim.claim_id);
   if(claim.delivery_state!=='CLAIMED' ||
       !/^[a-f0-9-]{36}$/i.test(claimId) ||
-      !/^U[A-Za-z0-9_-]{20,}$/.test(recipient)){
+      !/^U[A-Za-z0-9_-]{20,}$/.test(recipient) ||
+      recipient!==verifiedContact){
     throw Object.assign(new Error('LINE delivery recipient and claim not verified'),{code:'LINE_DELIVERY_CLAIM_READBACK_INVALID'});
   }
   let receipt;
@@ -341,7 +342,12 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
       throw Object.assign(new Error('LINE decision outbox deployed contract missing'),
         {code:'LINE_DECISION_OUTBOX_CONTRACT_REQUIRED'});
     }
-    return processDurableOwnerDelivery(parsed,decision,expected,event,env,fetchImpl);
+    const canonicalContact=text(data.customer_contact);
+    if(!/^U[A-Za-z0-9_-]{20,}$/.test(canonicalContact)){
+      throw Object.assign(new Error('LINE decision recipient not verified'),
+        {code:'LINE_DELIVERY_RECIPIENT_READBACK_REQUIRED'});
+    }
+    return processDurableOwnerDelivery(parsed,decision,expected,event,env,fetchImpl,canonicalContact);
   }
   if(data.outbox_version===LINE_DECISION_OUTBOX_VERSION){
     throw Object.assign(new Error('LINE decision outbox sender not enabled'),
