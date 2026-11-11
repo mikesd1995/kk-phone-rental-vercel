@@ -68,6 +68,50 @@ async function runViewport(browser,width,scheme){
     assert.equal(await gate.isVisible(),false,'current-version same-browser repeat must skip the popup');
     assert.equal(await page.evaluate(()=>window.__kkQaApproved),2,'repeat booking still opens the original LINE link');
     assert.equal(await page.evaluate(()=>localStorage.getItem('kk_booking_terms_prompt_version')),'KK-TERMS-2026-11-06');
+    assert.match(await page.evaluate(()=>document.cookie),/kk_booking_terms_prompt_version=KK-TERMS-2026-11-06/,'first-party cookie should remember the version');
+
+    // Revisit in the same browser: the preference must survive a real page reload.
+    await page.reload({waitUntil:'domcontentloaded'});
+    await page.evaluate(()=>{
+      window.__kkQaApproved=0;
+      const a=document.createElement('a');
+      a.id='kk-qa-book-pill';
+      a.className='book-pill';
+      a.href='https://line.me/R/oaMessage/%40827blnmo/?testonly';
+      a.textContent='QA repeat booking after reload';
+      a.addEventListener('click',event=>{event.preventDefault();window.__kkQaApproved++;});
+      document.body.appendChild(a);
+    });
+    await page.locator('#kk-qa-book-pill').click();
+    assert.equal(await gate.isVisible(),false,'same-browser reload must not show Terms repeatedly');
+    assert.equal(await page.evaluate(()=>window.__kkQaApproved),1);
+
+    // With localStorage forcibly denied on a fresh tab, first-party cookie
+    // must still suppress the repeat prompt within this browser context.
+    const nextTab=await context.newPage();
+    try{
+      await nextTab.addInitScript(()=>{
+        Object.defineProperty(window,'localStorage',{configurable:true,get(){throw Error('localStorage denied');}});
+      });
+      const second=await nextTab.goto('http://127.0.0.1:4173/',{waitUntil:'domcontentloaded'});
+      assert.equal(second?.status(),200);
+      await nextTab.locator('#kk-booking-agreement').waitFor({state:'attached'});
+      await nextTab.evaluate(()=>{
+        window.__kkQaApproved=0;
+        const a=document.createElement('a');
+        a.id='kk-qa-book-pill';
+        a.className='book-pill';
+        a.href='https://line.me/R/oaMessage/%40827blnmo/?testonly';
+        a.textContent='QA cookie fallback';
+        a.addEventListener('click',event=>{event.preventDefault();window.__kkQaApproved++;});
+        document.body.appendChild(a);
+      });
+      await nextTab.locator('#kk-qa-book-pill').click();
+      assert.equal(await nextTab.locator('#kk-booking-agreement').isVisible(),false,
+        'new tab with localStorage denied should use existing first-party cookie');
+      assert.equal(await nextTab.evaluate(()=>window.__kkQaApproved),1);
+    } finally { await nextTab.close(); }
+
     // English from the existing homepage switch must translate the real checkout
     // dialog and link to English documents. Simulate an old Terms version
     // so the updated-version prompt is visible for accessibility checks.
