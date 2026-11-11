@@ -2968,6 +2968,8 @@ function kkApiMarkLineBookingDecisionUncertain_(payload) {
 // customer contact, claim UUID, notification body, or provider message ID.
 // Never claims or retries delivery, including after process crashes.
 function kkApiInspectLineBookingDecisionDelivery_(payload) {
+  const lock = kkAcquireDocumentLock_('LINE delivery read-only inspection', 12000);
+  try {
   const bookingId = String(payload.booking_id || '').trim();
   if (!bookingId) throw new Error('booking_id is required');
   const row = kkFindBookingRow_('', bookingId);
@@ -2989,6 +2991,9 @@ function kkApiInspectLineBookingDecisionDelivery_(payload) {
     requires_manual_review:state === 'UNCERTAIN' || state === 'CLAIMED' || state === 'LEGACY_UNVERIFIED',
     readonly:true
   };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function kkApiDecideLineBookingPending_(payload) {
