@@ -192,13 +192,26 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
   if(!event || event.type!=='message' || !event.replyToken || !event.message || event.message.type!=='text') return {handled:false};
   const booking=parseBookingText(event.message.text);
   if(!booking) return {handled:false};
+  const readiness=OwnerApproval.automationReadiness(env);
+  // A clean LINE booking draft intentionally leaves nickname/phone for the
+  // customer to fill. Never attempt a canonical Pending write with no name
+  // or user ID: the governed writer would throw before the customer reply.
+  if(readiness.ready && (!booking.nickname || !event.source || !event.source.userId)){
+    const missingName=!booking.nickname;
+    await replyFlex(event.replyToken,{
+      type:'text',
+      text:missingName
+        ? 'กรุณาระบุชื่อเล่นในข้อความจอง แล้วส่งใหม่อีกครั้งเพื่อให้ร้านตรวจสอบคิวค่ะ'
+        : 'กรุณาส่งคำขอจองจากแชทส่วนตัวกับ LINE OA เพื่อให้ร้านตรวจสอบได้ค่ะ'
+    },env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
+    return {handled:true,booking_id:'',automation_status:'CUSTOMER_DETAILS_REQUIRED'};
+  }
   const [poster,canonical]=await Promise.all([
     resolvePoster(booking,fetchImpl).catch(()=> ''),
     resolveCanonicalPackage(booking,fetchImpl).catch(()=> null)
   ]);
   booking.poster_image_url=poster;
 
-  const readiness=OwnerApproval.automationReadiness(env);
   let pending=null;
   let automationStatus=readiness.ready?'CANONICAL_REQUIRED':'REPLY_ONLY';
   if(readiness.ready && canonical){
