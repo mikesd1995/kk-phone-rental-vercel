@@ -178,6 +178,6 @@ test('homepage language selection translates legal footer and agreement without 
   assert.match(script, /isEn\?"\/en\/privacy\/"\:"\/privacy\/"/);
   assert.match(script, /"I have read and accept "/);
   assert.match(script, /"Confirm and browse events"/);
-  assert.match(script, /"TERMS_ACK:"|KK-TERMS-2026-11-06/);
+  assert.doesNotMatch(script, /ยืนยันยอมรับเงื่อนไขการเช่า KK Phone Rental/);
   assert.doesNotMatch(html, /id="kk-booking-terms-check"[^>]*checked/);
 });
