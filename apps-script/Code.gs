@@ -1772,7 +1772,7 @@ function doPost(e) {
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
     }
-    if (action === 'lineOwnerOutboxReadiness' || action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery') {
+    if (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery') {
       kkAuditLog_(action, { booking_id: payload.booking_id }, {
         booking_id: result.booking_id, outbox_id: result.outbox_id, outbox_state: result.outbox_state
       }, startedAt);
