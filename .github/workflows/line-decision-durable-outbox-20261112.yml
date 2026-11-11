@@ -1,0 +1,56 @@
+name: LINE Decision Durable Outbox Exact-Head Acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps-script/Code.gs'
+      - 'server/line-booking-owner-approval.js'
+      - 'tests/line-decision-durable-outbox-*.test.js'
+      - '.github/workflows/line-decision-durable-outbox-20261112.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: line-decision-outbox-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zero-write-native-acceptance:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 12
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 1
+      - name: Verify exact checkout
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check source and new tests syntax
+        run: |
+          node --check server/line-booking-owner-approval.js
+          node --check tests/line-decision-durable-outbox-node-20261112.test.js
+          node --check tests/line-decision-durable-outbox-gas-20261112.test.js
+      - name: New GAS crash/replay and LINE provider synthetic scenarios
+        run: |
+          node --test tests/line-decision-durable-outbox-node-20261112.test.js \
+            tests/line-decision-durable-outbox-gas-20261112.test.js
+      - name: Full repository source and security regressions
+        run: npm test
+      - name: No live provider or canonical production credentials
+        run: |
+          test -z "$(printenv KK_LINE_BOOKING_AUTOMATION_ENABLED || true)"
+          test -z "$(printenv KK_LINE_DECISION_DURABLE_OUTBOX_ENABLED || true)"
+          test -z "$(printenv LINE_CHANNEL_ACCESS_TOKEN || true)"
+          test -z "$(printenv KK_ADMIN_API_KEY || true)"
