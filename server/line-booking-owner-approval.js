@@ -212,6 +212,18 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     return {handled:true,status:'UNAUTHORIZED_OWNER',booking_id:parsed.booking_id};
   }
   const decision=parsed.decision;
+  // Verify the canonical writer's feature flag and private outbox schema
+  // BEFORE deciding a booking. A half-deployed migration must never commit
+  // the decision and then discover that notification durability is absent.
+  if(enabled(env.KK_LINE_OWNER_OUTBOX_V1_ENABLED)){
+    const readiness=await appsScriptCall({action:'lineOwnerOutboxReadiness'},env,fetchImpl);
+    const proof=readiness&&readiness.data||readiness||{};
+    if(proof.ready!==true||proof.outbox_mode!==DurableOutbox.VERSION||proof.columns!==10){
+      const err=new Error('Canonical LINE owner outbox readiness not verified');
+      err.code='LINE_OWNER_OUTBOX_PREFLIGHT_FAILED';
+      throw err;
+    }
+  }
   const result=await appsScriptCall({
     action:'decideLineBookingPending',
     booking_id:parsed.booking_id,
