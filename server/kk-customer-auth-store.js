@@ -55,6 +55,21 @@ function createStore({ url, serviceKey, fetchImpl = fetch } = {}) {
         p_token_hash: tokenHash, p_terms_version: termsVersion
       }));
     },
+    // Server-side only: the caller must have independently verified the
+    // Messaging API webhook signature before supplying its event.source.userId.
+    // This RPC cannot be called by anon/authenticated roles in the schema.
+    async findAcceptanceForLineUser(providerId, lineUserId, termsVersion) {
+      if(typeof providerId !== 'string' || providerId.length === 0 ||
+         providerId.length > 128 || !ID.test(String(lineUserId || '')) ||
+         !/^KK-TERMS-\d{4}-\d{2}-\d{2}$/.test(String(termsVersion || ''))) {
+        return null;
+      }
+      return one(await rpc('kk_customer_terms_lookup_for_line_webhook', {
+        p_provider_id:providerId,
+        p_line_user_id:lineUserId,
+        p_terms_version:termsVersion
+      }));
+    },
     async acceptTerms(tokenHash, termsVersion, evidenceReference) {
       if (!/^[0-9a-f]{64}$/.test(tokenHash) ||
           !/^web:[A-Za-z0-9_-]{20,128}$/.test(evidenceReference)) throw new Error('CUSTOMER_ACCEPT_INPUT_INVALID');
