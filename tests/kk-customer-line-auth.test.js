@@ -159,6 +159,11 @@ test('SQL migration is private source only and does not edit existing booking/in
   assert.ok(sql.includes('on conflict (provider_id, line_user_id, terms_version) do nothing'));
   assert.ok(sql.includes('grant execute on function public.kk_customer_terms_accept'));
   assert.ok(sql.includes('create or replace function public.kk_customer_terms_lookup_for_line_webhook('));
+  // Regression for a previously malformed SQL dollar-quote insertion.
+  assert.equal(sql.split('as $$').length-1,6,'all 6 SQL function bodies must open with intact dollar quotes');
+  assert.equal(sql.split('commit;').length-1,1,'migration must commit exactly once');
+  assert.equal(sql.split('create or replace function public.kk_customer_terms_lookup_for_line_webhook(').length-1,1);
+
   assert.ok(sql.includes('revoke all on function public.kk_customer_terms_lookup_for_line_webhook(text,text,text)'));
   assert.ok(sql.includes('grant execute on function public.kk_customer_terms_lookup_for_line_webhook(text,text,text)'));
   assert.ok(sql.includes("p_line_user_id ~ '^U[0-9a-f]{32}$'"));
