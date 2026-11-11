@@ -192,11 +192,17 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
   if(!event || event.type!=='message' || !event.replyToken || !event.message || event.message.type!=='text') return {handled:false};
   const booking=parseBookingText(event.message.text);
   if(!booking) return {handled:false};
+  const [poster,canonical]=await Promise.all([
+    resolvePoster(booking,fetchImpl).catch(()=> ''),
+    resolveCanonicalPackage(booking,fetchImpl).catch(()=> null)
+  ]);
+  booking.poster_image_url=poster;
+
   const readiness=OwnerApproval.automationReadiness(env);
-  // A clean LINE booking draft intentionally leaves nickname/phone for the
-  // customer to fill. Never attempt a canonical Pending write with no name
-  // or user ID: the governed writer would throw before the customer reply.
-  if(readiness.ready && (!booking.nickname || !event.source || !event.source.userId)){
+  // Validate canonical bookability FIRST. A hidden/invalid event retains the
+  // existing fail-closed warning even if the customer also omitted a field.
+  // Only admitted bookings prompt for missing contact fields before writes.
+  if(readiness.ready && canonical && (!booking.nickname || !event.source || !event.source.userId)){
     const missingName=!booking.nickname;
     await replyFlex(event.replyToken,{
       type:'text',
@@ -206,11 +212,6 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
     },env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
     return {handled:true,booking_id:'',automation_status:'CUSTOMER_DETAILS_REQUIRED'};
   }
-  const [poster,canonical]=await Promise.all([
-    resolvePoster(booking,fetchImpl).catch(()=> ''),
-    resolveCanonicalPackage(booking,fetchImpl).catch(()=> null)
-  ]);
-  booking.poster_image_url=poster;
 
   let pending=null;
   let automationStatus=readiness.ready?'CANONICAL_REQUIRED':'REPLY_ONLY';
