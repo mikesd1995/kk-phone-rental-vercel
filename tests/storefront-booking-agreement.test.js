@@ -18,7 +18,7 @@ test('booking acknowledgement is opt-in, visible at checkout and independent of 
   assert.match(html, /ลูกค้าต้องตรวจสอบและกดส่งเอง/);
   assert.match(html, /คิวยังไม่สำเร็จจนกว่าร้านยืนยัน/);
   assert.match(html, /ฉบับ 6 พ.ย. 2569/);
-  assert.match(html, /src="\/assets\/kk-booking-agreement.js" defer/);
+  assert.match(html, /src="\/assets\/kk-booking-agreement.js\?v=terms-cookie-20261111" defer/);
   assert.match(html, /href="\/assets\/kk-booking-agreement.css"/);
   assert.doesNotMatch(html, /ยินยอม(?:การตลาด|ให้ใช้ข้อมูลส่วนบุคคลทุก)/);
 });
@@ -37,7 +37,10 @@ test('existing package, waitlist and sticky booking URLs are retained, but clien
   assert.match(logic, /window\.localStorage\.getItem\(promptKey\)/);
   assert.match(logic, /window\.localStorage\.setItem\(promptKey, termsVersion\)/);
   assert.match(logic, /if \(approved === link \|\| hasSeenCurrentTermsPrompt\(\)\) return/);
-  assert.doesNotMatch(logic, /sessionStorage|document\.cookie|fetch\(|sendBeacon|XMLHttpRequest/i);
+  assert.match(logic, /document\.cookie/);
+  assert.match(logic, /SameSite=Lax; Secure/);
+  assert.match(logic, /Max-Age=/);
+  assert.doesNotMatch(logic, /sessionStorage|fetch\(|sendBeacon|XMLHttpRequest/i);
   assert.doesNotMatch(logic, /customer_id|line_user_id|phone_number|marketing_consent|termsAccepted=true/i);
 });
 
