@@ -19,7 +19,7 @@ test('first-visit Terms prompt has an unchecked explicit confirmation and does n
   assert.match(html,/<a href="\/privacy\/" target="_blank" rel="noopener">นโยบายความเป็นส่วนตัว<\/a>/);
   assert.match(html,/จำการกดยืนยันสำหรับเบราว์เซอร์/);
   assert.match(html,/script\.js\?v=first-visit-terms-20261111/);
-  assert.match(html,/kk-booking-agreement\.js\?v=first-visit-terms-20261111/);
+  assert.match(html,/kk-booking-agreement\.js\?v=identity-consent-20261111/);
   assert.doesNotMatch(html,/ยินยอม(?:การตลาด|ให้ใช้ข้อมูลส่วนบุคคลทุก)/);
 });
 
