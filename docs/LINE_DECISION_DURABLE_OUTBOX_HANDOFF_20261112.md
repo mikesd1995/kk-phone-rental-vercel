@@ -15,7 +15,7 @@ PR #872 implements a **write-ahead durable notification intent**, canonical clai
 
 ## Canonical protocol and privacy
 
-1. Signed owner postback must pass existing HMAC and exact LINE owner identity check.
+1. Signed owner postback must pass existing HMAC and exact LINE owner identity check. **When the Vercel durable flag is on, the server first calls private side-effect-free lineDecisionOutboxReadiness and requires the deployed GAS version, enabled=true and readonly=true BEFORE submitting any owner decision.** A misconfigured GAS-only or Vercel-only rollout is rejected before an irreversible booking commit when the Vercel flag is enabled.
 2. GAS under DocumentLock validates canonical LINE Booking row A:T and its deterministic request marker. With the GAS gate enabled it writes a **PREPARED** outbox record to ScriptProperties and reads it back **before** mutating Booking status. It then commits the approved/rejected booking status, flushes, and independently reads back the same ID, request marker and contact.
 3. Outbox key is derived from SHA-256 of Booking ID. Stored record contains version, booking ID, decision, state, timestamps, unique claim ID, and acknowledged LINE provider message ID. It does not store phone numbers, raw customer LINE IDs, message body or tokens.
 4. GAS **claimLineBookingDecisionDelivery** under DocumentLock checks exact Booking status/contact and claimable PREPARED state. First caller transitions to CLAIMED; simultaneous/replayed callers cannot push.
@@ -35,13 +35,14 @@ PR #872 implements a **write-ahead durable notification intent**, canonical clai
 | Provider accepted, ACK result lost | CLAIMED, UNCERTAIN or SENT | Inspect before any human follow-up; never automatically resend |
 | Owner reply token expired after ACK | SENT | Customer push not repeated; inspect for owner confirmation |
 | Legacy already-confirmed Booking with no outbox | LEGACY_UNVERIFIED | No auto-backfill; manual historical verification |
+| Durable Vercel flag ON but GAS flag OFF | Readiness fails before booking mutation | Verify paired flags/deployed source before retry |
 | Mismatched GAS/Vercel versions | Contract failure | Stop provider sends and restore paired version |
 | Booking status advanced past initial approved status | Status mismatch | Fail closed; manually reconcile stale notification |
 
 ## Tests / source verification
 
 - **Node synthetic:** tests/line-decision-durable-outbox-node-20261112.test.js — claim/receipt/ack sequence, replay and crash window, wrong recipient, provider timeout, missing receipt, invalid IDs and mismatched deployed versions.
-- **GAS VM synthetic:** tests/line-decision-durable-outbox-gas-20261112.test.js — write-ahead before Booking commit, crash/replay, claim concurrency, forged ACK, uncertain send, private default-off flag, legacy booking and read-only inspection.
+- **GAS VM synthetic:** tests/line-decision-durable-outbox-gas-20261112.test.js — write-ahead before Booking commit, crash/replay, claim concurrency, forged ACK, uncertain send, private default-off flag, legacy booking and read-only inspection. Read-only readiness/inspection explicitly skip success/error write-audits.
 - **Exact-head workflow:** .github/workflows/line-decision-durable-outbox-20261112.yml — verifies checked-out SHA, Node 20 syntax, both test files, full npm test and no production credentials. CI is synthetic; it does not verify deployed GAS or real LINE receipt.
 
 ## Release and rollback gate (HOLD)
