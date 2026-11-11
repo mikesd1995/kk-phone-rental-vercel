@@ -301,6 +301,17 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     return {handled:true,status:'UNAUTHORIZED_OWNER',booking_id:parsed.booking_id};
   }
   const decision=parsed.decision;
+  if(enabled(env.KK_LINE_DECISION_DURABLE_OUTBOX_ENABLED)){
+    // Check the ACTUAL deployed Apps Script version/mode before committing a
+    // Booking decision. A Vercel-only rollout must not create unnotified bookings.
+    const preflightResult=await appsScriptCall({action:'lineDecisionOutboxReadiness'},env,fetchImpl);
+    const preflight=preflightResult&&preflightResult.data||preflightResult||{};
+    if(preflight.outbox_version!==LINE_DECISION_OUTBOX_VERSION||
+       preflight.enabled!==true||preflight.readonly!==true){
+      throw Object.assign(new Error('LINE durable outbox deployment preflight failed'),
+        {code:'LINE_DECISION_OUTBOX_PREFLIGHT_REQUIRED'});
+    }
+  }
   const result=await appsScriptCall({
     action:'decideLineBookingPending',
     booking_id:parsed.booking_id,
