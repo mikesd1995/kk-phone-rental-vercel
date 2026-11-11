@@ -6,6 +6,7 @@ const Intake=require('./line-booking-intake');
 const VERSION='KK_LINE_BOOKING_OWNER_APPROVAL_V1';
 const LINE_PUSH_URL='https://api.line.me/v2/bot/message/push';
 const LINE_REPLY_URL='https://api.line.me/v2/bot/message/reply';
+const LINE_DECISION_OUTBOX_VERSION='KK_LINE_DECISION_OUTBOX_V1';
 
 function text(v){return String(v===undefined||v===null?'':v).trim();}
 function enabled(v){return /^(1|true|yes|on)$/i.test(text(v));}
@@ -186,6 +187,94 @@ async function sendLine(url,body,token,fetchImpl=fetch){
 function pushMessage(to,message,env=process.env,fetchImpl=fetch){
   return sendLine(LINE_PUSH_URL,{to,messages:[message]},env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
 }
+async function pushMessageWithReceipt(to,message,env=process.env,fetchImpl=fetch){
+  let response;
+  try{
+    response=await fetchImpl(LINE_PUSH_URL,{
+      method:'POST',
+      headers:{Authorization:'Bearer '+text(env.LINE_CHANNEL_ACCESS_TOKEN),'Content-Type':'application/json'},
+      body:JSON.stringify({to,messages:[message]})
+    });
+  }catch(_){
+    throw Object.assign(new Error('LINE delivery transport uncertain'),{code:'LINE_DELIVERY_TRANSPORT_UNCERTAIN'});
+  }
+  if(!response||response.ok!==true){
+    const err=new Error('LINE delivery provider rejected request');
+    err.code='LINE_DELIVERY_PROVIDER_UNCERTAIN';
+    if(response&&Number.isInteger(response.status))err.status=response.status;
+    throw err;
+  }
+  let payload;
+  try{payload=JSON.parse(await response.text());}catch(_){
+    throw Object.assign(new Error('LINE delivery provider receipt unreadable'),{code:'LINE_DELIVERY_RECEIPT_UNVERIFIED'});
+  }
+  const messageId=text(payload&&payload.sentMessages&&payload.sentMessages[0]&&payload.sentMessages[0].id);
+  if(!/^[A-Za-z0-9_.:-]{3,200}$/.test(messageId)){
+    throw Object.assign(new Error('LINE delivery provider receipt missing'),{code:'LINE_DELIVERY_RECEIPT_UNVERIFIED'});
+  }
+  return {provider_message_id:messageId};
+}
+
+async function processDurableOwnerDelivery(parsed,decision,expected,event,env,fetchImpl){
+  const bookingId=parsed.booking_id;
+  const readback=await appsScriptCall({
+    action:'claimLineBookingDecisionDelivery',booking_id:bookingId,decision
+  },env,fetchImpl);
+  const claim=readback&&readback.data||readback||{};
+  if(claim.outbox_version!==LINE_DECISION_OUTBOX_VERSION ||
+      text(claim.booking_id)!==bookingId||text(claim.decision)!==decision||
+      text(claim.booking_status).toLowerCase()!==expected ||
+      typeof claim.claimed!=='boolean'){
+    throw Object.assign(new Error('LINE delivery claim readback invalid'),{code:'LINE_DELIVERY_CLAIM_READBACK_INVALID'});
+  }
+  if(claim.claimed===false){
+    if(!['CLAIMED','UNCERTAIN','SENT'].includes(claim.delivery_state)){
+      throw Object.assign(new Error('LINE delivery claim state not verified'),{code:'LINE_DELIVERY_CLAIM_READBACK_INVALID'});
+    }
+    return {handled:true,status:'DELIVERY_REVIEW_REQUIRED',booking_id:bookingId,
+      delivery_state:claim.delivery_state,customer_notifications:0,owner_notifications:0,
+      requires_manual_delivery_review:true};
+  }
+  const recipient=text(claim.customer_contact),claimId=text(claim.claim_id);
+  if(claim.delivery_state!=='CLAIMED' ||
+      !/^[a-f0-9-]{36}$/i.test(claimId) ||
+      !/^U[A-Za-z0-9_-]{20,}$/.test(recipient)){
+    throw Object.assign(new Error('LINE delivery recipient and claim not verified'),{code:'LINE_DELIVERY_CLAIM_READBACK_INVALID'});
+  }
+  let receipt;
+  try{
+    receipt=await pushMessageWithReceipt(recipient,customerDecisionMessage(decision,bookingId),env,fetchImpl);
+    const acknowledged=await appsScriptCall({
+      action:'ackLineBookingDecisionDelivery',booking_id:bookingId,decision,
+      claim_id:claimId,provider_message_id:receipt.provider_message_id
+    },env,fetchImpl);
+    const ack=acknowledged&&acknowledged.data||acknowledged||{};
+    if(ack.outbox_version!==LINE_DECISION_OUTBOX_VERSION||ack.delivery_state!=='SENT'||
+       text(ack.booking_id)!==bookingId||text(ack.decision)!==decision||
+       text(ack.booking_status).toLowerCase()!==expected||
+       text(ack.claim_id)!==claimId){
+      throw Object.assign(new Error('LINE delivery acknowledgement not verified'),{code:'LINE_DELIVERY_ACK_UNVERIFIED'});
+    }
+  }catch(error){
+    // Provider timeout, unreadable receipt, and ACK transport failures are
+    // *uncertain*, never safe reasons to resend. This action may itself fail;
+    // the durable CLAIMED state still prevents automatic duplicate sends.
+    try{
+      await appsScriptCall({
+        action:'markLineBookingDecisionUncertain',booking_id:bookingId,
+        decision,claim_id:claimId
+      },env,fetchImpl);
+    }catch(_){}
+    throw error;
+  }
+  if(event.replyToken){
+    await replyMessage(event.replyToken,ownerDecisionMessage(decision,bookingId),env,fetchImpl);
+  }
+  return {handled:true,status:expected.toUpperCase(),booking_id:bookingId,
+    outbox_version:LINE_DECISION_OUTBOX_VERSION,delivery_state:'SENT',
+    customer_notifications:1,owner_notifications:event.replyToken?1:0};
+}
+
 function replyMessage(replyToken,message,env=process.env,fetchImpl=fetch){
   return sendLine(LINE_REPLY_URL,{replyToken,messages:[message]},env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
 }
@@ -244,6 +333,20 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     err.code='LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED';
     throw err;
   }
+  // The durable protocol MUST be explicitly enabled only after the Apps Script
+  // deployment/version has been verified. A new outbox-enabled GAS writer must
+  // not silently fall back to legacy unreserved customer pushes.
+  if(enabled(env.KK_LINE_DECISION_DURABLE_OUTBOX_ENABLED)){
+    if(data.outbox_version!==LINE_DECISION_OUTBOX_VERSION){
+      throw Object.assign(new Error('LINE decision outbox deployed contract missing'),
+        {code:'LINE_DECISION_OUTBOX_CONTRACT_REQUIRED'});
+    }
+    return processDurableOwnerDelivery(parsed,decision,expected,event,env,fetchImpl);
+  }
+  if(data.outbox_version===LINE_DECISION_OUTBOX_VERSION){
+    throw Object.assign(new Error('LINE decision outbox sender not enabled'),
+      {code:'LINE_DECISION_OUTBOX_SENDER_DISABLED'});
+  }
   // Canonical decision replay is not a receipt for customer LINE delivery.
   if(data.idempotent_replay===true){
     return {handled:true,status:'ALREADY_APPLIED',booking_id:parsed.booking_id,
@@ -271,5 +374,6 @@ module.exports={
   VERSION,automationReadiness,ownerUserId,ownerTargetId,approvalSecret,
   appsScriptCall,createPendingBooking,decisionData,parseDecisionData,
   ownerApprovalMessage,notifyOwner,processOwnerPostback,
-  customerDecisionMessage,ownerDecisionMessage,pushMessage,replyMessage
+  customerDecisionMessage,ownerDecisionMessage,pushMessage,replyMessage,
+  LINE_DECISION_OUTBOX_VERSION,pushMessageWithReceipt
 };
