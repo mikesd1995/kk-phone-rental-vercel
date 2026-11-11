@@ -327,3 +327,26 @@ test('matching authenticated private transport preserves positive controls',()=>
   assert.ok(out.records[0].gate.includes('ยังไม่ยืนยัน Production และ X Post Log สด'));
  }
 });
+
+
+// R19 live source has 471 canonical event IDs; a fixed 450 cap hid 21.
+test('bounded table pages retain the 471st event and never silently cap at 450',()=>{
+ const rows=Array.from({length:471},(_,i)=>({event_id:'SYNTHETIC-'+i}));
+ assert.equal(Ops.pageRows(rows).length,150);
+ assert.equal(Ops.pageRows(rows,300).length,300);
+ assert.equal(Ops.pageRows(rows,450).length,450);
+ assert.equal(Ops.pageRows(rows,600).length,471);
+ assert.equal(Ops.pageRows(rows,600)[470],rows[470]);
+ assert.equal(Ops.pageRows(rows,-12).length,150);
+});
+test('table and calendar have explicit load-more controls and filter reset',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const root=path.resolve(__dirname,'..');
+ const html=fs.readFileSync(path.join(root,'admin/operations-dashboard.html'),'utf8');
+ const code=fs.readFileSync(path.join(root,'admin/operations-dashboard.js'),'utf8');
+ assert.ok(html.includes('id="tableCount"'));
+ assert.ok(html.includes('id="showMore"'));
+ assert.ok(code.includes("more.addEventListener('click',next)"));
+ assert.ok(code.includes("state.tableLimit=TABLE_PAGE_SIZE"));
+ assert.ok(!code.includes('rows.slice(0,450)'));
+});

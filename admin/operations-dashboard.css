@@ -12,3 +12,6 @@
   }
   .tablewrap th:last-child{z-index:2;background:#f8fafd}
 }
+
+/* R19: the action-button display rule must respect hidden state. */
+.btn[hidden]{display:none}

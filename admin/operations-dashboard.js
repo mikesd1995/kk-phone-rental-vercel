@@ -7,6 +7,8 @@
 'use strict';
 const AUTH='/api/kk-admin-auth', SNAPSHOT='/api/kk-admin?action=operationsSnapshot';
 const MAX_AGE_MS=180000;
+const TABLE_PAGE_SIZE=150;
+const pageRows=(rows,limit=TABLE_PAGE_SIZE)=>rows.slice(0,Number.isSafeInteger(limit)&&limit>=0?limit:TABLE_PAGE_SIZE);
 const CLOSED=new Set(['completed','complete','cancelled','canceled','no_show','rejected','closed']);
 const ACTIVE=new Set(['pending','confirmed','prepared','picked_up','returned','uploaded']);
 const SAFE_LOCK=new Set(['SEEN_CORE','REOPENED']);
@@ -172,7 +174,7 @@ function normalize(source,now=new Date()){
  return {records,meta:{generatedAt:Number.isFinite(fetched)?new Date(fetched).toISOString():null,fresh,viaPublic,privateSourceVerified,snapshotSource:display(d.snapshot_source||'unknown'),xLogAvailable:false,locksAvailable,complete:missing.length===0&&locksAvailable}};
 }
 function mount(doc,win){
- const $=id=>doc.getElementById(id);const state={records:[],view:'table',meta:null,plans:[],ratio:60};
+ const $=id=>doc.getElementById(id);const state={records:[],view:'table',meta:null,plans:[],ratio:60,tableLimit:TABLE_PAGE_SIZE};
  const storageKey='kk_ops_dashboard_v4_draft_only';
  try{const saved=JSON.parse(win.localStorage.getItem(storageKey)||'{}');if(Array.isArray(saved.plans))state.plans=saved.plans.filter(p=>p&&p.status==='draft_pending_live_verification'&&typeof p.reason==='string').slice(0,200);if(Number.isFinite(saved.ratio)&&saved.ratio>=0&&saved.ratio<=100)state.ratio=saved.ratio;}catch(_){ }
  const persist=()=>{try{win.localStorage.setItem(storageKey,JSON.stringify({plans:state.plans.map(p=>({eventId:p.eventId,at:p.at,type:p.type,reason:p.reason,status:'draft_pending_live_verification'})),ratio:state.ratio}));}catch(_){ }};
@@ -201,18 +203,33 @@ function mount(doc,win){
   div.appendChild(node(doc,'h4','','Post safety gate: HOLD'));div.appendChild(node(doc,'p','reasons',e.gate.join(' / ')));
   const link=node(doc,'a','btn','ตรวจหน้าร้านจริง');link.href='https://kk-phone-rental.vercel.app/';link.target='_blank';link.rel='noopener noreferrer';div.appendChild(link);root.appendChild(div);$('details').hidden=false;$('details').scrollIntoView({behavior:'smooth',block:'start'});
  }
- function renderTable(rows){const tbody=$('rows');tbody.replaceChildren();for(const e of rows.slice(0,450)){
+ function renderTable(rows){const tbody=$('rows');tbody.replaceChildren();const visible=pageRows(rows,state.tableLimit);for(const e of visible){
   const tr=node(doc,'tr');const name=node(doc,'td');name.appendChild(node(doc,'div','name',e.name));name.appendChild(node(doc,'div','tiny',e.date));tr.appendChild(name);
   addCell(tr,e.venue);const tag=node(doc,'span','state '+(e.web==='show'?'good':e.web==='show_full'?'bad':'warn'),e.web==='show'?'เปิด':e.web==='show_full'?'เต็ม':e.web==='hide'?'ซ่อน':'ไม่ทราบ');tdWith(tr,tag);
   addCell(tr,(e.phoneReady||e.bundleReady)?`พร้อม ${e.stock??'?'} เครื่อง`:(e.stock===0?'ไม่มีเครื่อง':'ต้องตรวจ'));
   addCell(tr,(e.phone??'—')+' / '+(e.bundle??'—'));addCell(tr,e.bookingTotal===null?'รอตรวจ':String(e.bookingTotal));
   const btn=node(doc,'button','mini-btn',e.qa.length+' QA · ดู');btn.type='button';btn.addEventListener('click',()=>openDetails(e.id));tdWith(tr,btn);tbody.appendChild(tr)
  }if(!rows.length)tbody.appendChild(node(doc,'tr')).appendChild(text(node(doc,'td'), 'ไม่พบรายการ'));
+   text($('tableCount'),'ตารางแสดง '+visible.length+' จาก '+rows.length+' งาน');
+   const more=$('showMore');more.hidden=visible.length>=rows.length;
+   more.textContent='แสดงเพิ่ม '+Math.min(TABLE_PAGE_SIZE,rows.length-visible.length)+' งาน';
  }
- function renderCalendar(rows){const cal=$('calendar');cal.replaceChildren();const grouped=new Map();for(const e of rows){if(!e.date)continue;const g=grouped.get(e.date)||[];g.push(e);grouped.set(e.date,g)}for(const [date,events] of [...grouped].sort((a,b)=>a[0].localeCompare(b[0]))){const d=node(doc,'div','cal-day');d.appendChild(node(doc,'strong','',date));events.slice(0,12).forEach(e=>{const b=node(doc,'button','',e.name+' · '+e.web);b.type='button';b.addEventListener('click',()=>openDetails(e.id));d.appendChild(b)});cal.appendChild(d)}}
+ function renderCalendar(rows){const cal=$('calendar');cal.replaceChildren();const grouped=new Map();
+ for(const e of rows){if(!e.date)continue;const g=grouped.get(e.date)||[];g.push(e);grouped.set(e.date,g)}
+ for(const [date,events] of [...grouped].sort((a,b)=>a[0].localeCompare(b[0]))){
+  const d=node(doc,'div','cal-day');d.appendChild(node(doc,'strong','',date));let shown=0;
+  const more=node(doc,'button','mini-btn');more.type='button';
+  const next=()=>{more.remove();for(const e of events.slice(shown,shown+12)){
+   const b=node(doc,'button','',e.name+' · '+e.web);b.type='button';b.addEventListener('click',()=>openDetails(e.id));d.appendChild(b)
+  }shown=Math.min(shown+12,events.length);if(shown<events.length){
+   more.textContent='แสดงเพิ่ม '+Math.min(12,events.length-shown)+' จาก '+events.length+' งาน';d.appendChild(more);
+  }};
+  more.addEventListener('click',next);next();cal.appendChild(d);
+ }
+}
  function renderQa(rows){const qa=$('qa');qa.replaceChildren();const groups=[['โปสเตอร์',x=>x.qa.some(v=>v.includes('โปสเตอร์'))],['วันที่/สถานที่',x=>x.qa.some(v=>v.includes('วันที่/สถานที่'))],['ราคาและแพ็กเกจ',x=>x.qa.some(v=>v.includes('ราคา/แพ็กเกจ'))],['เว็บเปิดแต่สต็อก/Core ไม่พร้อม',x=>x.qa.some(v=>v.includes('สถานะเปิด'))],['Snapshot/Reader ต้องตรวจ',x=>x.qa.some(v=>v.includes('Reader ไม่ผ่าน'))],['Owner Locks ต้องตรวจ',x=>x.qa.some(v=>v.includes('Owner Locks'))],['Booking ผิดปกติ',x=>x.qa.some(v=>v.includes('Booking ตรวจไม่ผ่าน'))],['ไม่มี Booking ใน Snapshot',x=>x.qa.some(v=>v.includes('ไม่พบบุกกิ้ง'))],['ยังไม่มีหลักฐานราคาคู่แข่ง',x=>x.qa.some(v=>v.includes('คู่แข่ง'))]];for(const [title,predicate] of groups){const items=rows.filter(predicate);const item=node(doc,'article','qa-box');item.appendChild(node(doc,'h3','',title+' · '+items.length));items.slice(0,40).forEach(e=>{const b=node(doc,'button','',e.date+' '+e.name);b.type='button';b.addEventListener('click',()=>openDetails(e.id));item.appendChild(b);item.appendChild(node(doc,'p','',e.venue))});if(items.length>40)item.appendChild(node(doc,'p','',`และอีก ${items.length-40} งาน (ใช้ตัวกรองเพื่อลดรายการ)`));qa.appendChild(item)}}
  function renderPlans(){const el=$('plans');el.replaceChildren();for(const p of state.plans){const e=state.records.find(x=>x.id===p.eventId);const card=node(doc,'div','plan-card');card.appendChild(node(doc,'strong','',p.at+' · '+(e?e.name:p.eventId)));card.appendChild(node(doc,'small','', 'ร่างรอตรวจสด · '+(p.type==='near'?'ใกล้วันเช่า':'เพิ่มเอนเกจ')));card.appendChild(node(doc,'div','',p.reason));const b=node(doc,'button','mini-btn','ลบร่าง');b.addEventListener('click',()=>{state.plans=state.plans.filter(x=>x!==p);persist();renderPlans()});card.appendChild(b);el.appendChild(card)} }
- function render(){setFilters();const rows=filtered();$('app').hidden=false;const kpis=$('kpis');kpis.replaceChildren(card('งานทั้งหมด',state.records.length),card('เปิดในชีต',state.records.filter(x=>x.web==='show').length),card('แสดงว่าเต็ม',state.records.filter(x=>x.web==='show_full').length),card('เว็บเปิดแต่ไม่พร้อม',state.records.filter(x=>x.qa.some(z=>z.includes('สถานะเปิด'))).length));$('resultCount').textContent='พบ '+rows.length+' งาน';renderTable(rows);renderCalendar(rows);renderQa(rows);
+ function render(){state.tableLimit=TABLE_PAGE_SIZE;setFilters();const rows=filtered();$('app').hidden=false;const kpis=$('kpis');kpis.replaceChildren(card('งานทั้งหมด',state.records.length),card('เปิดในชีต',state.records.filter(x=>x.web==='show').length),card('แสดงว่าเต็ม',state.records.filter(x=>x.web==='show_full').length),card('เว็บเปิดแต่ไม่พร้อม',state.records.filter(x=>x.qa.some(z=>z.includes('สถานะเปิด'))).length));$('resultCount').textContent='พบ '+rows.length+' งาน';renderTable(rows);renderCalendar(rows);renderQa(rows);
   const sel=$('postEvent');const old=sel.value;const options=state.records.filter(e=>e.web==='show').sort((a,b)=>a.date.localeCompare(b.date)).map(e=>new Option(e.date+' · '+e.name,e.id));sel.replaceChildren(new Option('เลือกงาน',''),...options);sel.value=state.records.some(e=>e.id===old)?old:'';
   renderPlans();$('ratio').value=state.ratio;$('ratioNear').textContent=state.ratio+'%';$('ratioEng').textContent=(100-state.ratio)+'%';
  }
@@ -227,8 +244,9 @@ function mount(doc,win){
   status('อ่านข้อมูลหลังบ้านสำเร็จ '+data.records.length+' งาน · '+(data.meta.generatedAt||'ไม่ทราบเวลาต้นทาง')+' · '+issues.join(' · '),issues.length?'':'ready');
  }catch(e){state.records=[];state.meta=null;$('app').hidden=true;status('HOLD — ไม่แสดงข้อมูลหลังบ้าน เพราะ '+(e.message==='LOGIN_REQUIRED'?'ยังไม่ได้เข้าสู่ระบบ Admin: เปิด /admin เพื่อเข้าสู่ระบบ':display(e.message,100)),'error')}
  finally{$('refresh').disabled=false}}
- ['search','month','date','venue','visibility','stock','booking','price'].forEach(id=>$(id).addEventListener('input',()=>{const rows=filtered();$('resultCount').textContent='พบ '+rows.length+' งาน';renderTable(rows);renderCalendar(rows);renderQa(rows)}));
+ ['search','month','date','venue','visibility','stock','booking','price'].forEach(id=>$(id).addEventListener('input',()=>{state.tableLimit=TABLE_PAGE_SIZE;const rows=filtered();$('resultCount').textContent='พบ '+rows.length+' งาน';renderTable(rows);renderCalendar(rows);renderQa(rows)}));
  doc.querySelectorAll('[data-view]').forEach(btn=>btn.addEventListener('click',()=>{state.view=btn.dataset.view;doc.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b===btn));['table','calendar','qa','x'].forEach(k=>$(k+'View').hidden=k!==state.view)}));
+ $('showMore').addEventListener('click',()=>{const rows=filtered();state.tableLimit=Math.min(rows.length,state.tableLimit+TABLE_PAGE_SIZE);renderTable(rows)});
  $('closeDetails').addEventListener('click',()=>{$('details').hidden=true});$('refresh').addEventListener('click',load);
  $('ratio').addEventListener('input',()=>{state.ratio=Number($('ratio').value);$('ratioNear').textContent=state.ratio+'%';$('ratioEng').textContent=100-state.ratio+'%';persist()});
  $('addPost').addEventListener('click',()=>{
@@ -244,5 +262,5 @@ function mount(doc,win){
  });
  load();return {reload:load,inspect:()=>({meta:state.meta,count:state.records.length,plans:state.plans.length})};
 }
-return {normalize,isoDate,bangkokToday,bangkokClock,safePoster,mount};
+return {normalize,isoDate,bangkokToday,bangkokClock,safePoster,pageRows,mount};
 });

@@ -17,7 +17,7 @@ const evidenceFile=path.join(target,'browser-evidence.json');
 const sourcePaths=['admin/operations-dashboard.html','admin/operations-dashboard.css','admin/operations-dashboard.js'];
 const sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 
-function fixture(){
+function fixture(many=false){
  const events=[],web_ready=[],web_packages=[];
  const specs=[
   ['EVT-20261127-QA-SYNTHETIC-A','2026-11-27','Synthetic Test Venue A',2,'show',590,690],
@@ -31,6 +31,11 @@ function fixture(){
    {package_id:id+'-P',event_id:id,package_type:'phone_only',price:phonePrice,available_count:stock,package_status:stock>0?'available':'full'},
    {package_id:id+'-B',event_id:id,package_type:'phone_lens_bundle',price:bundlePrice,available_count:stock,package_status:stock>0?'available':'full'}
   );
+ }
+ if(many)for(let i=0;i<468;i++){
+  const id='EVT-20261228-QA-LONGTAIL-'+String(i).padStart(4,'0');
+  events.push({event_id:id,event_name:'QA LONGTAIL '+String(i).padStart(4,'0'),event_date:'2026-12-28',venue:'Synthetic Longtail Venue',status:'open',active_on_web:true});
+  web_ready.push({event_id:id,event_name:'QA LONGTAIL '+String(i).padStart(4,'0'),event_date:'2026-12-28',venue:'Synthetic Longtail Venue',available_phone_count:0,action_for_web:'hide',poster_image_url:''});
  }
  const raw={
   ok:true,data:{generated_at:new Date().toISOString(),snapshot_source:'synthetic-private-test-only',
@@ -68,7 +73,7 @@ async function main(){
   if(req.method!=='GET'){send(405,JSON.stringify({error:'TEST_READ_ONLY'}));return;}
   if(url.pathname==='/api/kk-admin-auth'){send(200,JSON.stringify({authenticated:true,source:'synthetic-loopback-only'}));return;}
   if(url.pathname==='/api/kk-admin'&&url.searchParams.get('action')==='operationsSnapshot'){
-   send(200,JSON.stringify(fixture()));return;
+   send(200,JSON.stringify(fixture(req.headers['x-kk-synthetic-pagination']==='1')));return;
   }
   const file={
    '/admin/operations-dashboard.html':['admin/operations-dashboard.html','text/html; charset=utf-8'],
@@ -150,6 +155,30 @@ async function main(){
    console.log('CAPTURED '+width+'x'+height+' DOM rows=3 scroll='+metrics.document_scroll_width_px+' sha='+sha(png));
    await context.close();
   }
+  // A separate synthetic-only browser context proves all 471 records are reachable.
+  const longCtx=await browser.newContext({viewport:{width:1440,height:900},locale:'th-TH',timezoneId:'Asia/Bangkok',serviceWorkers:'block',extraHTTPHeaders:{'x-kk-synthetic-pagination':'1'}});
+  try{
+   const page=await longCtx.newPage();
+   await page.goto(address,{waitUntil:'load',timeout:30000});
+   await page.locator('#app').waitFor({state:'visible',timeout:15000});
+   await page.waitForFunction(()=>document.querySelectorAll('#rows tr').length===150,{timeout:15000});
+   assert.match(await page.locator('#tableCount').innerText(),/150 จาก 471/);
+   for(const count of [300,450,471]){
+    await page.locator('#showMore').click();
+    await page.waitForFunction(n=>document.querySelectorAll('#rows tr').length===n,count,{timeout:15000});
+    assert.match(await page.locator('#tableCount').innerText(),new RegExp(count+' จาก 471'));
+   }
+   assert.equal(await page.locator('#showMore').isHidden(),true);
+   await page.locator('[data-view="calendar"]').click();
+   const day=page.locator('#calendar .cal-day').filter({hasText:'2026-12-28'});
+   assert.equal(await day.locator('button').count(),13);
+   await day.locator('button').last().click();
+   assert.equal(await day.locator('button').count(),25);
+   await page.locator('#search').fill('QA LONGTAIL 0467');
+   assert.equal(await page.locator('#rows tr').count(),1);
+   assert.equal(await page.locator('#showMore').isHidden(),true);
+   console.log('ADMIN_OPS_LONGTAIL_PAGINATION_PASS rows=471 table=150/300/450/471 calendar=12/24 tail_search=1');
+  }finally{await longCtx.close()}
   const evidence={
    capture_kind:'post-implementation Chromium browser evidence captured on exact GitHub runner HEAD; loopback synthetic only',
    browser:'Playwright Chromium',
