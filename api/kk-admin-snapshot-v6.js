@@ -7,6 +7,7 @@ const AdminSecurity = require('../server/admin-session.js');
 const AdminMakeGate = require('../server/admin-make-gate.js');
 const AdminWriteControl = require('../server/admin-write-control-oidc.js');
 const AdminGoogleWriter = require('./lib/admin-google-sheets-writer.js');
+const OpsProjection = require('../server/kk-admin-ops-projection.js');
 
 const ADAPTER_VERSION = 'admin-snapshot-contract-repair-v6';
 const REQUIRED = ['events','bookings','current_bookings','assets'];
@@ -86,14 +87,73 @@ function enrich(body){
   return body;
 }
 
+// Private, read-only Operations response: retain existing signed-session gate and
+// V5 private snapshot reader, but strip customer data on the server *before* response.
+async function handleOperationsSnapshot(req,res){
+  // A legacy PIN is not enough: this projection requires the signed Admin cookie.
+  if(!AdminSecurity.hasValidSession(req)){
+    return replyJson(res,401,{ok:false,error_code:'OPS_SESSION_REQUIRED'});
+  }
+  // A separate response object is the privacy boundary. Upstream can write only
+  // into this isolated receiver; the real network response is never handed to V5.
+  const headers=new Map();
+  let upstreamBody='';
+  let ended=0;
+  let streamed=false;
+  const upstream={
+    statusCode:200,
+    setHeader(name,value){headers.set(String(name).toLowerCase(),String(value));return this;},
+    getHeader(name){return headers.get(String(name).toLowerCase());},
+    write(){streamed=true;return false;},
+    writeHead(status){this.statusCode=Number(status)||500;return this;},
+    end(chunk){ended++;if(ended===1)upstreamBody=String(chunk??'');return undefined;}
+  };
+  try{
+    const url=new URL(req.url||'/api/kk-admin','http://localhost');
+    url.searchParams.set('action','snapshot');
+    // Reuse the signed-session-authorized request as a prototype only. The
+    // legacy snapshot reader still expects a PIN header, so provide it in a
+    // separate internal request after authentication instead of relying on
+    // mutation of IncomingMessage headers (which may be immutable).
+    const legacyReq=Object.create(req);
+    Object.defineProperties(legacyReq,{
+      url:{value:url.pathname+url.search,writable:true,configurable:true,enumerable:true},
+      headers:{value:{...(req.headers||{}),'x-admin-pin':String(process.env.KK_ADMIN_PIN||'').trim()},writable:true,configurable:true,enumerable:true}
+    });
+    await V5(legacyReq,upstream);
+    // Never send a partial, streaming, failed or double-terminated upstream body.
+    if(ended!==1||streamed||upstream.statusCode!==200){
+      return replyJson(res,503,{ok:false,error_code:'OPS_SOURCE_UNAVAILABLE'});
+    }
+    // Reject oversized/ill-formed upstream envelopes before creating output.
+    if(upstreamBody.length>12*1024*1024){
+      return replyJson(res,503,{ok:false,error_code:'OPS_SOURCE_UNAVAILABLE'});
+    }
+    let safe;
+    try{safe=OpsProjection.project(JSON.parse(upstreamBody));}
+    catch(_){return replyJson(res,503,{ok:false,error_code:'OPS_PROJECTION_REJECTED'});}
+    res.setHeader('X-KK-Ops-Projection-Version',OpsProjection.VERSION);
+    res.setHeader('X-Content-Type-Options','nosniff');
+    return replyJson(res,200,safe);
+  }catch(_){
+    return replyJson(res,503,{ok:false,error_code:'OPS_SOURCE_UNAVAILABLE'});
+  }
+}
+
 module.exports=async function handler(req,res){
+  // The private Operations route must not be rerouted by the user-controlled
+  // __kk_gate query parameter before its own signed-session authorization.
+  const action=requestAction(req);
+  if(req.method==='GET'&&action==='operationsSnapshot'){
+    if(!AdminSecurity.authorizeApi(req,res)) return;
+    return handleOperationsSnapshot(req,res);
+  }
   const gate=AdminSecurity.gateMode(req);
   if(gate==='make-verify') return AdminMakeGate.handleVerify(req,res);
   if(gate==='make-health') return AdminMakeGate.handleHealth(req,res);
   if(gate) return AdminSecurity.handleGate(req,res,gate);
   if(!AdminSecurity.authorizeApi(req,res)) return;
 
-  const action=requestAction(req);
   if(req.method==='GET'&&action==='writeControlHealth'){
     return handleDirectWriterHealth(res);
   }
@@ -113,4 +173,4 @@ module.exports=async function handler(req,res){
   await V5(req,res);
 };
 
-module.exports._test={classifyHealth,enrich,requestAction,directWriterHealthPayload,handleDirectWriterHealth};
+module.exports._test={classifyHealth,enrich,requestAction,directWriterHealthPayload,handleDirectWriterHealth,handleOperationsSnapshot};

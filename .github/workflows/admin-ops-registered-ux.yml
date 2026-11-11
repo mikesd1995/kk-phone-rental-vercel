@@ -1,0 +1,29 @@
+name: Admin Operations Registered UX/Visual QA
+on:
+  push:
+    branches: [feat/ops-dashboard-readonly-v4-20261107]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ops-registered-ux-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  admin-ux-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+      - name: Registered Agent Gateway UX review and Visual QA (zero-secret)
+        run: node scripts/kk-admin-ops-registered-ux-gate.cjs
+      - name: Persist exact-head invocation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-ops-ux-invocations-${{ github.sha }}
+          path: artifacts/admin-ops-ux/
+          if-no-files-found: warn
+          retention-days: 30
