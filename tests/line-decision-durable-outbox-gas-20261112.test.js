@@ -24,7 +24,7 @@ function makeGas(opts={}){
   ];
   values[2]=opts.initialStatus||'pending';
   let row=values;
-  const properties=new Map(),writes=[],lockEvents=[];
+  const properties=new Map([['KK_LINE_DECISION_OUTBOX_V1_ENABLED',opts.gasModeOff?'false':'true']]),writes=[],lockEvents=[];
   const props={
     getProperty:k=>properties.get(k)||null,
     setProperty:(k,v)=>{
@@ -160,4 +160,14 @@ test('GAS API routes require all guarded delivery actions and document locks',()
   }
   assert.match(source,/kkAcquireDocumentLock_\('LINE decision delivery claim', 12000\)/);
   assert.match(source,/state:'PREPARED'/);
+});
+
+test('GAS code deployment alone stays legacy until owner enables private paired writer gate',()=>{
+  const gas=makeGas({gasModeOff:true});
+  const result=gas.decide({booking_id:BOOKING,decision:'approve'});
+  assert.equal(result.booking_status,'confirmed');
+  assert.equal(result.outbox_version,'');
+  assert.equal(result.delivery_state,'LEGACY_DISABLED');
+  assert.equal(gas.state(),null);
+  assert.throws(()=>gas.claim({booking_id:BOOKING,decision:'approve'}),/disabled/);
 });
