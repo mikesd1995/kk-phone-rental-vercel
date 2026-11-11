@@ -1455,6 +1455,7 @@ function doPost(e) {
       case 'claimLineBookingDecisionDelivery': result = kkApiClaimLineBookingDecisionDelivery_(payload); break;
       case 'ackLineBookingDecisionDelivery': result = kkApiAckLineBookingDecisionDelivery_(payload); break;
       case 'markLineBookingDecisionUncertain': result = kkApiMarkLineBookingDecisionUncertain_(payload); break;
+      case 'inspectLineBookingDecisionDelivery': result = kkApiInspectLineBookingDecisionDelivery_(payload); break;
       case 'updateBooking': result = kkApiUpdateBooking_(payload); break;
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
@@ -2961,6 +2962,33 @@ function kkApiMarkLineBookingDecisionUncertain_(payload) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// Owner-private, authenticated, read-only reconciliation. Does not expose a
+// customer contact, claim UUID, notification body, or provider message ID.
+// Never claims or retries delivery, including after process crashes.
+function kkApiInspectLineBookingDecisionDelivery_(payload) {
+  const bookingId = String(payload.booking_id || '').trim();
+  if (!bookingId) throw new Error('booking_id is required');
+  const row = kkFindBookingRow_('', bookingId);
+  const current = kkSheet_(KK.bookings).getRange(row, 1, 1, 20).getValues()[0];
+  if (String(current[0] || '').trim() !== bookingId ||
+      String(current[7] || '').toUpperCase().trim() !== 'LINE' ||
+      !/^line:[a-f0-9]{48}$/.test(String(kkBookingRequestIdFromNote_(current[19]) || ''))) {
+    throw new Error('LINE delivery inspection requires governed canonical booking');
+  }
+  const item = kkLineDecisionOutboxRead_(bookingId);
+  const state = item ? item.state : 'LEGACY_UNVERIFIED';
+  return {
+    booking_id:bookingId,
+    booking_status:String(current[2] || '').toLowerCase().trim(),
+    outbox_version:item ? item.version : '',
+    decision:item ? item.decision : '',
+    delivery_state:state,
+    provider_receipt_recorded:Boolean(item && item.state === 'SENT' && item.provider_message_id),
+    requires_manual_review:state === 'UNCERTAIN' || state === 'CLAIMED' || state === 'LEGACY_UNVERIFIED',
+    readonly:true
+  };
 }
 
 function kkApiDecideLineBookingPending_(payload) {
