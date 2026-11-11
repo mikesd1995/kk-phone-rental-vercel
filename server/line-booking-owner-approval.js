@@ -221,7 +221,10 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
       err.code='LINE_OWNER_OUTBOX_DISPATCH_NOT_READY';
       throw err;
     }
-    const readiness=await appsScriptCall({action:'lineOwnerOutboxReadiness'},env,fetchImpl);
+    const readiness=await appsScriptCall({
+      action:'lineOwnerOutboxReadiness',
+      outbox_dispatch_key:text(env.KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET)
+    },env,fetchImpl);
     const proof=readiness&&readiness.data||readiness||{};
     if(proof.ready!==true||proof.outbox_mode!==DurableOutbox.VERSION||proof.columns!==11){
       const err=new Error('Canonical LINE owner outbox readiness not verified');
