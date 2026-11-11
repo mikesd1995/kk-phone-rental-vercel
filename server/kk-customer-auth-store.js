@@ -4,13 +4,14 @@
 const RPC_BASE = '/rest/v1/rpc/';
 const ID = /^U[0-9a-f]{32}$/;
 
-function createStore({ url, serviceKey, fetchImpl = fetch } = {}) {
+function createStore({ url, serviceKey, fetchImpl = fetch, timeoutMs = 6000 } = {}) {
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 500 || timeoutMs > 6000) throw new Error('CUSTOMER_STORE_TIMEOUT_INVALID');
   const base = String(url || '').replace(/\/+$/, '');
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(base)) throw new Error('CUSTOMER_STORE_URL_INVALID');
   if (typeof serviceKey !== 'string' || serviceKey.length < 20) throw new Error('CUSTOMER_STORE_KEY_REQUIRED');
   async function rpc(name, values) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetchImpl(base + RPC_BASE + name, {
         method: 'POST',
