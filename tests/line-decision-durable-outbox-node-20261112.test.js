@@ -156,6 +156,7 @@ test('malformed claim readback cannot authorize provider send',async()=>{
   for(const invalid of [
     {...claim(),booking_id:'BK-OTHER'},
     {...claim(),customer_contact:'attacker@example.com'},
+    {...claim(),customer_contact:'U'+'b'.repeat(32)},
     {...claim(),claim_id:'not-uuid'},
     {...claim(),claimed:'true'},
     {...claim(),delivery_state:'SENT'}
@@ -167,4 +168,15 @@ test('malformed claim readback cannot authorize provider send',async()=>{
     );
     assert.equal(s.calls.some(c=>c.action==='PUSH'),false);
   }
+});
+
+test('missing verified LINE recipient in canonical decision prevents claim and sends',async()=>{
+  const s=simulate({decideLineBookingPending:()=>response({
+    ...decision(),customer_contact:'not-a-line-id'
+  })});
+  await assert.rejects(
+    ()=>Approval.processOwnerPostback(ownerEvent(s.e),s.e,s.fetchImpl),
+    error=>error.code==='LINE_DELIVERY_RECIPIENT_READBACK_REQUIRED'
+  );
+  assert.deepEqual(s.calls.map(c=>c.action),['decideLineBookingPending']);
 });
