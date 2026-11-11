@@ -93,9 +93,9 @@ Leave both feature flags OFF or roll back integrated release to verified pre-mer
 
 ## 2026-11-12 ICT — Booking template incomplete-field preflight (follow-on)
 The owner-provided storefront template intentionally leaves **nickname** and **pickup time** blank for customers to complete. The governed Apps Script pending writer requires `customer_name`/nickname but allows a missing phone, and previously an otherwise valid LINE booking with blank nickname would trigger `CUSTOMER_FIELDS_REQUIRED` and a webhook 500 before the LINE reply. This is now prevented in **owner automation READY mode only**:
-- `server/line-booking-webhook.js` validates nickname and LINE sender ID **before** public-feed fetch, private Terms lookup, Apps Script pending write and owner notification.
+- `server/line-booking-webhook.js` validates the canonical event/stock first, then nickname and LINE sender ID **before** private Terms lookup, Apps Script pending write and owner notification; hidden/unverified events retain their existing fail-closed diagnostics.
 - On missing nickname, one LINE text reply asks the customer to provide their nickname and resend. On missing LINE user ID, one text reply asks for a private chat with LINE OA. Neither reply appends Terms/Privacy boilerplate, creates Pending, reserves stock, changes owner locks, nor suggests a confirmed booking.
 - When owner automation is OFF, preserve the existing ordinary reply-only behavior unchanged.
-- Two new injected-fetch tests in `tests/line-webhook.test.js` prove exactly one mocked LINE reply and **zero** public/DB/Apps Script/owner calls on either incomplete-input path.
+- Two new injected-fetch tests in `tests/line-webhook.test.js` prove exactly one mocked LINE reply, the necessary canonical public reads, and **zero** private DB/Apps Script/owner calls on either incomplete-input path.
 
 **Snapshot:** All changes remain review-only; the source integration was not merged or activated. Earlier test and Preview receipts apply only to the exact SHAs recorded with them; do not infer an up-to-date run before this amendment. Keep #855/#861 open, and respect Owner Locks/Booking reconciliation and the release gates above.
