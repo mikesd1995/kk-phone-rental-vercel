@@ -210,7 +210,10 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
         event,env,fetchImpl,{signatureVerified:options.signatureVerified===true}
       );
       termsStatus=receipt.status;
-      if(receipt.accepted===true) booking.terms_version=TermsEvidence.VERSION;
+      if(receipt.accepted===true) {
+        booking.terms_version=TermsEvidence.VERSION;
+        booking.terms_identity_verified=true;
+      }
     }
     if(env.KK_CUSTOMER_LOGIN_ENABLED==='true' &&
        termsStatus!=='VERIFIED_LINE_IDENTITY_TERMS_ACCEPTED'){
