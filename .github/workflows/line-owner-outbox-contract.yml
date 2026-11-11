@@ -7,6 +7,7 @@ on:
       - 'server/line-owner-durable-outbox.js'
       - 'server/line-booking-owner-approval.js'
       - 'tests/line-booking-owner-durable-outbox.test.js'
+      - 'docs/LINE_OWNER_DURABLE_OUTBOX_SOURCE_20261112.md'
       - '.github/workflows/line-owner-outbox-contract.yml'
   workflow_dispatch:
 
