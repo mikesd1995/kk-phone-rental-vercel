@@ -154,7 +154,7 @@ function ownerApprovalMessage(ctx={},env=process.env){
         {type:'text',text:'ลูกค้า  '+customer,size:'sm',wrap:true,margin:'md'},
         {type:'text',text:contactLabel,size:'sm',wrap:true},
         {type:'text',text:'เวลารับ  '+pickup,size:'sm',wrap:true},
-        {type:'text',text:termsLabel,size:'xs',wrap:true,color:accepted?'#18794E':'#B45309'}
+        {type:'text',text:termsLabel,size:'xs',wrap:true,color:(lineAck||identityAck)?'#18794E':'#B45309'}
       ]},
       footer:{type:'box',layout:'horizontal',spacing:'sm',contents:[
         {type:'button',style:'primary',action:{type:'postback',label:'Confirm',data:approve,displayText:'Confirm '+bookingId}},
