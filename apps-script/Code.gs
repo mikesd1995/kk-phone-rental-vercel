@@ -1781,7 +1781,7 @@ function doPost(e) {
     }
     return kkApiJson_(kkApiOk_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, result || {})));
   } catch (err) {
-    if (keyOk && (action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery')) {
+    if (keyOk && (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery')) {
       kkErrorLog_(action, {booking_id: String(payload.booking_id || '').trim()}, 
         new Error('LINE_OWNER_OUTBOX_ACTION_FAILED'), startedAt);
     } else if (keyOk && action !== 'privateCoreRead') {
