@@ -65,7 +65,7 @@ function makeGas(opts={}){
     },
     Date
   };
-  const accessors='\n;({decide:kkApiDecideLineBookingPending_,claim:kkApiClaimLineBookingDecisionDelivery_,ack:kkApiAckLineBookingDecisionDelivery_,uncertain:kkApiMarkLineBookingDecisionUncertain_,inspect:kkApiInspectLineBookingDecisionDelivery_,outbox:kkLineDecisionOutboxRead_})';
+  const accessors='\n;({decide:kkApiDecideLineBookingPending_,claim:kkApiClaimLineBookingDecisionDelivery_,ack:kkApiAckLineBookingDecisionDelivery_,uncertain:kkApiMarkLineBookingDecisionUncertain_,inspect:kkApiInspectLineBookingDecisionDelivery_,readiness:kkApiLineDecisionOutboxReadiness_,outbox:kkLineDecisionOutboxRead_})';
   const fn=vm.runInNewContext(source+accessors,scope);
   return {...fn,properties,writes,lockEvents,
     row:()=>row.slice(),state:()=>fn.outbox(BOOKING)};
@@ -155,7 +155,8 @@ test('GAS API routes require all guarded delivery actions and document locks',()
     'claimLineBookingDecisionDelivery',
     'ackLineBookingDecisionDelivery',
     'markLineBookingDecisionUncertain',
-    'inspectLineBookingDecisionDelivery'
+    'inspectLineBookingDecisionDelivery',
+    'lineDecisionOutboxReadiness'
   ]){
     assert.ok(source.includes("case '"+action+"':"),'action routing '+action);
   }
@@ -196,4 +197,25 @@ test('owner-only GAS inspection reports state without customer contact, claim ID
   assert.equal(serial.includes(CUSTOMER),false);
   assert.equal(serial.includes(claim.claim_id),false);
   assert.equal(serial.includes('line_msg_123'),false);
+});
+
+test('GAS zero-write readiness proves private owner flag and does not audit or mutate booking',()=>{
+  for(const off of [false,true]){
+    const gas=makeGas({gasModeOff:off});
+    const before=gas.row();
+    const receipt=gas.readiness();
+    assert.equal(receipt.outbox_version,VERSION);
+    assert.equal(receipt.enabled,!off);
+    assert.equal(receipt.readonly,true);
+    assert.deepEqual(gas.row(),before);
+    assert.equal(gas.writes.length,0);
+  }
+  const full=fs.readFileSync(path.join(__dirname,'../apps-script/Code.gs'),'utf8');
+  assert.match(full,/action !== 'privateCoreRead'|privateCoreRead/);
+  for(const action of ['lineDecisionOutboxReadiness','inspectLineBookingDecisionDelivery']){
+    const auditGuard=full.split('kkAuditLog_(action, payload, result, startedAt)')[0].slice(-250);
+    const errorGuard=full.split('kkErrorLog_(action || (payload && payload.action) ||')[0].slice(-270);
+    assert.ok(auditGuard.includes(action),'read-only action must skip write-audit');
+    assert.ok(errorGuard.includes(action),'read-only action must skip error-audit');
+  }
 });
