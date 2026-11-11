@@ -44,6 +44,7 @@ function simulate(overrides={}){
       ?JSON.parse(options.body).action:url.endsWith('/push')?'PUSH':'REPLY';
     calls.push({action,options});
     if(overrides[action])return overrides[action](options);
+    if(action==='lineDecisionOutboxReadiness')return response({ok:true,outbox_version:VERSION,enabled:true,readonly:true});
     if(action==='decideLineBookingPending')return response(decision(overrides.replay===true));
     if(action==='claimLineBookingDecisionDelivery')return response(claim());
     if(action==='ackLineBookingDecisionDelivery')return response(ack());
@@ -63,11 +64,11 @@ test('v2 initial owner approval: decision -> claim -> provider receipt -> ack ->
   assert.equal(out.status,'CONFIRMED');
   assert.equal(out.delivery_state,'SENT');
   assert.deepEqual(s.calls.map(c=>c.action),[
-    'decideLineBookingPending','claimLineBookingDecisionDelivery',
+    'lineDecisionOutboxReadiness','decideLineBookingPending','claimLineBookingDecisionDelivery',
     'PUSH','ackLineBookingDecisionDelivery','REPLY'
   ]);
-  assert.equal(JSON.parse(s.calls[2].options.body).to,CUSTOMER);
-  const ackBody=JSON.parse(s.calls[3].options.body);
+  assert.equal(JSON.parse(s.calls[3].options.body).to,CUSTOMER);
+  const ackBody=JSON.parse(s.calls[4].options.body);
   assert.equal(ackBody.provider_message_id,'17592423394857');
   assert.equal(ackBody.claim_id,'234e4567-e89b-42d3-a456-426614174000');
 });
@@ -87,7 +88,7 @@ test('v2 claimed, uncertain or sent replay never calls provider',async()=>{
     assert.equal(out.delivery_state,state);
     assert.equal(out.requires_manual_delivery_review,true);
     assert.deepEqual(s.calls.map(c=>c.action),[
-      'decideLineBookingPending','claimLineBookingDecisionDelivery'
+      'lineDecisionOutboxReadiness','decideLineBookingPending','claimLineBookingDecisionDelivery'
     ]);
   }
 });
@@ -100,7 +101,7 @@ test('v2 provider timeout marks uncertain without owner success or resend',async
       !String(error.message).includes('secret')
   );
   assert.deepEqual(s.calls.map(c=>c.action),[
-    'decideLineBookingPending','claimLineBookingDecisionDelivery',
+    'lineDecisionOutboxReadiness','decideLineBookingPending','claimLineBookingDecisionDelivery',
     'PUSH','markLineBookingDecisionUncertain'
   ]);
 });
@@ -125,7 +126,7 @@ test('v2 ACK failure becomes uncertain and does not reply success to owner',asyn
     error=>error.code==='LINE_BOOKING_UPSTREAM_FAILED' && !String(error.message).includes('contact')
   );
   assert.deepEqual(s.calls.map(c=>c.action),[
-    'decideLineBookingPending','claimLineBookingDecisionDelivery',
+    'lineDecisionOutboxReadiness','decideLineBookingPending','claimLineBookingDecisionDelivery',
     'PUSH','ackLineBookingDecisionDelivery','markLineBookingDecisionUncertain'
   ]);
 });
@@ -149,7 +150,7 @@ test('enabled sender refuses old GAS contract after booking decision',async()=>{
     ()=>Approval.processOwnerPostback(ownerEvent(s.e),s.e,s.fetchImpl),
     error=>error.code==='LINE_DECISION_OUTBOX_CONTRACT_REQUIRED'
   );
-  assert.deepEqual(s.calls.map(c=>c.action),['decideLineBookingPending']);
+  assert.deepEqual(s.calls.map(c=>c.action),['lineDecisionOutboxReadiness','decideLineBookingPending']);
 });
 
 test('malformed claim readback cannot authorize provider send',async()=>{
@@ -178,5 +179,21 @@ test('missing verified LINE recipient in canonical decision prevents claim and s
     ()=>Approval.processOwnerPostback(ownerEvent(s.e),s.e,s.fetchImpl),
     error=>error.code==='LINE_DELIVERY_RECIPIENT_READBACK_REQUIRED'
   );
-  assert.deepEqual(s.calls.map(c=>c.action),['decideLineBookingPending']);
+  assert.deepEqual(s.calls.map(c=>c.action),['lineDecisionOutboxReadiness','decideLineBookingPending']);
+});
+
+test('v2 preflight rejects a deployed GAS writer with disabled durable outbox BEFORE booking mutation',async()=>{
+  for(const contract of [
+    {ok:true,outbox_version:VERSION,enabled:false,readonly:true},
+    {ok:true,outbox_version:'older',enabled:true,readonly:true},
+    {ok:true,outbox_version:VERSION,enabled:'true',readonly:true},
+    {ok:true,outbox_version:VERSION,enabled:true,readonly:false}
+  ]){
+    const s=simulate({lineDecisionOutboxReadiness:()=>response(contract)});
+    await assert.rejects(
+      ()=>Approval.processOwnerPostback(ownerEvent(s.e),s.e,s.fetchImpl),
+      error=>error.code==='LINE_DECISION_OUTBOX_PREFLIGHT_REQUIRED'
+    );
+    assert.deepEqual(s.calls.map(c=>c.action),['lineDecisionOutboxReadiness']);
+  }
 });
