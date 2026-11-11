@@ -52,4 +52,19 @@ function decideAcceptOnce({session, receipt, nowMs = Date.now()} = {}) {
   return { ...base, status: 'CURRENT_ACCEPTANCE_VERIFIED', skip_agreement: true };
 }
 
-module.exports = { POLICY_VERSION, decideAcceptOnce };
+// A signed Messaging API webhook proves the LINE sender, not an OAuth web
+// session. Validate against the SAME provider and persisted evidence, without
+// fabricating an OAuth session or trusting a browser cookie.
+function decideSignedWebhookAcceptance({providerId, lineUserId, receipt, nowMs = Date.now()} = {}) {
+  const identity = {provider_id:providerId, line_user_id:lineUserId};
+  const accepted = typeof providerId === 'string' && providerId.length > 0 &&
+    providerId.length <= 128 && LINE_USER_ID.test(String(lineUserId || '')) &&
+    Number.isFinite(nowMs) && isCurrentEvidence(identity, receipt, nowMs);
+  return {
+    terms_version:TermsEvidence.VERSION,
+    status:accepted?'VERIFIED_LINE_IDENTITY_TERMS_ACCEPTED':'TERMS_EVIDENCE_REQUIRED',
+    accepted:Boolean(accepted)
+  };
+}
+
+module.exports = { POLICY_VERSION, decideAcceptOnce, decideSignedWebhookAcceptance };
