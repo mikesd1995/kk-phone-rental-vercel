@@ -132,8 +132,12 @@ function ownerApprovalMessage(ctx={},env=process.env){
   const phone=text(ctx.phone);
   const contactLabel=phone?'โทร  '+phone:'ติดต่อทาง LINE · ไม่ระบุเบอร์โทรศัพท์';
   const pickup=text(ctx.pickup_time)||'-';
-  const accepted=text(ctx.terms_status)==='LINE_MESSAGE_CONFIRMED' && text(ctx.terms_version)==='KK-TERMS-2026-11-06';
-  const termsLabel=accepted?'✅ พบข้อความยอมรับเงื่อนไขใน LINE (KK-TERMS-2026-11-06)':'⚠️ ยังไม่พบข้อความยอมรับเงื่อนไข — ขอคำยืนยันทาง LINE ก่อนอนุมัติ';
+  const version='KK-TERMS-2026-11-06';
+  const lineAck=text(ctx.terms_status)==='LINE_MESSAGE_CONFIRMED' && text(ctx.terms_version)===version;
+  const identityAck=text(ctx.terms_status)==='VERIFIED_LINE_IDENTITY_TERMS_ACCEPTED' && text(ctx.terms_version)===version;
+  const termsLabel=identityAck?'✅ ยอมรับเงื่อนไขแล้ว (ยืนยัน LINE User ID จากหลักฐานหลังบ้าน · '+version+')':
+    lineAck?'✅ พบข้อความยอมรับเงื่อนไขใน LINE ('+version+')':
+    '⚠️ ยังไม่มีหลักฐานยอมรับเงื่อนไขที่ตรวจสอบแล้ว — ห้ามอนุมัติอัตโนมัติ';
   return {
     type:'flex',
     altText:('Booking รออนุมัติ • '+eventName).slice(0,400),
