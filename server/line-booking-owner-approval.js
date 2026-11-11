@@ -2,6 +2,7 @@
 
 const crypto=require('node:crypto');
 const Intake=require('./line-booking-intake');
+const TermsEvidence=require('./kk-booking-terms-evidence');
 
 const VERSION='KK_LINE_BOOKING_OWNER_APPROVAL_V1';
 const LINE_PUSH_URL='https://api.line.me/v2/bot/message/push';
@@ -132,7 +133,7 @@ function ownerApprovalMessage(ctx={},env=process.env){
   const phone=text(ctx.phone);
   const contactLabel=phone?'โทร  '+phone:'ติดต่อทาง LINE · ไม่ระบุเบอร์โทรศัพท์';
   const pickup=text(ctx.pickup_time)||'-';
-  const version='KK-TERMS-2026-11-06';
+  const version=TermsEvidence.VERSION;
   const lineAck=text(ctx.terms_status)==='LINE_MESSAGE_CONFIRMED' && text(ctx.terms_version)===version;
   const identityAck=text(ctx.terms_status)==='VERIFIED_LINE_IDENTITY_TERMS_ACCEPTED' && text(ctx.terms_version)===version;
   const termsLabel=identityAck?'✅ ยอมรับเงื่อนไขแล้ว (ยืนยัน LINE User ID จากหลักฐานหลังบ้าน · '+version+')':
