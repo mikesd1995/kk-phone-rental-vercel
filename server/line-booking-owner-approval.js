@@ -216,9 +216,14 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
   // BEFORE deciding a booking. A half-deployed migration must never commit
   // the decision and then discover that notification durability is absent.
   if(enabled(env.KK_LINE_OWNER_OUTBOX_V1_ENABLED)){
+    if(!/^[A-Za-z0-9_-]{32,128}$/.test(text(env.KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET))){
+      const err=new Error('Owner outbox dispatch credential unavailable');
+      err.code='LINE_OWNER_OUTBOX_DISPATCH_NOT_READY';
+      throw err;
+    }
     const readiness=await appsScriptCall({action:'lineOwnerOutboxReadiness'},env,fetchImpl);
     const proof=readiness&&readiness.data||readiness||{};
-    if(proof.ready!==true||proof.outbox_mode!==DurableOutbox.VERSION||proof.columns!==10){
+    if(proof.ready!==true||proof.outbox_mode!==DurableOutbox.VERSION||proof.columns!==11){
       const err=new Error('Canonical LINE owner outbox readiness not verified');
       err.code='LINE_OWNER_OUTBOX_PREFLIGHT_FAILED';
       throw err;
@@ -269,6 +274,7 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     },{
       appsScriptCall:p=>appsScriptCall(p,env,fetchImpl),
       lineToken:env.LINE_CHANNEL_ACCESS_TOKEN,
+      dispatchSecret:text(env.KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET),
       fetchImpl,
       replyOwner:event.replyToken?()=>
         replyMessage(event.replyToken,ownerDecisionMessage(decision,parsed.booking_id),env,fetchImpl):null
