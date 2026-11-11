@@ -145,7 +145,8 @@ function identityEvent(textOverride) {
       '📅 วันที่: 18 ต.ค. 2026',
       '📍 สถานที่: IMPACT Arena',
       '📱 รุ่น: vivo X300 Pro + Lens',
-      '💰 ราคา: 590 บาท'
+      '💰 ราคา: 590 บาท',
+      '👤 ชื่อเล่น: Synthetic Customer'
     ].join('\n')}
   };
 }
@@ -189,6 +190,8 @@ test('verified signed LINE sender matches private current-version consent and re
   assert.equal(calls[0].options.headers.apikey,env.KK_CUSTOMER_AUTH_SUPABASE_SERVICE_ROLE_KEY);
   assert.equal(calls[1].body.action,'createLineBookingPending');
   assert.equal(calls[1].body.booking_status,'pending');
+  assert.match(calls[1].body.booking_note,/TERMS_ACK_BACKEND:KK-TERMS-2026-11-06/);
+  assert.doesNotMatch(calls[1].body.booking_note,/TERMS_NOT_CONFIRMED/);
   assert.equal(calls[2].body.to,'UOWNER');
   assert.match(JSON.stringify(calls[2].body.messages),/ยอมรับเงื่อนไขแล้ว/);
   assert.match(JSON.stringify(calls[2].body.messages),/ยืนยัน LINE User ID จากหลักฐานหลังบ้าน/);
