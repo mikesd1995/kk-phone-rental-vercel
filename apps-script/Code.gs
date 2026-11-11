@@ -1452,6 +1452,9 @@ function doPost(e) {
       case 'createBooking': result = kkApiCreateBooking_(payload); break;
       case 'createLineBookingPending': result = kkApiCreateLineBookingPending_(payload); break;
       case 'decideLineBookingPending': result = kkApiDecideLineBookingPending_(payload); break;
+      case 'claimLineBookingDecisionDelivery': result = kkApiClaimLineBookingDecisionDelivery_(payload); break;
+      case 'ackLineBookingDecisionDelivery': result = kkApiAckLineBookingDecisionDelivery_(payload); break;
+      case 'markLineBookingDecisionUncertain': result = kkApiMarkLineBookingDecisionUncertain_(payload); break;
       case 'updateBooking': result = kkApiUpdateBooking_(payload); break;
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
@@ -2794,6 +2797,162 @@ function kkApiCreateLineBookingPending_(payload) {
 }
 
 
+// Source-staged delivery outbox. OFF until the paired Vercel owner webhook
+// feature gate and the deployed Apps Script version are accepted by the owner.
+// PREPARED is written BEFORE booking status, under the same document lock.
+// This prevents a crash after the booking commit from erasing the notification
+// intent. Only an explicit owner review may resolve an uncertain provider send.
+const KK_LINE_DECISION_OUTBOX_VERSION_ = 'KK_LINE_DECISION_OUTBOX_V1';
+
+function kkLineDecisionOutboxKey_(bookingId) {
+  const id = String(bookingId || '').trim();
+  if (!id || id.length > 128) throw new Error('Invalid LINE decision outbox booking identity');
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, id, Utilities.Charset.UTF_8);
+  return 'KK_LINE_DECISION_OUTBOX_' + bytes.map(function(b) {
+    return ('0' + ((b + 256) % 256).toString(16)).slice(-2);
+  }).join('');
+}
+
+function kkLineDecisionOutboxRead_(bookingId) {
+  const raw = String(PropertiesService.getScriptProperties().getProperty(kkLineDecisionOutboxKey_(bookingId)) || '');
+  if (!raw) return null;
+  let item;
+  try { item = JSON.parse(raw); } catch (_) { throw new Error('LINE decision outbox record invalid'); }
+  if (!item || item.version !== KK_LINE_DECISION_OUTBOX_VERSION_ ||
+      String(item.booking_id) !== String(bookingId) ||
+      !['approve', 'reject'].includes(item.decision) ||
+      !['PREPARED', 'CLAIMED', 'SENT', 'UNCERTAIN'].includes(item.state)) {
+    throw new Error('LINE decision outbox record contract mismatch');
+  }
+  return item;
+}
+
+function kkLineDecisionOutboxSave_(bookingId, item) {
+  const record = Object.assign({}, item, {
+    version: KK_LINE_DECISION_OUTBOX_VERSION_, booking_id: String(bookingId)
+  });
+  const serialized = JSON.stringify(record);
+  const props = PropertiesService.getScriptProperties();
+  const key = kkLineDecisionOutboxKey_(bookingId);
+  props.setProperty(key, serialized);
+  if (String(props.getProperty(key) || '') !== serialized) {
+    throw new Error('LINE decision outbox persistence readback failed');
+  }
+  return record;
+}
+
+function kkLineDecisionValidatedBooking_(bookingId, decision) {
+  const id = String(bookingId || '').trim();
+  const dec = String(decision || '').trim();
+  if (!id || !['approve','reject'].includes(dec)) throw new Error('Invalid LINE delivery identity');
+  const row = kkFindBookingRow_('', id);
+  const sh = kkSheet_(KK.bookings);
+  const current = sh.getRange(row, 1, 1, 20).getValues()[0];
+  if (String(current[0] || '').trim() !== id ||
+      String(current[7] || '').toUpperCase().trim() !== 'LINE' ||
+      !/^line:[a-f0-9]{48}$/.test(String(kkBookingRequestIdFromNote_(current[19]) || ''))) {
+    throw new Error('LINE delivery canonical booking not verified');
+  }
+  const target = dec === 'approve' ? 'confirmed' : 'cancelled';
+  if (String(current[2] || '').toLowerCase().trim() !== target) {
+    throw new Error('LINE delivery booking status does not match decision');
+  }
+  const contact = String(current[5] || '').trim();
+  if (!contact) throw new Error('LINE delivery customer contact not verified');
+  return {row_number:row, contact:contact, status:target};
+}
+
+function kkApiClaimLineBookingDecisionDelivery_(payload) {
+  const lock = kkAcquireDocumentLock_('LINE decision delivery claim', 12000);
+  try {
+    const bookingId = String(payload.booking_id || '').trim();
+    const decision = String(payload.decision || '').trim();
+    const canonical = kkLineDecisionValidatedBooking_(bookingId, decision);
+    const item = kkLineDecisionOutboxRead_(bookingId);
+    if (!item || item.decision !== decision) throw new Error('LINE delivery outbox intent missing');
+    if (item.state !== 'PREPARED') {
+      return {booking_id:bookingId,decision:decision,booking_status:canonical.status,
+        outbox_version:KK_LINE_DECISION_OUTBOX_VERSION_,claimed:false,delivery_state:item.state};
+    }
+    const claimId = Utilities.getUuid();
+    if (!/^[a-f0-9-]{36}$/i.test(String(claimId))) throw new Error('Invalid LINE delivery claim id');
+    kkLineDecisionOutboxSave_(bookingId, Object.assign({}, item, {
+      state:'CLAIMED', claim_id:claimId, claimed_at:new Date().toISOString()
+    }));
+    const saved = kkLineDecisionOutboxRead_(bookingId);
+    if (!saved || saved.state !== 'CLAIMED' || saved.claim_id !== claimId) {
+      throw new Error('LINE delivery claim readback failed');
+    }
+    return {booking_id:bookingId,decision:decision,booking_status:canonical.status,
+      outbox_version:KK_LINE_DECISION_OUTBOX_VERSION_,claimed:true,delivery_state:'CLAIMED',
+      claim_id:claimId,customer_contact:canonical.contact};
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function kkApiAckLineBookingDecisionDelivery_(payload) {
+  const lock = kkAcquireDocumentLock_('LINE decision delivery receipt', 12000);
+  try {
+    const bookingId = String(payload.booking_id || '').trim();
+    const decision = String(payload.decision || '').trim();
+    const claimId = String(payload.claim_id || '').trim();
+    const messageId = String(payload.provider_message_id || '').trim();
+    if (!/^[a-f0-9-]{36}$/i.test(claimId) ||
+        !/^[A-Za-z0-9_.:-]{3,200}$/.test(messageId)) {
+      throw new Error('LINE delivery verified claim and provider receipt required');
+    }
+    const canonical = kkLineDecisionValidatedBooking_(bookingId, decision);
+    const item = kkLineDecisionOutboxRead_(bookingId);
+    if (!item || item.decision !== decision || item.claim_id !== claimId) {
+      throw new Error('LINE delivery claim identity mismatch');
+    }
+    if (item.state === 'SENT' && item.provider_message_id === messageId) {
+      return {booking_id:bookingId,decision:decision,booking_status:canonical.status,
+        outbox_version:KK_LINE_DECISION_OUTBOX_VERSION_,delivery_state:'SENT',
+        idempotent_replay:true,claim_id:claimId};
+    }
+    if (item.state !== 'CLAIMED') throw new Error('LINE delivery claim cannot be acknowledged');
+    kkLineDecisionOutboxSave_(bookingId, Object.assign({}, item, {
+      state:'SENT', provider_message_id:messageId, sent_at:new Date().toISOString()
+    }));
+    const saved = kkLineDecisionOutboxRead_(bookingId);
+    if (!saved || saved.state !== 'SENT' || saved.provider_message_id !== messageId) {
+      throw new Error('LINE delivery receipt readback failed');
+    }
+    return {booking_id:bookingId,decision:decision,booking_status:canonical.status,
+      outbox_version:KK_LINE_DECISION_OUTBOX_VERSION_,delivery_state:'SENT',
+      idempotent_replay:false,claim_id:claimId};
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function kkApiMarkLineBookingDecisionUncertain_(payload) {
+  const lock = kkAcquireDocumentLock_('LINE decision delivery uncertain', 12000);
+  try {
+    const bookingId = String(payload.booking_id || '').trim();
+    const decision = String(payload.decision || '').trim();
+    const claimId = String(payload.claim_id || '').trim();
+    const canonical = kkLineDecisionValidatedBooking_(bookingId, decision);
+    const item = kkLineDecisionOutboxRead_(bookingId);
+    if (!item || item.decision !== decision || item.claim_id !== claimId) {
+      throw new Error('LINE delivery uncertainty claim mismatch');
+    }
+    // Never downgrade SENT to UNCERTAIN, and never release the reservation.
+    if (item.state === 'CLAIMED') {
+      kkLineDecisionOutboxSave_(bookingId, Object.assign({}, item, {
+        state:'UNCERTAIN', uncertain_at:new Date().toISOString()
+      }));
+    }
+    return {booking_id:bookingId,decision:decision,booking_status:canonical.status,
+      outbox_version:KK_LINE_DECISION_OUTBOX_VERSION_,
+      delivery_state:kkLineDecisionOutboxRead_(bookingId).state};
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function kkApiDecideLineBookingPending_(payload) {
   const lock = kkAcquireDocumentLock_('LINE owner booking decision', 12000);
   try {
@@ -2818,7 +2977,12 @@ function kkApiDecideLineBookingPending_(payload) {
 
     const currentStatus = String(current[2] || '').toLowerCase().trim();
     const targetStatus = decision === 'approve' ? 'confirmed' : 'cancelled';
+    let outbox = kkLineDecisionOutboxRead_(bookingId);
+    if (outbox && outbox.decision !== decision) {
+      throw new Error('LINE decision outbox is already bound to another decision');
+    }
     if (currentStatus === targetStatus) {
+      // Legacy bookings without a PREPARED intent cannot be auto-sent.
       return {
         row_number: row,
         booking_id: bookingId,
@@ -2828,12 +2992,23 @@ function kkApiDecideLineBookingPending_(payload) {
         phone_asset_id: String(current[9] || '').trim(),
         lens_asset_id: String(current[10] || '').trim(),
         decision: decision,
-        idempotent_replay: true
+        idempotent_replay: true,
+        outbox_version: outbox ? outbox.version : '',
+        delivery_state: outbox ? outbox.state : 'LEGACY_UNVERIFIED'
       };
     }
     if (currentStatus !== 'pending') {
       throw new Error('LINE pending booking already decided: ' + bookingId + ' / status=' + currentStatus);
     }
+    // Write-ahead durable intent before committing the canonical decision.
+    // A later replay may resume ONLY an unsent PREPARED record after the
+    // exact booking status has been independently read back.
+    if (!outbox) {
+      outbox = kkLineDecisionOutboxSave_(bookingId, {
+        state:'PREPARED',decision:decision,created_at:new Date().toISOString()
+      });
+    }
+    if (outbox.state !== 'PREPARED') throw new Error('LINE decision delivery already reserved');
 
     const next = current.slice();
     next[2] = targetStatus;
@@ -2855,13 +3030,14 @@ function kkApiDecideLineBookingPending_(payload) {
       phone_asset_id: String(persisted[9] || '').trim(),
       lens_asset_id: String(persisted[10] || '').trim(),
       decision: decision,
-      idempotent_replay: false
+      idempotent_replay: false,
+      outbox_version: outbox.version,
+      delivery_state: outbox.state
     };
   } finally {
     lock.releaseLock();
   }
 }
-
 
 function kkApiCreateBooking_(payload) {
   const lock = kkAcquireDocumentLock_('write operation', 12000);
