@@ -1456,14 +1456,15 @@ function doPost(e) {
       case 'ackLineBookingDecisionDelivery': result = kkApiAckLineBookingDecisionDelivery_(payload); break;
       case 'markLineBookingDecisionUncertain': result = kkApiMarkLineBookingDecisionUncertain_(payload); break;
       case 'inspectLineBookingDecisionDelivery': result = kkApiInspectLineBookingDecisionDelivery_(payload); break;
+      case 'lineDecisionOutboxReadiness': result = kkApiLineDecisionOutboxReadiness_(payload); break;
       case 'updateBooking': result = kkApiUpdateBooking_(payload); break;
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
     }
-    if (action && action !== 'snapshot' && action !== 'phase1Health' && action !== 'privateCoreRead') kkAuditLog_(action, payload, result, startedAt);
+    if (action && !['snapshot','phase1Health','privateCoreRead','lineDecisionOutboxReadiness','inspectLineBookingDecisionDelivery'].includes(action)) kkAuditLog_(action, payload, result, startedAt);
     return kkApiJson_(kkApiOk_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, result || {})));
   } catch (err) {
-    if (keyOk && action !== 'privateCoreRead') kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
+    if (keyOk && !['privateCoreRead','lineDecisionOutboxReadiness','inspectLineBookingDecisionDelivery'].includes(action)) kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
     if(action==='privateCoreRead') return kkApiJson_({ok:false,admin_api_version:KK_ADMIN_VERSION,error_code:'PRIVATE_CORE_READ_UNAVAILABLE',error:'Private Core read unavailable'});
     return kkApiJson_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, kkApiFail_(err)));
   }
@@ -2811,6 +2812,11 @@ function kkLineDecisionOutboxMode_() {
     .getProperty('KK_LINE_DECISION_OUTBOX_V1_ENABLED') || '').trim() === 'true';
 }
 
+
+// Private zero-write protocol handshake, before booking mutation.
+function kkApiLineDecisionOutboxReadiness_() {
+  return {outbox_version:KK_LINE_DECISION_OUTBOX_VERSION_,enabled:kkLineDecisionOutboxMode_(),readonly:true};
+}
 
 function kkLineDecisionOutboxKey_(bookingId) {
   const id = String(bookingId || '').trim();
