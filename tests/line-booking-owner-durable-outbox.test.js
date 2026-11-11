@@ -98,7 +98,7 @@ function appsScriptHarness({outboxEnabled=true,header=HEADERS,booking='pending'}
     decide:p=>context.kkApiDecideLineBookingPendingDurable_(p),
     claim:p=>context.kkApiClaimLineBookingDecisionDelivery_(p),
     settle:p=>context.kkApiSettleLineBookingDecisionDelivery_(p),
-    readiness:()=>context.kkApiLineOwnerOutboxReadiness_(),
+    readiness:p=>context.kkApiLineOwnerOutboxReadiness_(p),
     bookingSheet,ledger,
     crashAtFlush:n=>{failOnFlush=n;},
     flushCount:()=>flushes
@@ -119,7 +119,7 @@ test('canonical Apps Script: INTENT is durable before booking status and READY',
   assert.equal(s.ledger.rows[1][6],CUSTOMER);
   assert.equal(s.ledger.rows[1][7],'CUSTOMER_DECISION');
   assert.equal(s.ledger.rows[1][8],'line:'+'a'.repeat(48));
-  assert.deepEqual(JSON.parse(JSON.stringify(s.readiness())),{outbox_mode:'KK_LINE_OWNER_OUTBOX_V1',ready:true,columns:11});
+  assert.deepEqual(JSON.parse(JSON.stringify(s.readiness({outbox_dispatch_key:DISPATCH}))),{outbox_mode:'KK_LINE_OWNER_OUTBOX_V1',ready:true,columns:11});
   assert.equal(s.ledger.rows[1][3],'READY');
   assert.match(s.ledger.rows[1][0],/^LINE_OWNER_V1_[a-f0-9]{48}$/);
   assert.equal(s.decide(decision).outbox_state,'READY');
@@ -200,7 +200,10 @@ function transport({initial='READY',provider='OK',claim='OK',settle='OK'}={}) {
   const fetchImpl=async(url,options)=>{
     const request=JSON.parse(options.body);calls.push({url,request,options});
     if(url.startsWith('https://script.google.com/')) {
-      if(request.action==='lineOwnerOutboxReadiness')return response({ok:true,outbox_mode:'KK_LINE_OWNER_OUTBOX_V1',ready:true,columns:11});
+      if(request.action==='lineOwnerOutboxReadiness') {
+        if(request.outbox_dispatch_key!==DISPATCH)return response({ok:false},403);
+        return response({ok:true,outbox_mode:'KK_LINE_OWNER_OUTBOX_V1',ready:true,columns:11});
+      }
       const baseline={ok:true,booking_id:BOOKING,decision:'approve',outbox_id:outboxId,
         outbox_mode:'KK_LINE_OWNER_OUTBOX_V1'};
       if(request.action==='decideLineBookingPending')return response({
@@ -328,4 +331,28 @@ test('canonical GAS: a changed request ID never reuses a prior delivery intent',
   assert.throws(()=>s.claim({...decision,outbox_id:r.outbox_id,retry_key:RETRY,
     outbox_dispatch_key:DISPATCH}),/IDENTITY_OR_STATE_MISMATCH/);
   assert.equal(s.ledger.rows[1][3],'READY');
+});
+
+test('canonical GAS: read-only readiness rejects a mismatched dispatcher without touching Booking',()=>{
+  const s=appsScriptHarness();
+  assert.throws(()=>s.readiness({outbox_dispatch_key:'different-private-key'}),/DISPATCH_UNAUTHORIZED/);
+  assert.equal(s.bookingSheet.rows[4][2],'pending');
+  assert.equal(s.ledger.rows.length,1);
+  assert.equal(s.readiness({outbox_dispatch_key:DISPATCH}).ready,true);
+});
+test('server: mismatched dispatch secret fails before canonical Booking decision',async()=>{
+  const t=transport();
+  t.e.KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET='valid_but_mismatched_dispatch_secret_2026';
+  await assert.rejects(()=>approve(t),err=>err.code==='LINE_BOOKING_UPSTREAM_FAILED');
+  assert.deepEqual(t.calls.map(c=>c.request.action),['lineOwnerOutboxReadiness']);
+  assert.equal(t.calls.some(c=>c.url.endsWith('/push')),false);
+});
+test('server: readiness carries private dispatcher credential only to authenticated canonical URL',async()=>{
+  const t=transport();
+  await approve(t);
+  const readiness=t.calls.find(c=>c.request.action==='lineOwnerOutboxReadiness');
+  assert.ok(readiness);
+  assert.match(readiness.url,/^https:\/\/script\.google\.com\/macros\/s\//);
+  assert.equal(readiness.request.outbox_dispatch_key,DISPATCH);
+  assert.equal(t.calls.filter(c=>c.request.action==='decideLineBookingPending').length,1);
 });
