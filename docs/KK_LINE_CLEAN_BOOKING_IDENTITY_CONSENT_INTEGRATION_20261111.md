@@ -90,3 +90,12 @@ Leave both feature flags OFF or roll back integrated release to verified pre-mer
 4. Protected Preview LINE Login & first visit/return acceptance; actual signed LINE inbound association and readback of the current version; reject cross-Provider/old/unsigned; verify a single Pending row, one owner card, exact decision and notification receipts.
 5. Fix independent P0 LINE Reply API provider failure (Issue #861 and PR #862) before enabling live sends; confirm no duplicate stock holds or Owner Lock violations.
 6. Owner exact-head go/no-go, merge/deploy/Production alias and Booking readback, monitored rollback. No other runner shall concurrently release overlapping donor #856/#868.
+
+## 2026-11-12 ICT — Booking template incomplete-field preflight (follow-on)
+The owner-provided storefront template intentionally leaves **nickname** and **pickup time** blank for customers to complete. The governed Apps Script pending writer requires `customer_name`/nickname but allows a missing phone, and previously an otherwise valid LINE booking with blank nickname would trigger `CUSTOMER_FIELDS_REQUIRED` and a webhook 500 before the LINE reply. This is now prevented in **owner automation READY mode only**:
+- `server/line-booking-webhook.js` validates nickname and LINE sender ID **before** public-feed fetch, private Terms lookup, Apps Script pending write and owner notification.
+- On missing nickname, one LINE text reply asks the customer to provide their nickname and resend. On missing LINE user ID, one text reply asks for a private chat with LINE OA. Neither reply appends Terms/Privacy boilerplate, creates Pending, reserves stock, changes owner locks, nor suggests a confirmed booking.
+- When owner automation is OFF, preserve the existing ordinary reply-only behavior unchanged.
+- Two new injected-fetch tests in `tests/line-webhook.test.js` prove exactly one mocked LINE reply and **zero** public/DB/Apps Script/owner calls on either incomplete-input path.
+
+**Snapshot:** All changes remain review-only; the source integration was not merged or activated. Earlier test and Preview receipts apply only to the exact SHAs recorded with them; do not infer an up-to-date run before this amendment. Keep #855/#861 open, and respect Owner Locks/Booking reconciliation and the release gates above.
