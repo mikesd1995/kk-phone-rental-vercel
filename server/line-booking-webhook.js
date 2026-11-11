@@ -36,6 +36,10 @@ function validSignature(body, signature, secret) {
 }
 function parseBookingText(text) {
   const s=String(text||'');
+  // This distinct customer message modifies an ALREADY booked phone rental.
+  // Never reinterpret a lens add-on enquiry as a new phone booking, even if
+  // a customer edits its contents to include old booking-form field labels.
+  if(/^สอบถามเพิ่มเลนส์สำหรับผู้จองมือถือแล้ว(?:\r?\n|$)/u.test(s.trim()))return null;
   const line=(label)=>{const m=s.match(new RegExp('(?:^|\\n)[^\\p{L}\\p{N}\\n]*?(?:'+label+')[ \\t]*:[ \\t]*([^\\r\\n]*)','iu')); return m&&m[1]?m[1].trim():'';};
   const interest=s.match(/(?:สนใจเช่า|Interested in renting)\s+([^\n]+)/i);
   const event=line('งาน|Event'), date=line('วันที่|Date'), venue=line('สถานที่|Venue'), price=line('ราคา|Price');
