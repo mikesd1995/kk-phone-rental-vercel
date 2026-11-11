@@ -137,7 +137,7 @@ function ownerApprovalMessage(ctx={},env=process.env){
   const identityAck=text(ctx.terms_status)==='VERIFIED_LINE_IDENTITY_TERMS_ACCEPTED' && text(ctx.terms_version)===version;
   const termsLabel=identityAck?'✅ ยอมรับเงื่อนไขแล้ว (ยืนยัน LINE User ID จากหลักฐานหลังบ้าน · '+version+')':
     lineAck?'✅ พบข้อความยอมรับเงื่อนไขใน LINE ('+version+')':
-    '⚠️ ยังไม่มีหลักฐานยอมรับเงื่อนไขที่ตรวจสอบแล้ว — ห้ามอนุมัติอัตโนมัติ';
+    '⚠️ ยังไม่พบข้อความยอมรับเงื่อนไข — ขอคำยืนยันทาง LINE ก่อนอนุมัติ';
   return {
     type:'flex',
     altText:('Booking รออนุมัติ • '+eventName).slice(0,400),
