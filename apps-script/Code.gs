@@ -2803,6 +2803,13 @@ function kkApiCreateLineBookingPending_(payload) {
 // This prevents a crash after the booking commit from erasing the notification
 // intent. Only an explicit owner review may resolve an uncertain provider send.
 const KK_LINE_DECISION_OUTBOX_VERSION_ = 'KK_LINE_DECISION_OUTBOX_V1';
+// OFF by default. A GAS deployment alone cannot silently switch a live
+// booking flow before the paired Vercel release has been accepted.
+function kkLineDecisionOutboxMode_() {
+  return String(PropertiesService.getScriptProperties()
+    .getProperty('KK_LINE_DECISION_OUTBOX_V1_ENABLED') || '').trim() === 'true';
+}
+
 
 function kkLineDecisionOutboxKey_(bookingId) {
   const id = String(bookingId || '').trim();
@@ -2863,6 +2870,7 @@ function kkLineDecisionValidatedBooking_(bookingId, decision) {
 }
 
 function kkApiClaimLineBookingDecisionDelivery_(payload) {
+  if (!kkLineDecisionOutboxMode_()) throw new Error('LINE decision durable delivery is disabled in GAS');
   const lock = kkAcquireDocumentLock_('LINE decision delivery claim', 12000);
   try {
     const bookingId = String(payload.booking_id || '').trim();
@@ -2892,6 +2900,7 @@ function kkApiClaimLineBookingDecisionDelivery_(payload) {
 }
 
 function kkApiAckLineBookingDecisionDelivery_(payload) {
+  if (!kkLineDecisionOutboxMode_()) throw new Error('LINE decision durable delivery is disabled in GAS');
   const lock = kkAcquireDocumentLock_('LINE decision delivery receipt', 12000);
   try {
     const bookingId = String(payload.booking_id || '').trim();
@@ -2929,6 +2938,7 @@ function kkApiAckLineBookingDecisionDelivery_(payload) {
 }
 
 function kkApiMarkLineBookingDecisionUncertain_(payload) {
+  if (!kkLineDecisionOutboxMode_()) throw new Error('LINE decision durable delivery is disabled in GAS');
   const lock = kkAcquireDocumentLock_('LINE decision delivery uncertain', 12000);
   try {
     const bookingId = String(payload.booking_id || '').trim();
@@ -2977,6 +2987,7 @@ function kkApiDecideLineBookingPending_(payload) {
 
     const currentStatus = String(current[2] || '').toLowerCase().trim();
     const targetStatus = decision === 'approve' ? 'confirmed' : 'cancelled';
+    const outboxMode = kkLineDecisionOutboxMode_();
     let outbox = kkLineDecisionOutboxRead_(bookingId);
     if (outbox && outbox.decision !== decision) {
       throw new Error('LINE decision outbox is already bound to another decision');
@@ -3000,15 +3011,18 @@ function kkApiDecideLineBookingPending_(payload) {
     if (currentStatus !== 'pending') {
       throw new Error('LINE pending booking already decided: ' + bookingId + ' / status=' + currentStatus);
     }
-    // Write-ahead durable intent before committing the canonical decision.
-    // A later replay may resume ONLY an unsent PREPARED record after the
-    // exact booking status has been independently read back.
-    if (!outbox) {
-      outbox = kkLineDecisionOutboxSave_(bookingId, {
-        state:'PREPARED',decision:decision,created_at:new Date().toISOString()
-      });
+    // A previously reserved delivery cannot be downgraded to legacy sending.
+    // Writer mode is private and off by default until the paired release.
+    if (outbox && !outboxMode) throw new Error('LINE decision outbox mode disabled with existing intent');
+    if (outboxMode) {
+      // Write-ahead intent BEFORE canonical status; its persistence is read back.
+      if (!outbox) {
+        outbox = kkLineDecisionOutboxSave_(bookingId, {
+          state:'PREPARED',decision:decision,created_at:new Date().toISOString()
+        });
+      }
+      if (outbox.state !== 'PREPARED') throw new Error('LINE decision delivery already reserved');
     }
-    if (outbox.state !== 'PREPARED') throw new Error('LINE decision delivery already reserved');
 
     const next = current.slice();
     next[2] = targetStatus;
@@ -3031,8 +3045,8 @@ function kkApiDecideLineBookingPending_(payload) {
       lens_asset_id: String(persisted[10] || '').trim(),
       decision: decision,
       idempotent_replay: false,
-      outbox_version: outbox.version,
-      delivery_state: outbox.state
+      outbox_version: outbox ? outbox.version : '',
+      delivery_state: outbox ? outbox.state : 'LEGACY_DISABLED'
     };
   } finally {
     lock.releaseLock();
