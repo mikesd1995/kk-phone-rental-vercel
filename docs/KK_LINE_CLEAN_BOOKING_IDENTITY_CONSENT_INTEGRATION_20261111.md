@@ -50,3 +50,43 @@ Leave both feature flags OFF or roll back integrated release to verified pre-mer
 - Protected Vercel Preview `dpl_EX3o7my9fhjhctvTNVxqPK4kPTgp` **READY**, `target=null` (Preview), exact SHA `4bbbb8e102c2af92544d8d3c2f7e389ff2671c33`, URL https://kk-phone-rental-vercel-16c5x1r12-mikesd1995s-projects.vercel.app. Preview READY is not proof of live LINE Login or SQL.
 - **No** migration applied, env flags toggled, LINE Login channel created, live LINE OAuth, real consent records, Booking, customer messages, Merge or Production deploy. Provider/DB and regulated privacy gates remain as described above.
 - Official LINE same-provider identity policy: https://developers.line.biz/en/tips/2026/06/25/provider-design-basics/ ; Supabase service-role server-only principle: https://supabase.com/docs/guides/database/postgres/row-level-security
+
+## 2026-11-12 ICT — signed webhook ↔ durable acceptance integration (new code)
+**Supersedes previous note that authenticated identity receipt lookup was not implemented.** The source integration now exists in this PR; **this does not assert Production activation**.
+
+### Flow, exact authority, zero customer text boilerplate
+1. New website user explicitly checks the current Terms after LINE Login via `/api/kk-customer-auth?action=accept`; the backend requires a verified same-Provider LINE OAuth identity, server-held CSRF and a durable Supabase write/readback. Returning same user and Terms version can reuse that *server* receipt. No LINE text is sent merely by checking.
+2. Clean storefront booking/waitlist draft from PR #868 ends with nickname and phone; neither Terms nor Privacy attestation line is appended.
+3. On inbound LINE booking, `server/line-booking-webhook.js` first verifies the raw `x-line-signature` HMAC, then passes a handler-owned `signatureVerified:true` to `processEvent` (never client-supplied). Only if Owner Approval and canonical booking admission are ready does the verified identity lookup occur; no extra DB request on ordinary reply-only mode.
+4. `server/kk-line-booking-terms-receipt.js` validates the exact Messaging API `event.source.userId` and same configured LINE Provider, requires verified migration/feature flags, and reads only `kk_customer_terms_lookup_for_line_webhook` over a server-only Supabase service key. Timeout is bounded to 1.2 seconds to reduce single-use LINE reply-token risk. On unsigned events, malformed identity, no receipt, wrong Provider/User/Terms, expired/invalid timestamp, revoked evidence, or upstream failure, it returns a **redacted fail-closed** status. No user ID or provider error is logged.
+5. The pure `decideSignedWebhookAcceptance` in `server/kk-customer-accept-once-policy.js` validates version, source, verified flag, issued timestamp, opaque evidence reference, same provider and sender. It does *not* fabricate an OAuth session for a signed webhook.
+6. In feature-ON mode, **never create Pending, send owner Confirm/Reject card or write `TERMS_ACK`** without a verified durable receipt. Failed or absent evidence returns `TERMS_EVIDENCE_REQUIRED`; the existing safe customer acknowledgement is preserved without claiming a confirmed Booking. Even the legacy two LINE legal text lines are not a bypass when identity mode is ON.
+7. With a verified receipt, the existing governed Apps Script pending writer remains untouched. `server/line-booking-intake.js` writes an explicit `TERMS_ACK_BACKEND:<current version>` in the existing Booking note, different from legacy `TERMS_ACK:<version>` (direct LINE message); owner Flex card explicitly says verified LINE identity from backend, with no actual User ID displayed.
+8. Feature-OFF / legacy owner approval path remains unchanged; the existing direct LINE warning is preserved. The automated card flow still requires independent verification of booking writer, customer reply, delivery and stock/locks under #861.
+
+### Changed paths since first source checkpoint
+- `server/kk-customer-accept-once-policy.js`: signed sender pure receipt decision
+- `server/kk-customer-auth-store.js`: service-role RPC + configurable timeout
+- `supabase/kk_customer_auth_v1.sql`: bounded, SECURITY INVOKER, server role ONLY `kk_customer_terms_lookup_for_line_webhook` (source-only)
+- `server/kk-line-booking-terms-receipt.js`: identity/flag gate and fail-closed lookup
+- `server/line-booking-webhook.js`: signed handler handoff, receipt required before Pending (identity mode ON)
+- `server/line-booking-owner-approval.js`: distinct legacy vs authenticated Terms label
+- `server/line-booking-intake.js`: distinct source marker written to pending Booking notes
+- `server/kk-booking-terms-evidence.js`: clarify legacy source meaning
+- `tests/line-webhook.test.js`: 6 injected-provider regression tests for valid, absent, mismatched, legacy bypass, unsigned and unavailable cases
+- `tests/kk-customer-line-auth.test.js`: private service-role RPC existence/grant/revoke invariant
+
+### Test and release boundaries
+- Initial Booking E2E test run #43074098037 failed on (a) a stale variable in the owner card color, fixed, and (b) an incomplete synthetic customer name, fixed. These were genuine CI catches; **do not cite the initial run as acceptance**.
+- Following run #43074394598 **passed** the targeted E2E test suite, but the separate full regression #43074394566 caught a changed legacy owner warning, fixed without weakening its test.
+- The test addition was corrected for malformed escaping in the SQL security assertion. **Re-verify exact HEAD after this documentation commit before claiming all CI green.**
+- No migration was applied; the Supabase project/role/retention approvals, LINE Login and Messaging API same-Provider external proof, customer signed identity UAT, independent reviewer, protected exact-SHA Preview, and Production source/Booking readback are STILL MISSING. Full end-to-end provider acceptance (including no duplicate bookings or owner pushes) remains blocked. Incident #861 and #855 are OPEN. Do not Merge, Deploy or enable production features based solely on mocked CI.
+- Canary rollback: both `KK_CUSTOMER_LOGIN_ENABLED` and public `KK_CONFIG.customerLoginEnabled` must default OFF until simultaneous approved release; no automated Pending on missing receipt when ON. Preserve existing bookings, stock and Owner Locks, do not replay LINE Reply Tokens.
+
+### Future release checks, in order
+1. Independent reviewer/security/DBA signs current exact PR SHA, provider ownership verified, user identity consistency approved.
+2. Approve target Supabase project; check no name/privilege conflict; test schema as service_role, deny anon/authenticated, retention/erasure policy, rollback and exact evidence readback. Migration via governed write path, not blind application.
+3. Bind owner-only secrets/config and **both** public/server feature flags behind explicit cutover. Avoid public LINE User IDs or secret values.
+4. Protected Preview LINE Login & first visit/return acceptance; actual signed LINE inbound association and readback of the current version; reject cross-Provider/old/unsigned; verify a single Pending row, one owner card, exact decision and notification receipts.
+5. Fix independent P0 LINE Reply API provider failure (Issue #861 and PR #862) before enabling live sends; confirm no duplicate stock holds or Owner Lock violations.
+6. Owner exact-head go/no-go, merge/deploy/Production alias and Booking readback, monitored rollback. No other runner shall concurrently release overlapping donor #856/#868.
