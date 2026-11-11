@@ -273,23 +273,22 @@
 
 <div class="kk-booking-agreement-backdrop" id="kk-booking-agreement" hidden>
   <section class="kk-booking-agreement-card" id="kk-booking-agreement-dialog" role="dialog" aria-modal="true" aria-labelledby="kk-booking-agreement-title" aria-describedby="kk-booking-agreement-description">
-    <span class="kk-booking-agreement-kicker">ก่อนดำเนินการจอง</span>
+    <span class="kk-booking-agreement-kicker">ก่อนเริ่มใช้งาน</span>
     <h2 id="kk-booking-agreement-title">ยืนยันเงื่อนไขการเช่า</h2>
-    <p id="kk-booking-agreement-description">โปรดตรวจสอบเงื่อนไขก่อนเปิด LINE เพื่อส่งคำขอจองหรือจองคิวหลุด</p>
+    <p id="kk-booking-agreement-description">อ่านเงื่อนไขและกดยืนยันครั้งแรกก่อนเลือกงาน จากนั้นจองผ่าน LINE ได้ตามปกติ</p>
     <label class="kk-booking-agreement-check" for="kk-booking-terms-check">
       <input id="kk-booking-terms-check" type="checkbox" autocomplete="off" required>
       <span><span class="kk-terms-check-prefix">ฉันได้อ่านและยอมรับ </span><a href="/terms/" target="_blank" rel="noopener">เงื่อนไขการใช้บริการ</a><span class="kk-terms-check-middle"> และรับทราบ </span><a href="/privacy/" target="_blank" rel="noopener">นโยบายความเป็นส่วนตัว</a></span>
     </label>
-    <p class="kk-booking-agreement-note">ระบบจะเตรียมข้อความยอมรับเงื่อนไขฉบับ 6 พ.ย. 2569 ต่อท้ายคำขอใน LINE ลูกค้าต้องตรวจสอบและกดส่งเอง จึงจะมีข้อความยืนยันในแชต คิวยังไม่สำเร็จจนกว่าร้านยืนยัน</p>
+    <p class="kk-booking-agreement-note">ระบบจะจำการกดยืนยันสำหรับเบราว์เซอร์และเงื่อนไขฉบับนี้เท่านั้น โดยไม่แนบข้อความเงื่อนไขซ้ำใน LINE กรุณากดส่งคำขอใน LINE และรอร้านยืนยันคิว</p>
     <div class="kk-booking-agreement-actions">
-      <button id="kk-booking-terms-cancel" class="kk-booking-terms-cancel" type="button">ยกเลิก</button>
-      <button id="kk-booking-terms-continue" class="kk-booking-terms-continue" type="button" disabled>ยอมรับและเปิด LINE</button>
+      <button id="kk-booking-terms-continue" class="kk-booking-terms-continue" type="button" disabled>ยืนยันและเลือกงาน</button>
     </div>
   </section>
 </div>
 
 <script src="config.js" defer></script>
-<script src="script.js?v=bilingual-legal-20261106" defer></script>
-<script src="/assets/kk-booking-agreement.js?v=terms-cookie-20261111" defer></script>
+<script src="script.js?v=first-visit-terms-20261111" defer></script>
+<script src="/assets/kk-booking-agreement.js?v=first-visit-terms-20261111" defer></script>
 </body>
 </html>
