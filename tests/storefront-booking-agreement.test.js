@@ -34,7 +34,11 @@ test('existing package, waitlist and sticky booking URLs are retained, but clien
   assert.match(logic, /approved = link/);
   assert.match(logic, /try \{ link\.click\(\); \}/);
   assert.match(logic, /check\.checked = false/);
-  assert.doesNotMatch(logic, /localStorage|sessionStorage|document\.cookie|fetch\(|sendBeacon|XMLHttpRequest/i);
+  assert.match(logic, /window\.localStorage\.getItem\(promptKey\)/);
+  assert.match(logic, /window\.localStorage\.setItem\(promptKey, termsVersion\)/);
+  assert.match(logic, /if \(approved === link \|\| hasSeenCurrentTermsPrompt\(\)\) return/);
+  assert.doesNotMatch(logic, /sessionStorage|document\.cookie|fetch\(|sendBeacon|XMLHttpRequest/i);
+  assert.doesNotMatch(logic, /customer_id|line_user_id|phone_number|marketing_consent|termsAccepted=true/i);
 });
 
 test('footer focuses on customer contact and clear legal links without admin implementation notes',()=>{

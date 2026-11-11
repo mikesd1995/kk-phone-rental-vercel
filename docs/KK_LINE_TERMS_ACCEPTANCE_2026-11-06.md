@@ -4,7 +4,8 @@ Effective public Terms revision: `KK-TERMS-2026-11-06` (6 Nov 2026).
 Public documents: https://kk-phone-rental.vercel.app/terms/ and https://kk-phone-rental.vercel.app/privacy/
 
 ## What has changed
-- For **web-originated package bookings and waitlist requests**, customers must first check the existing Terms acceptance checkbox (unchecked on every attempt).
+- For **web-originated package bookings and waitlist requests**, the existing Terms checkbox remains unchecked for the first prompt on a browser for the current Terms version. After explicit confirmation, the browser saves only `kk_booking_terms_prompt_version=KK-TERMS-2026-11-06` in localStorage as a **UI reminder**; subsequent LINE-link clicks in the same browser skip the repeat modal. On a new device/browser, storage rejection/clear or changed Terms version, the original unchecked prompt appears.
+- Browser storage is **not an identity, customer acceptance record or server evidence**. The customer must still **press Send in LINE** for every booking; the signed inbound LINE message with the current Terms and Privacy lines remains the only existing automated verification source. No auto booking, payment, marketing consent, LINE message or customer profile write is authorized by the UI preference.
 - The LINE message draft now includes two explicit, versioned lines following the booking details:
   `✅ ยืนยันยอมรับเงื่อนไขการเช่า KK Phone Rental (KK-TERMS-2026-11-06)`
   `ℹ️ รับทราบนโยบายความเป็นส่วนตัว: https://kk-phone-rental.vercel.app/privacy/`
