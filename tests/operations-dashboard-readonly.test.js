@@ -350,3 +350,46 @@ test('table and calendar have explicit load-more controls and filter reset',()=>
  assert.ok(code.includes("state.tableLimit=TABLE_PAGE_SIZE"));
  assert.ok(!code.includes('rows.slice(0,450)'));
 });
+
+
+// R20: prevent an active orphan Booking from silently disappearing and
+// reopening unrelated phone inventory when its event identity is corrupted.
+test('an active booking without event ID fails closed for all availability',()=>{
+ const d=positiveStockFixture({bookings:[
+  {booking_id:'SYNTHETIC_ORPHAN',event_id:'',booking_status:'confirmed'},
+  {booking_id:'SYNTHETIC_VALID',event_id:'EVT-20261203-BTS-ARIRANG',booking_status:'confirmed'}
+ ]});
+ const x=Ops.normalize(d,NOW);
+ assert.equal(x.meta.unassignedActiveBooking,true);
+ assert.equal(x.meta.complete,false);
+ assert.equal(x.records[0].stock,2,'retain read-only audit stock number');
+ assert.equal(x.records[0].bookings,null,'cannot assert verified active count');
+ assert.equal(x.records[0].bookingTotal,null);
+ assert.equal(x.records[0].phoneReady,false);
+ assert.equal(x.records[0].bundleReady,false);
+ assert.ok(x.records[0].gate.includes('Booking ไม่ผูกกับงานหลัก'));
+ assert.ok(x.records[0].qa.some(q=>q.includes('Booking ตรวจไม่ผ่าน')));
+});
+test('active booking referencing an absent Core or Web Ready event holds all availability',()=>{
+ for(const status of ['confirmed','uploaded','unrecognized_future_status']){
+  const d=positiveStockFixture({bookings:[{
+   booking_id:'SYNTHETIC_ABSENT_EVENT',event_id:'EVT-20991231-NOT-IN-SOURCE',booking_status:status
+  }]});
+  const x=Ops.normalize(d,NOW);
+  assert.equal(x.meta.unassignedActiveBooking,true);
+  assert.equal(x.records[0].phoneReady,false);
+  assert.equal(x.records[0].bookingTotal,null);
+ }
+});
+test('closed orphan booking and blank ancillary rows do not create false global HOLD',()=>{
+ for(const status of ['cancelled','completed','']){
+  const d=positiveStockFixture({bookings:[{
+   booking_id:'SYNTHETIC_NONACTIVE',event_id:'',booking_status:status
+  }]});
+  const x=Ops.normalize(d,NOW);
+  assert.equal(x.meta.unassignedActiveBooking,false);
+  assert.equal(x.records[0].phoneReady,true);
+  assert.equal(x.records[0].bundleReady,true);
+  assert.equal(x.records[0].bookings,0);
+ }
+});

@@ -72,14 +72,21 @@ function normalize(source,now=new Date()){
  uniqueIds(d.events,'event_id');uniqueIds(d.web_packages,'package_id');
  const eventById=new Map(d.events.map(e=>[String(e.event_id||''),e]));
  const byPackage=new Map();d.web_packages.forEach(p=>{const id=String(p.event_id||'');if(!id)return;const a=byPackage.get(id)||[];a.push(p);byPackage.set(id,a)});
+ // An active booking with no valid Core + Web Ready event cannot be safely
+ // attributed to an inventory day. Hold ALL readiness rather than ignoring it.
+ const sourceWebIds=new Set(d.web_ready.map(row=>String(row.event_id||'').trim()));
+ let unassignedActiveBooking=false;
  const bookingById=new Map(),badBooking=new Set(),seenBookings=new Map();d.bookings.forEach(b=>{
-  const id=String(b.event_id||'').trim();if(!id)return;
+  const id=String(b.event_id||'').trim();
+  const status=String(b.booking_status||'').trim().toLowerCase();
+  const mightBeActive=ACTIVE.has(status)||(status!==''&&!CLOSED.has(status));
+  if(mightBeActive&&(!id||!eventById.has(id)||!sourceWebIds.has(id)))unassignedActiveBooking=true;
+  if(!id)return;
   const bookingId=String(b.booking_id||'').trim();
   // Never treat records without a unique Booking identity as verified counts.
   if(!bookingId)badBooking.add(id);
   else if(seenBookings.has(bookingId)){badBooking.add(id);badBooking.add(seenBookings.get(bookingId));}
   else seenBookings.set(bookingId,id);
-  const status=String(b.booking_status||'').trim().toLowerCase();
   if(!CLOSED.has(status)&&!ACTIVE.has(status))badBooking.add(id);
   const n=bookingById.get(id)||{total:0,active:0};n.total++;if(ACTIVE.has(status))n.active++;bookingById.set(id,n);
  });
@@ -137,7 +144,7 @@ function normalize(source,now=new Date()){
   // Missing/conflicting Owner Locks, uncertain Booking identity/status, or
   // ambiguous pricing are an audit-only HOLD even when inventory is positive.
   const ownershipUnverified=!locksAvailable||!lockStates.length||lockStates.includes('')||locked||conflict;
-  const bookingUnverified=badBooking.has(id);
+  const bookingUnverified=badBooking.has(id)||unassignedActiveBooking;
   const packageUnverified=!validPrice||ambiguous;
   if(dateRisk||sourceUnverified||ownershipUnverified||bookingUnverified||packageUnverified){
    phoneReady=false;bundleReady=false;
@@ -162,16 +169,17 @@ function normalize(source,now=new Date()){
   if(!validPrice||ambiguous)gate.push('ราคา/รุ่นไม่ผ่าน');
   if(locked||conflict)gate.push('Owner Lock');
   if(!lockStates.length||lockStates.includes(''))gate.push('Owner Locks ไม่มีหลักฐาน');
-  if(badBooking.has(id))gate.push('Booking ไม่ครบ/ID ซ้ำ/สถานะไม่รู้จัก');
+  if(bookingUnverified)gate.push('Booking ไม่ครบ/ID ซ้ำ/สถานะไม่รู้จัก');
+  if(unassignedActiveBooking)gate.push('Booking ไม่ผูกกับงานหลัก');
   if(badPoster||dateRisk)gate.push('โปสเตอร์/วันที่');
   if(!fresh)gate.push('Snapshot ไม่สด');
   if(viaPublic)gate.push('Source เป็น public GViz fallback');
   if(!privateSourceVerified&&!viaPublic)gate.push('Source ไม่ยืนยัน private reader');
   gate.push('ยังไม่ยืนยัน Production และ X Post Log สด');
-  return {id,name:display(r.event_name||sourceEvent.event_name,220),date:eventDate,venue:display(r.venue||sourceEvent.venue,180),poster,web,phone:pricePhone,bundle:priceBundle,phoneReady,bundleReady,stock:stockClaim,bookings:badBooking.has(id)?null:book.active,bookingTotal:badBooking.has(id)?null:book.total,lock:conflict?'CONFLICT':(!lockStates.length||lockStates.includes(''))?'UNKNOWN':locked?'LOCKED':lockStates.join(','),qa,gate,validPrice,ambiguous};
+  return {id,name:display(r.event_name||sourceEvent.event_name,220),date:eventDate,venue:display(r.venue||sourceEvent.venue,180),poster,web,phone:pricePhone,bundle:priceBundle,phoneReady,bundleReady,stock:stockClaim,bookings:bookingUnverified?null:book.active,bookingTotal:bookingUnverified?null:book.total,lock:conflict?'CONFLICT':(!lockStates.length||lockStates.includes(''))?'UNKNOWN':locked?'LOCKED':lockStates.join(','),qa,gate,validPrice,ambiguous};
  }).filter(x=>x.id);
  if(duplicateIds.size)throw new Error('DUPLICATE_EVENT_ID');
- return {records,meta:{generatedAt:Number.isFinite(fetched)?new Date(fetched).toISOString():null,fresh,viaPublic,privateSourceVerified,snapshotSource:display(d.snapshot_source||'unknown'),xLogAvailable:false,locksAvailable,complete:missing.length===0&&locksAvailable}};
+ return {records,meta:{generatedAt:Number.isFinite(fetched)?new Date(fetched).toISOString():null,fresh,viaPublic,privateSourceVerified,snapshotSource:display(d.snapshot_source||'unknown'),xLogAvailable:false,locksAvailable,unassignedActiveBooking,complete:missing.length===0&&locksAvailable&&!unassignedActiveBooking}};
 }
 function mount(doc,win){
  const $=id=>doc.getElementById(id);const state={records:[],view:'table',meta:null,plans:[],ratio:60,tableLimit:TABLE_PAGE_SIZE};
@@ -240,7 +248,7 @@ function mount(doc,win){
   if(!response.ok)throw new Error('API_HTTP_'+response.status);
   const payload=await response.json();const data=normalize(payload);
   state.records=data.records;state.meta=data.meta;render();
-  const issues=[];if(!data.meta.fresh)issues.push('Snapshot ไม่สดหรือไม่มี generated_at');if(data.meta.viaPublic)issues.push('Reader ยังเป็น public GViz fallback');if(!data.meta.privateSourceVerified&&!data.meta.viaPublic)issues.push('Reader ยังไม่ยืนยันว่าเป็น private transport');if(!data.meta.locksAvailable)issues.push('Owner Locks ไม่อยู่ใน Snapshot: งานทั้งหมด HOLD รอตรวจ');issues.push('ยังไม่มี X Post Log ใน Snapshot และยังไม่ได้ยืนยัน Production ที่ลูกค้าเห็น');
+  const issues=[];if(!data.meta.fresh)issues.push('Snapshot ไม่สดหรือไม่มี generated_at');if(data.meta.viaPublic)issues.push('Reader ยังเป็น public GViz fallback');if(!data.meta.privateSourceVerified&&!data.meta.viaPublic)issues.push('Reader ยังไม่ยืนยันว่าเป็น private transport');if(!data.meta.locksAvailable)issues.push('Owner Locks ไม่อยู่ใน Snapshot: งานทั้งหมด HOLD รอตรวจ');if(data.meta.unassignedActiveBooking)issues.push('พบ Booking ใช้งานที่ไม่ผูกกับ Core และ Web Ready: ทุกงาน HOLD');issues.push('ยังไม่มี X Post Log ใน Snapshot และยังไม่ได้ยืนยัน Production ที่ลูกค้าเห็น');
   status('อ่านข้อมูลหลังบ้านสำเร็จ '+data.records.length+' งาน · '+(data.meta.generatedAt||'ไม่ทราบเวลาต้นทาง')+' · '+issues.join(' · '),issues.length?'':'ready');
  }catch(e){state.records=[];state.meta=null;$('app').hidden=true;status('HOLD — ไม่แสดงข้อมูลหลังบ้าน เพราะ '+(e.message==='LOGIN_REQUIRED'?'ยังไม่ได้เข้าสู่ระบบ Admin: เปิด /admin เพื่อเข้าสู่ระบบ':display(e.message,100)),'error')}
  finally{$('refresh').disabled=false}}
