@@ -207,3 +207,46 @@ test('private Admin snapshots stay bounded across many rotated service-account i
    assert.doesNotMatch(JSON.stringify(same),/ROTATION_000|reader@example.invalid/);
  }finally{privateSheets.readValues=original;F.clearSnapshotCache();}
 });
+
+test('runtime Admin header mapping rejects duplicate, prototype and reserved keys',()=>{
+ for(const cols of [
+   ['booking_id','booking_id'],['booking_id','event_id','event_id'],
+   ['booking_id','__proto__'],['booking_id','constructor'],
+   ['booking_id','prototype'],['booking_id','__row_number'],
+   ['booking_id','toString'],['booking_id','hasOwnProperty']
+ ]){
+   const values=[cols,cols.map(()=> 'sensitive_fixture')];
+   assert.throws(()=>F.valuesAsObjects(values,'booking_id'),e=>e.code==='CORE_PRIVATE_SCHEMA_INVALID');
+   const csv=values.map(row=>row.join(',')).join('\n');
+   assert.throws(()=>F.rowsAsObjects(csv,'booking_id'),e=>e.code==='CORE_PRIVATE_SCHEMA_INVALID');
+ }
+ const correct=F.valuesAsObjects([['booking_id','event_id'],['BK-TEST','EV-TEST']],'booking_id',4);
+ assert.equal(correct[0].booking_id,'BK-TEST');
+ assert.equal(correct[0].__row_number,5);
+});
+test('strict private Admin snapshot never consumes a duplicate-header Booking payload',async()=>{
+ const CorePrivacy=require('../server/core-sheet-private-reader.js');
+ const prior=CorePrivacy.readValues;
+ const env={
+   GOOGLE_SHEET_ID:'private-fixture-only',KK_CORE_SHEET_REQUIRE_PRIVATE:'1',
+   KK_CORE_PRIVATE_TRANSPORT:'apps-script',KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/fixture/exec',
+   KK_ADMIN_API_KEY:'a'.repeat(48),KK_CORE_PRIVATE_READ_KEY:'r'.repeat(48)
+ };
+ let publicCalls=0,privateCalls=0;
+ CorePrivacy.readValues=async({sheet})=>{
+   privateCalls++;
+   const spec=Object.values(F.SPECS).find(s=>s.sheet===sheet);
+   if(sheet==='00_Master_Booking')return [['booking_id','customer_contact','booking_id'],['BK-FIXTURE','PRIVATE_CONTACT_FIXTURE','BK2']];
+   return [[spec.header]];
+ };
+ F.clearSnapshotCache();
+ try{
+   await assert.rejects(
+     ()=>F.buildSnapshot({env,sheetId:env.GOOGLE_SHEET_ID,cache:false,
+       fetchImpl:async()=>{publicCalls++;throw Error('GVIZ_MUST_NOT_RUN')}}),
+     e=>e.code==='CORE_PRIVATE_SCHEMA_INVALID'&&e.dataset==='bookings'
+   );
+   assert.equal(privateCalls,Object.keys(F.SPECS).length);
+   assert.equal(publicCalls,0);
+ }finally{CorePrivacy.readValues=prior;F.clearSnapshotCache();}
+});

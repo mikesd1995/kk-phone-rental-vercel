@@ -24,6 +24,46 @@ function scriptState(env=process.env){
 // exceptions must never be trusted even when they forge a matching prefix.
 const ownedErrors=new WeakSet();
 function err(code){const x=new Error(code);x.code=code;ownedErrors.add(x);return x;}
+// Bound JSON bytes *while reading* a real Fetch Response, before allocating
+// the entire source workbook response. The existing post-parse row/column
+// checks do not cap cell size or a malicious oversized JSON transport.
+const MAX_PRIVATE_JSON_BYTES=8*1024*1024;
+async function readBoundedJson(response){
+  const contentLength=Number(response.headers&&response.headers.get&&
+    response.headers.get('content-length'));
+  if(Number.isFinite(contentLength)&&contentLength>MAX_PRIVATE_JSON_BYTES)
+    throw err('CORE_APPS_SCRIPT_RESPONSE_INVALID');
+  const stream=response.body;
+  // Unit-test adapters expose .json() only; actual Node fetch always provides
+  // a Web ReadableStream for a nonempty HTTP body. Guard mock JSON size too.
+  if(!stream||typeof stream.getReader!=='function'){
+    const object=await response.json();
+    if(Buffer.byteLength(JSON.stringify(object),'utf8')>MAX_PRIVATE_JSON_BYTES)
+      throw err('CORE_APPS_SCRIPT_RESPONSE_INVALID');
+    return object;
+  }
+  const reader=stream.getReader();
+  let bytes=0;
+  const chunks=[];
+  try{
+    while(true){
+      const part=await reader.read();
+      if(part.done)break;
+      if(!(part.value instanceof Uint8Array))
+        throw err('CORE_APPS_SCRIPT_RESPONSE_INVALID');
+      bytes+=part.value.byteLength;
+      if(bytes>MAX_PRIVATE_JSON_BYTES){
+        await reader.cancel().catch(()=>{});
+        throw err('CORE_APPS_SCRIPT_RESPONSE_INVALID');
+      }
+      chunks.push(Buffer.from(part.value));
+    }
+  }finally{
+    reader.releaseLock();
+  }
+  try{return JSON.parse(Buffer.concat(chunks,bytes).toString('utf8'));}
+  catch(_){return null;}
+}
 async function readValues({sheetId,sheet,range,env=process.env,fetchImpl=global.fetch}={}){
   const state=scriptState(env);
   if(!state.configured)throw err('CORE_APPS_SCRIPT_NOT_CONFIGURED');
@@ -59,7 +99,10 @@ async function readValues({sheetId,sheet,range,env=process.env,fetchImpl=global.
           throw err('CORE_APPS_SCRIPT_BAD_REDIRECT');
     }
     if(!response.ok)throw err('CORE_APPS_SCRIPT_HTTP_FAILURE');
-    const body=await response.json().catch(()=>null);
+    const body=await readBoundedJson(response).catch(e=>{
+      if(ownedErrors.has(e))throw e;
+      return null;
+    });
     const p=body&&body.data;
     if(!body||body.ok!==true||!p||String(p.spreadsheet_id||'')!==canonical||
         String(p.sheet||'')!==String(sheet)||String(p.range||'')!==String(range)||
