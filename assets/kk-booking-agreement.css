@@ -1,4 +1,4 @@
-/* Customer-facing footer and pre-LINE terms acknowledgement.
+/* Customer-facing footer and first-visit Terms acknowledgement.
    Scoped to these components; does not touch catalogue, stock or admin. */
 footer.kk-public-footer {
   padding: 28px 0 14px !important;
@@ -92,13 +92,12 @@ html[data-theme="dark"] footer.kk-public-footer .legal-footer-google a { color: 
   min-height: 48px; padding: 12px 16px; border-radius: 12px;
   font: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
 }
-.kk-booking-terms-cancel { flex: 1; background: var(--v6-bg,#f7f7f4); border: 1px solid var(--v6-line,#dfe3e8); color: var(--v6-ink,#111827); }
 .kk-booking-terms-continue { flex: 2; background: #06c755; border: 1px solid #06c755; color: #fff; }
 .kk-booking-terms-continue:disabled { opacity: .43; cursor: not-allowed; filter: grayscale(.45); }
 .kk-booking-agreement-card :focus-visible { outline: 3px solid var(--v6-accent,#1378f3); outline-offset: 3px; }
 @media(max-width:420px) {
   .kk-booking-agreement-backdrop { align-items: flex-end; padding: 0; }
   .kk-booking-agreement-card { width: 100%; max-height: 92dvh; border-radius: 24px 24px 0 0; padding: 24px 18px max(22px,env(safe-area-inset-bottom)); }
-  .kk-booking-agreement-actions { flex-direction: column-reverse; }
+  .kk-booking-agreement-actions { flex-direction: column; }
   .kk-booking-agreement-actions button { width: 100%; }
 }

@@ -9,6 +9,7 @@ const {createPostgrestStore} = require('./kk-inbox-postgrest-store');
 const LineMessaging = require('./kk-line-messaging-api');
 const OwnerApproval = require('./line-booking-owner-approval');
 const TermsEvidence = require('./kk-booking-terms-evidence');
+const IdentityReceipt = require('./kk-line-booking-terms-receipt');
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 const PUBLIC_DATA_BASE = 'https://kk-phone-rental.vercel.app/api/kk-data';
@@ -170,6 +171,44 @@ async function resolveCanonicalPackage(booking, fetchImpl=fetch){
   if(!templateId) return null;
   return {event_id:eventId,package_id:packageId,template_id:templateId,package_name:packageLabel(row),price_display:price};
 }
+function safeLineReplyDiagnostic(err){
+  if(err && err.code==='LINE_BOOKING_REPLY_TRANSPORT_FAILED'){
+    return {code:'LINE_BOOKING_REPLY_TRANSPORT_FAILED',provider_http_status:null,provider_category:'TRANSPORT_ERROR'};
+  }
+  if(err && err.code==='LINE_BOOKING_REPLY_FAILED'){
+    const status=Number.isInteger(err.status) && err.status>=100 && err.status<=599 ? err.status : null;
+    let category='UNKNOWN_REPLY_FAILURE';
+    if(status===400) category='INVALID_REQUEST_OR_REPLY_TOKEN';
+    else if(status===401 || status===403) category='PROVIDER_AUTH_OR_PERMISSION';
+    else if(status===429) category='PROVIDER_RATE_LIMIT';
+    else if(status!==null && status>=500) category='PROVIDER_SERVER_FAILURE';
+    else if(status!==null && status>=400) category='PROVIDER_CLIENT_FAILURE';
+    return {code:'LINE_BOOKING_REPLY_FAILED',provider_http_status:status,provider_category:category};
+  }
+  // Preserve only explicitly recognized internal failure codes. Never log
+  // arbitrary err.message, err.code, URLs, recipient IDs or provider bodies.
+  const SAFE_INTERNAL_FAILURES={
+    LINE_BOOKING_AUTOMATION_NOT_READY:'BOOKING_CONFIGURATION',
+    LINE_BOOKING_UPSTREAM_TRANSPORT_FAILED:'BOOKING_UPSTREAM',
+    LINE_BOOKING_UPSTREAM_NON_JSON:'BOOKING_UPSTREAM',
+    LINE_BOOKING_UPSTREAM_FAILED:'BOOKING_UPSTREAM',
+    LINE_CUSTOMER_USER_ID_REQUIRED:'BOOKING_VALIDATION',
+    LINE_APPROVAL_DATA_INCOMPLETE:'OWNER_APPROVAL',
+    LINE_OWNER_DECISION_BOOKING_ID_MISMATCH:'OWNER_APPROVAL',
+    LINE_OWNER_DECISION_READBACK_MISMATCH:'OWNER_APPROVAL',
+    LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED:'OWNER_APPROVAL',
+    LINE_CUSTOMER_CONTACT_READBACK_REQUIRED:'OWNER_APPROVAL',
+    LINE_SEND_FAILED:'LINE_PUSH_OR_REPLY',
+    LINE_SEND_TRANSPORT_FAILED:'LINE_PUSH_OR_REPLY'
+  };
+  const code=err&&typeof err.code==='string'?err.code:'';
+  if(Object.prototype.hasOwnProperty.call(SAFE_INTERNAL_FAILURES,code)){
+    // This is not necessarily a Reply API status; do not misattribute it.
+    return {code,provider_http_status:null,provider_category:SAFE_INTERNAL_FAILURES[code]};
+  }
+  return {code:'WEBHOOK_PROCESSING_FAILED',provider_http_status:null,provider_category:'OTHER'};
+}
+
 async function replyFlex(replyToken, message, token, fetchImpl=fetch){
   let r;
   try{
@@ -187,34 +226,89 @@ async function replyFlex(replyToken, message, token, fetchImpl=fetch){
     throw err;
   }
 }
-async function processEvent(event, env=process.env, fetchImpl=fetch){
+async function processEvent(event, env=process.env, fetchImpl=fetch, options={}){
   if(!event || event.type!=='message' || !event.replyToken || !event.message || event.message.type!=='text') return {handled:false};
   const booking=parseBookingText(event.message.text);
   if(!booking) return {handled:false};
+  // One event-local WebReady fetch. Do not cache across customer requests.
+  // Preserve exact snapshot while poster and canonical price resolve in parallel.
+  let webReadySnapshot;
+  const sharedFetch=async (url, options)=>{
+    if(url!==PUBLIC_DATA_BASE+WEB_READY_QUERY) return fetchImpl(url,options);
+    if(!webReadySnapshot) webReadySnapshot=Promise.resolve().then(()=>
+      fetchImpl(url,options)).then(async response=>({
+        ok:response.ok,
+        text:response.ok ? await response.text() : ''
+      }));
+    const snapshot=await webReadySnapshot;
+    return {ok:snapshot.ok,text:async()=>snapshot.text};
+  };
   const [poster,canonical]=await Promise.all([
-    resolvePoster(booking,fetchImpl).catch(()=> ''),
-    resolveCanonicalPackage(booking,fetchImpl).catch(()=> null)
+    resolvePoster(booking,sharedFetch).catch(()=> ''),
+    resolveCanonicalPackage(booking,sharedFetch).catch(()=> null)
   ]);
   booking.poster_image_url=poster;
 
   const readiness=OwnerApproval.automationReadiness(env);
+  // Validate canonical bookability FIRST. A hidden/invalid event retains the
+  // existing fail-closed warning even if the customer also omitted a field.
+  // Only admitted bookings prompt for missing contact fields before writes.
+  if(readiness.ready && canonical && (!booking.nickname || !event.source || !event.source.userId)){
+    const missingName=!booking.nickname;
+    await replyFlex(event.replyToken,{
+      type:'text',
+      text:missingName
+        ? 'กรุณาระบุชื่อเล่นในข้อความจอง แล้วส่งใหม่อีกครั้งเพื่อให้ร้านตรวจสอบคิวค่ะ'
+        : 'กรุณาส่งคำขอจองจากแชทส่วนตัวกับ LINE OA เพื่อให้ร้านตรวจสอบได้ค่ะ'
+    },env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
+    return {handled:true,booking_id:'',automation_status:'CUSTOMER_DETAILS_REQUIRED'};
+  }
+
   let pending=null;
   let automationStatus=readiness.ready?'CANONICAL_REQUIRED':'REPLY_ONLY';
   if(readiness.ready && canonical){
-    pending=await OwnerApproval.createPendingBooking(event,booking,canonical,env,fetchImpl);
-    await OwnerApproval.notifyOwner({
-      booking_id:pending.booking_id,
-      event_name:booking.event_name,
-      event_date:booking.event_date,
-      package_name:canonical.package_name,
-      price_display:canonical.price_display,
-      nickname:booking.nickname,
-      phone:booking.phone,
-      pickup_time:booking.pickup_time,
-      terms_status:booking.terms_acknowledged===true ? 'LINE_MESSAGE_CONFIRMED' : 'NOT_CONFIRMED',
-      terms_version:booking.terms_version||''
-    },env,fetchImpl);
-    automationStatus='PENDING_OWNER_APPROVAL';
+    // Only a signature-verified webhook identity may unlock a backend Terms
+    // receipt. In authenticated mode, old text/Cookies cannot bypass this gate.
+    let termsStatus=booking.terms_acknowledged===true ? 'LINE_MESSAGE_CONFIRMED' : 'NOT_CONFIRMED';
+    if(env.KK_CUSTOMER_LOGIN_ENABLED==='true'){
+      const receipt=await IdentityReceipt.lookupSignedLineAcceptance(
+        event,env,fetchImpl,{signatureVerified:options.signatureVerified===true}
+      );
+      termsStatus=receipt.status;
+      if(receipt.accepted===true) {
+        booking.terms_version=TermsEvidence.VERSION;
+        booking.terms_identity_verified=true;
+      }
+    }
+    if(env.KK_CUSTOMER_LOGIN_ENABLED==='true' &&
+       termsStatus!=='VERIFIED_LINE_IDENTITY_TERMS_ACCEPTED'){
+      // Do not acknowledge a booking that was never created. This response
+      // uses the still-valid LINE Reply token exactly once, without a write.
+      const temporaryFailure=termsStatus==='IDENTITY_RECEIPT_UNAVAILABLE';
+      const guidance=temporaryFailure
+        ? 'ระบบตรวจสอบการยอมรับเงื่อนไขขัดข้องชั่วคราว กรุณาลองส่งคำขอใหม่ภายหลัง'
+        : 'ยังไม่พบการยอมรับเงื่อนไขจาก LINE บัญชีนี้ กรุณาเปิด https://kk-phone-rental.vercel.app/ เชื่อมบัญชี LINE และกดยืนยันเงื่อนไขก่อนส่งคำขอใหม่';
+      await replyFlex(event.replyToken,{
+        type:'text',
+        text:guidance+'\nยังไม่ได้บันทึกคำขอจอง และยังไม่ส่งให้ร้านอนุมัติค่ะ'
+      },env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
+      return {handled:true,booking_id:'',automation_status:'TERMS_EVIDENCE_REQUIRED'};
+    }else{
+      pending=await OwnerApproval.createPendingBooking(event,booking,canonical,env,fetchImpl);
+      await OwnerApproval.notifyOwner({
+        booking_id:pending.booking_id,
+        event_name:booking.event_name,
+        event_date:booking.event_date,
+        package_name:canonical.package_name,
+        price_display:canonical.price_display,
+        nickname:booking.nickname,
+        phone:booking.phone,
+        pickup_time:booking.pickup_time,
+        terms_status:termsStatus,
+        terms_version:booking.terms_version||''
+      },env,fetchImpl);
+      automationStatus='PENDING_OWNER_APPROVAL';
+    }
   }else if(readiness.ready && !canonical){
     console.warn('[line-booking-automation]',JSON.stringify({
       status:'FAIL_CLOSED_CANONICAL_REQUIRED',
@@ -258,12 +352,12 @@ module.exports=async function handler(req,res){
     for(const event of events){
       const ownerDecision=await OwnerApproval.processOwnerPostback(event,process.env,fetch);
       if(ownerDecision.handled) continue;
-      await processEvent(event,process.env,fetch);
+      await processEvent(event,process.env,fetch,{signatureVerified:true});
     }
     await inboxPromise;
     res.statusCode=200;
     return res.end('OK');
   }
-  catch(err){console.error('[line-webhook]',err&&err.message?err.message:'processing failed');res.statusCode=500;return res.end('Processing failed');}
+  catch(err){console.error('[line-webhook]',JSON.stringify(safeLineReplyDiagnostic(err)));res.statusCode=500;return res.end('Processing failed');}
 };
-module.exports._test={inboxPersistFn,rawBody,validSignature,parseBookingText,parseCsv,norm,canonicalDate,resolveEventRow,resolvePoster,resolveCanonicalPackage,templateIdFromWebPackageId,packageLabel,formatCanonicalPrice,replyFlex,processEvent,OwnerApproval};
+module.exports._test={safeLineReplyDiagnostic,inboxPersistFn,rawBody,validSignature,parseBookingText,parseCsv,norm,canonicalDate,resolveEventRow,resolvePoster,resolveCanonicalPackage,templateIdFromWebPackageId,packageLabel,formatCanonicalPrice,replyFlex,processEvent,OwnerApproval};
