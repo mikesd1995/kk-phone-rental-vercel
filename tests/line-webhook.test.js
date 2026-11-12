@@ -87,7 +87,7 @@ test('owner-hidden event fails closed with no Apps Script booking and no PII in 
    KK_LINE_BOOKING_AUTOMATION_ENABLED:'true',
    KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/TEST_ONLY/exec',
    KK_ADMIN_API_KEY:'synthetic-key',LINE_CHANNEL_ACCESS_TOKEN:'synthetic-token',
-   LINE_CHANNEL_SECRET:'synthetic-secret',KK_OWNER_LINE_USER_ID:'UOWNER'
+   LINE_CHANNEL_SECRET:'synthetic-secret',KK_OWNER_LINE_USER_ID:'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
   },async url=>{
     requests.push(String(url));
     if(String(url).includes('08_Web_Ready'))return {ok:true,text:async()=>syntheticVisibleRow('hide','เปิดจอง',1)};
@@ -132,7 +132,7 @@ function identityEnv() {
     KK_ADMIN_API_KEY: 'synthetic-apps-script-key',
     LINE_CHANNEL_ACCESS_TOKEN: 'synthetic-line-token',
     LINE_CHANNEL_SECRET: 'synthetic-signing-secret',
-    KK_OWNER_LINE_USER_ID: 'UOWNER'
+    KK_OWNER_LINE_USER_ID: 'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
   };
 }
 function identityEvent(textOverride) {
@@ -193,7 +193,7 @@ test('verified signed LINE sender matches private current-version consent and re
   assert.equal(calls[1].body.booking_status,'pending');
   assert.match(calls[1].body.booking_note,/TERMS_ACK_BACKEND:KK-TERMS-2026-11-06/);
   assert.doesNotMatch(calls[1].body.booking_note,/TERMS_NOT_CONFIRMED/);
-  assert.equal(calls[2].body.to,'UOWNER');
+  assert.equal(calls[2].body.to,'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
   assert.match(JSON.stringify(calls[2].body.messages),/ยอมรับเงื่อนไขแล้ว/);
   assert.match(JSON.stringify(calls[2].body.messages),/ยืนยัน LINE User ID จากหลักฐานหลังบ้าน/);
   assert.doesNotMatch(JSON.stringify(calls[3].body.messages),/KK-TERMS-2026-11-06/);
