@@ -136,6 +136,9 @@ function normalize(source,now=new Date()){
    const venueRisk=!!coreRow&&(!coreVenue||!webVenue||coreVenue!==webVenue||unconfirmedVenue.test(coreVenue)||unconfirmedVenue.test(webVenue));
    const dateRisk=!webDate||!eventDate||!!(guessedDate&&`${guessedDate[1]}-${guessedDate[2]}-${guessedDate[3]}`!==eventDate)
    ||!!(coreRow&&(!coreDate||coreDate!==eventDate||venueRisk));
+  // A historical SHOW record is valid for auditing but is never rentable now.
+  // Compare canonical YYYY-MM-DD dates in the source/store timezone, not UTC.
+  const pastEvent=!!eventDate&&eventDate<bangkokToday(now);
   // A stale/contradictory date or venue is not an advertise-ready rental day.
   // A stale/private-source violation must not remain labelled "พร้อม" in the UI.
   // Keep the rows visible for inspection; only readiness claims fail closed.
@@ -146,7 +149,7 @@ function normalize(source,now=new Date()){
   const ownershipUnverified=!locksAvailable||!lockStates.length||lockStates.includes('')||locked||conflict;
   const bookingUnverified=badBooking.has(id)||unassignedActiveBooking;
   const packageUnverified=!validPrice||ambiguous;
-  if(dateRisk||sourceUnverified||ownershipUnverified||bookingUnverified||packageUnverified){
+  if(dateRisk||pastEvent||sourceUnverified||ownershipUnverified||bookingUnverified||packageUnverified){
    phoneReady=false;bundleReady=false;
   }
   const poster=safePoster(r.poster_image_url||sourceEvent.poster_url||sourceEvent.poster_image_url);
@@ -157,6 +160,7 @@ function normalize(source,now=new Date()){
   if(sourceUnverified)qa.push('Snapshot ไม่สดหรือ Reader ไม่ผ่าน');
   if(ownershipUnverified)qa.push('Owner Locks ไม่มีหลักฐาน/ล็อก/สถานะขัดแย้ง');
   if(bookingUnverified)qa.push('Booking ตรวจไม่ผ่าน');
+  if(pastEvent)qa.push('งานผ่านวันที่แล้ว');
   if(dateRisk||!/\S/.test(r.venue||'')||/รอยืนยัน|not yet confirmed/i.test(r.venue||''))qa.push('วันที่/สถานที่ต้องตรวจ');
   if(!validPrice||ambiguous)qa.push('ราคา/แพ็กเกจไม่ครบหรือกำกวม');
   if(web==='show'&&((!sourceUnverified&&!phoneReady&&!bundleReady)||stockClaim===0||stockClaim===null))qa.push('สถานะเปิดแต่มือถือไม่พร้อม');
@@ -172,6 +176,7 @@ function normalize(source,now=new Date()){
   if(bookingUnverified)gate.push('Booking ไม่ครบ/ID ซ้ำ/สถานะไม่รู้จัก');
   if(unassignedActiveBooking)gate.push('Booking ไม่ผูกกับงานหลัก');
   if(badPoster||dateRisk)gate.push('โปสเตอร์/วันที่');
+  if(pastEvent)gate.push('วันที่งานผ่านไปแล้ว');
   if(!fresh)gate.push('Snapshot ไม่สด');
   if(viaPublic)gate.push('Source เป็น public GViz fallback');
   if(!privateSourceVerified&&!viaPublic)gate.push('Source ไม่ยืนยัน private reader');
@@ -235,7 +240,7 @@ function mount(doc,win){
   more.addEventListener('click',next);next();cal.appendChild(d);
  }
 }
- function renderQa(rows){const qa=$('qa');qa.replaceChildren();const groups=[['โปสเตอร์',x=>x.qa.some(v=>v.includes('โปสเตอร์'))],['วันที่/สถานที่',x=>x.qa.some(v=>v.includes('วันที่/สถานที่'))],['ราคาและแพ็กเกจ',x=>x.qa.some(v=>v.includes('ราคา/แพ็กเกจ'))],['เว็บเปิดแต่สต็อก/Core ไม่พร้อม',x=>x.qa.some(v=>v.includes('สถานะเปิด'))],['Snapshot/Reader ต้องตรวจ',x=>x.qa.some(v=>v.includes('Reader ไม่ผ่าน'))],['Owner Locks ต้องตรวจ',x=>x.qa.some(v=>v.includes('Owner Locks'))],['Booking ผิดปกติ',x=>x.qa.some(v=>v.includes('Booking ตรวจไม่ผ่าน'))],['ไม่มี Booking ใน Snapshot',x=>x.qa.some(v=>v.includes('ไม่พบบุกกิ้ง'))],['ยังไม่มีหลักฐานราคาคู่แข่ง',x=>x.qa.some(v=>v.includes('คู่แข่ง'))]];for(const [title,predicate] of groups){const items=rows.filter(predicate);const item=node(doc,'article','qa-box');item.appendChild(node(doc,'h3','',title+' · '+items.length));items.slice(0,40).forEach(e=>{const b=node(doc,'button','',e.date+' '+e.name);b.type='button';b.addEventListener('click',()=>openDetails(e.id));item.appendChild(b);item.appendChild(node(doc,'p','',e.venue))});if(items.length>40)item.appendChild(node(doc,'p','',`และอีก ${items.length-40} งาน (ใช้ตัวกรองเพื่อลดรายการ)`));qa.appendChild(item)}}
+ function renderQa(rows){const qa=$('qa');qa.replaceChildren();const groups=[['โปสเตอร์',x=>x.qa.some(v=>v.includes('โปสเตอร์'))],['งานย้อนหลัง',x=>x.qa.some(v=>v.includes('งานผ่านวันที่แล้ว'))],['วันที่/สถานที่',x=>x.qa.some(v=>v.includes('วันที่/สถานที่'))],['ราคาและแพ็กเกจ',x=>x.qa.some(v=>v.includes('ราคา/แพ็กเกจ'))],['เว็บเปิดแต่สต็อก/Core ไม่พร้อม',x=>x.qa.some(v=>v.includes('สถานะเปิด'))],['Snapshot/Reader ต้องตรวจ',x=>x.qa.some(v=>v.includes('Reader ไม่ผ่าน'))],['Owner Locks ต้องตรวจ',x=>x.qa.some(v=>v.includes('Owner Locks'))],['Booking ผิดปกติ',x=>x.qa.some(v=>v.includes('Booking ตรวจไม่ผ่าน'))],['ไม่มี Booking ใน Snapshot',x=>x.qa.some(v=>v.includes('ไม่พบบุกกิ้ง'))],['ยังไม่มีหลักฐานราคาคู่แข่ง',x=>x.qa.some(v=>v.includes('คู่แข่ง'))]];for(const [title,predicate] of groups){const items=rows.filter(predicate);const item=node(doc,'article','qa-box');item.appendChild(node(doc,'h3','',title+' · '+items.length));items.slice(0,40).forEach(e=>{const b=node(doc,'button','',e.date+' '+e.name);b.type='button';b.addEventListener('click',()=>openDetails(e.id));item.appendChild(b);item.appendChild(node(doc,'p','',e.venue))});if(items.length>40)item.appendChild(node(doc,'p','',`และอีก ${items.length-40} งาน (ใช้ตัวกรองเพื่อลดรายการ)`));qa.appendChild(item)}}
  function renderPlans(){const el=$('plans');el.replaceChildren();for(const p of state.plans){const e=state.records.find(x=>x.id===p.eventId);const card=node(doc,'div','plan-card');card.appendChild(node(doc,'strong','',p.at+' · '+(e?e.name:p.eventId)));card.appendChild(node(doc,'small','', 'ร่างรอตรวจสด · '+(p.type==='near'?'ใกล้วันเช่า':'เพิ่มเอนเกจ')));card.appendChild(node(doc,'div','',p.reason));const b=node(doc,'button','mini-btn','ลบร่าง');b.addEventListener('click',()=>{state.plans=state.plans.filter(x=>x!==p);persist();renderPlans()});card.appendChild(b);el.appendChild(card)} }
  function render(){state.tableLimit=TABLE_PAGE_SIZE;setFilters();const rows=filtered();$('app').hidden=false;const kpis=$('kpis');kpis.replaceChildren(card('งานทั้งหมด',state.records.length),card('เปิดในชีต',state.records.filter(x=>x.web==='show').length),card('แสดงว่าเต็ม',state.records.filter(x=>x.web==='show_full').length),card('เว็บเปิดแต่ไม่พร้อม',state.records.filter(x=>x.qa.some(z=>z.includes('สถานะเปิด'))).length));$('resultCount').textContent='พบ '+rows.length+' งาน';renderTable(rows);renderCalendar(rows);renderQa(rows);
   const sel=$('postEvent');const old=sel.value;const options=state.records.filter(e=>e.web==='show').sort((a,b)=>a.date.localeCompare(b.date)).map(e=>new Option(e.date+' · '+e.name,e.id));sel.replaceChildren(new Option('เลือกงาน',''),...options);sel.value=state.records.some(e=>e.id===old)?old:'';

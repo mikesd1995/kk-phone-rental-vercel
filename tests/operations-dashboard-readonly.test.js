@@ -393,3 +393,50 @@ test('closed orphan booking and blank ancillary rows do not create false global 
   assert.equal(x.records[0].bookings,0);
  }
 });
+
+
+// R21: Real canonical Web Ready source has 45 historically-dated SHOW events.
+// Such records remain audit-visible but must never claim current rentable stock.
+function r21FixtureOnDate(date){
+ const d=positiveStockFixture();
+ const id='EVT-'+date.replace(/-/g,'')+'-QA-PAST-SAFETY';
+ d.data.events[0].event_id=id;
+ d.data.events[0].event_date=date;
+ d.data.web_ready[0].event_id=id;
+ d.data.web_ready[0].event_date=date;
+ d.data.web_ready[0].event_date_text=date;
+ for(const p of d.data.web_packages)p.event_id=id;
+ for(const b of d.data.bookings)b.event_id=id;
+ for(const lock of d.data.visibility_locks)lock.event_id=id;
+ return d;
+}
+test('historical SHOW with verified private origin and positive stock cannot appear rentable',()=>{
+ const x=Ops.normalize(r21FixtureOnDate('2026-11-06'),NOW);
+ const r=x.records[0];
+ assert.equal(x.meta.fresh,true,'source must be fresh to isolate date safety');
+ assert.equal(x.meta.privateSourceVerified,true);
+ assert.equal(r.web,'show');
+ assert.equal(r.stock,2,'retain source count for audit');
+ assert.equal(r.phoneReady,false);
+ assert.equal(r.bundleReady,false);
+ assert.ok(r.qa.includes('งานผ่านวันที่แล้ว'));
+ assert.ok(r.gate.includes('วันที่งานผ่านไปแล้ว'));
+ assert.ok(!r.gate.includes('โปสเตอร์/วันที่'),'date identity is valid and not the blocker');
+});
+test('today and future SHOW remain ready if all other checks pass',()=>{
+ for(const date of ['2026-11-07','2026-11-08']){
+  const x=Ops.normalize(r21FixtureOnDate(date),NOW).records[0];
+  assert.equal(x.phoneReady,true,'valid upcoming source on '+date);
+  assert.equal(x.bundleReady,true);
+  assert.ok(!x.qa.includes('งานผ่านวันที่แล้ว'));
+ }
+});
+test('past-day HOLD transitions at midnight in Asia/Bangkok, never UTC midnight',()=>{
+ const before=new Date('2026-11-06T16:59:00.000Z');
+ const after=new Date('2026-11-06T17:01:00.000Z');
+ const a=r21FixtureOnDate('2026-11-06');a.data.generated_at=before.toISOString();
+ const b=r21FixtureOnDate('2026-11-06');b.data.generated_at=after.toISOString();
+ assert.equal(Ops.normalize(a,before).records[0].phoneReady,true);
+ assert.equal(Ops.normalize(b,after).records[0].phoneReady,false);
+ assert.ok(Ops.normalize(b,after).records[0].gate.includes('วันที่งานผ่านไปแล้ว'));
+});
