@@ -1,21 +1,10 @@
-name: Core Private Cutover Source Safety (Draft Only)
+name: Core Private Cutover Source Safety (Review Gate)
 
 on:
+  # Audit every exact HEAD, including main-sync commits that only modify
+  # unrelated paths; never leave a private-data release with stale CI.
   push:
     branches: [fix/p0-core-private-preflight-current-main-20261102]
-    paths:
-      - 'server/core-sheet-private-reader.js'
-      - 'server/core-sheet-apps-script-reader.js'
-      - 'tests/core-apps-script-untrusted-error.test.js'
-      - 'tests/core-apps-script-private-reader.test.js'
-      - 'tests/core-read-only-key-isolation.test.js'
-      - 'scripts/core-private-cutover-preflight.cjs'
-      - 'tests/core-sheet-privacy-cutover.test.js'
-      - 'tests/core-private-cutover-preflight.test.js'
-      - 'server/admin-sheet-fallback.js'
-      - 'tests/admin-sheet-fallback-private-reader.test.js'
-      - 'tests/hardening-phase2-share-runtime.test.js'
-      - '.github/workflows/core-private-cutover-current-main.yml'
   workflow_dispatch:
 
 permissions:
