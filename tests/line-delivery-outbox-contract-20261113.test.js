@@ -83,6 +83,7 @@ function gasFixture(status='pending',enabled=true){
   return {ctx,sheets,bookings,props,locks,ss};
 }
 function readBook(f){return f.bookings.getRange(5,1,1,20).getValues()[0];}
+function decide(f,decision){return f.ctx.kkApiDecideLineBookingPending_({booking_id:'BK-TEST',decision,outbox_contract:f.props.KK_LINE_DELIVERY_OUTBOX_ENABLED==='true'?'v1':'off'});}
 function outboxSheet(f){return f.sheets.get('19_Line_Delivery_Outbox');}
 function rows(f){const sh=outboxSheet(f);const n=sh.getLastRow();return n<2?[]:sh.getRange(2,1,n-1,11).getValues();}
 
@@ -95,7 +96,7 @@ test('GAS source/dispatcher compiles; no public outbox installation action exist
 });
 test('outbox installation is manual and decision fails closed before booking mutation if sheet missing',()=>{
   const f=gasFixture();
-  assert.throws(()=>f.ctx.kkApiDecideLineBookingPending_({booking_id:'BK-TEST',decision:'approve'}),/OUTBOX_SHEET_MISSING/);
+  assert.throws(()=>decide(f,'approve'),/OUTBOX_SHEET_MISSING/);
   assert.equal(readBook(f)[2],'pending');
   assert.equal(outboxSheet(f),undefined);
   const result=f.ctx.kkInstallLineDeliveryOutbox_();
@@ -105,7 +106,7 @@ test('outbox installation is manual and decision fails closed before booking mut
 });
 test('durable PREPARED intent persists before canonical decision and exact READY readback',()=>{
   const f=gasFixture();f.ctx.kkInstallLineDeliveryOutbox_();
-  const res=f.ctx.kkApiDecideLineBookingPending_({booking_id:'BK-TEST',decision:'approve'});
+  const res=decide(f,'approve');
   assert.equal(res.booking_status,'confirmed');
   assert.equal(res.idempotent_replay,false);
   assert.equal(res.outbox_status,'READY');
@@ -119,27 +120,27 @@ test('durable PREPARED intent persists before canonical decision and exact READY
 test('booking write exception leaves PREPARED outbox, not a false delivered notification; retry resumes',()=>{
   const f=gasFixture();f.ctx.kkInstallLineDeliveryOutbox_();
   f.bookings.failBooking=true;
-  assert.throws(()=>f.ctx.kkApiDecideLineBookingPending_({booking_id:'BK-TEST',decision:'approve'}),/interrupted booking/);
+  assert.throws(()=>decide(f,'approve'),/interrupted booking/);
   assert.equal(readBook(f)[2],'pending');
   assert.equal(rows(f)[0][4],'PREPARED');
-  const res=f.ctx.kkApiDecideLineBookingPending_({booking_id:'BK-TEST',decision:'approve'});
+  const res=decide(f,'approve');
   assert.equal(res.outbox_status,'READY');
   assert.equal(rows(f).length,1);
 });
 test('post-commit READY write exception is healed by canonical replay; intent remains unique',()=>{
   const f=gasFixture();f.ctx.kkInstallLineDeliveryOutbox_();
   outboxSheet(f).failNextState='READY';
-  assert.throws(()=>f.ctx.kkApiDecideLineBookingPending_({booking_id:'BK-TEST',decision:'approve'}),/interrupted outbox/);
+  assert.throws(()=>decide(f,'approve'),/interrupted outbox/);
   assert.equal(readBook(f)[2],'confirmed');
   assert.equal(rows(f)[0][4],'PREPARED');
-  const res=f.ctx.kkApiDecideLineBookingPending_({booking_id:'BK-TEST',decision:'approve'});
+  const res=decide(f,'approve');
   assert.equal(res.idempotent_replay,true);
   assert.equal(res.outbox_status,'READY');
   assert.equal(rows(f).length,1);
 });
 test('claim and ACK are one-shot with durable acceptance and no second customer contact',()=>{
   const f=gasFixture();f.ctx.kkInstallLineDeliveryOutbox_();
-  const d=f.ctx.kkApiDecideLineBookingPending_({booking_id:'BK-TEST',decision:'approve'});
+  const d=decide(f,'approve');
   const args={booking_id:'BK-TEST',decision:'approve',outbox_id:d.outbox_id};
   const first=f.ctx.kkApiClaimLineBookingNotification_(args);
   assert.equal(first.status,'CLAIMED');
@@ -155,7 +156,7 @@ test('claim and ACK are one-shot with durable acceptance and no second customer 
 });
 test('expired claim becomes UNCERTAIN and can never be claimed again',()=>{
   const f=gasFixture();f.ctx.kkInstallLineDeliveryOutbox_();
-  const d=f.ctx.kkApiDecideLineBookingPending_({booking_id:'BK-TEST',decision:'approve'});
+  const d=decide(f,'approve');
   const args={booking_id:'BK-TEST',decision:'approve',outbox_id:d.outbox_id};
   f.ctx.kkApiClaimLineBookingNotification_(args);
   outboxSheet(f).getRange(2,7,1,1).setValues([['2020-01-01T00:00:00.000Z']]);
@@ -165,7 +166,7 @@ test('expired claim becomes UNCERTAIN and can never be claimed again',()=>{
 });
 test('failed uncertain delivery terminally holds replay for manual reconciliation',()=>{
   const f=gasFixture();f.ctx.kkInstallLineDeliveryOutbox_();
-  const d=f.ctx.kkApiDecideLineBookingPending_({booking_id:'BK-TEST',decision:'reject'});
+  const d=decide(f,'reject');
   assert.equal(readBook(f)[2],'cancelled');
   const args={booking_id:'BK-TEST',decision:'reject',outbox_id:d.outbox_id};
   const claim=f.ctx.kkApiClaimLineBookingNotification_(args);
@@ -176,12 +177,12 @@ test('failed uncertain delivery terminally holds replay for manual reconciliatio
 });
 test('legacy confirmed booking without intent fails closed rather than creating synthetic delivery',()=>{
   const f=gasFixture('confirmed');f.ctx.kkInstallLineDeliveryOutbox_();
-  assert.throws(()=>f.ctx.kkApiDecideLineBookingPending_({booking_id:'BK-TEST',decision:'approve'}),/OUTBOX_IDENTITY_MISMATCH/);
+  assert.throws(()=>decide(f,'approve'),/OUTBOX_IDENTITY_MISMATCH/);
   assert.equal(rows(f).length,0);
 });
 test('tampered recipient, stale booking status, duplicate outbox id all stop claims',()=>{
   const f=gasFixture();f.ctx.kkInstallLineDeliveryOutbox_();
-  const d=f.ctx.kkApiDecideLineBookingPending_({booking_id:'BK-TEST',decision:'approve'});
+  const d=decide(f,'approve');
   const args={booking_id:'BK-TEST',decision:'approve',outbox_id:d.outbox_id};
   f.bookings.getRange(5,6,1,1).setValues([['UATTACKER']]);
   assert.throws(()=>f.ctx.kkApiClaimLineBookingNotification_(args),/OUTBOX_IDENTITY_MISMATCH/);
@@ -191,7 +192,7 @@ test('tampered recipient, stale booking status, duplicate outbox id all stop cla
 });
 test('disabled GAS feature preserves legacy booking decision without creating outbox sheet',()=>{
   const f=gasFixture('pending',false);
-  const r=f.ctx.kkApiDecideLineBookingPending_({booking_id:'BK-TEST',decision:'approve'});
+  const r=decide(f,'approve');
   assert.equal(r.idempotent_replay,false);
   assert.equal(r.outbox_id,undefined);
   assert.equal(readBook(f)[2],'confirmed');
@@ -200,7 +201,7 @@ test('disabled GAS feature preserves legacy booking decision without creating ou
 });
 test('invalid ACK claim or provider receipt is rejected without modifying ledger',()=>{
   const f=gasFixture();f.ctx.kkInstallLineDeliveryOutbox_();
-  const d=f.ctx.kkApiDecideLineBookingPending_({booking_id:'BK-TEST',decision:'approve'});
+  const d=decide(f,'approve');
   const args={booking_id:'BK-TEST',decision:'approve',outbox_id:d.outbox_id};
   const claim=f.ctx.kkApiClaimLineBookingNotification_(args);
   assert.throws(()=>f.ctx.kkApiAckLineBookingNotification_({...args,claim_id:claim.claim_id,
@@ -234,6 +235,7 @@ function canonical(decision,bookingId,overrides={}){
     outbox_id:'KLO-'+'b'.repeat(40),outbox_status:'READY',...overrides};
 }
 function responseFor(action,bookingId,decision){
+  if(action==='lineDeliveryOutboxReadiness')return {ok:true,outbox_contract:'v1',enabled:true,schema_ok:true};
   if(action==='decideLineBookingPending')return canonical(decision,bookingId);
   if(action==='claimLineBookingNotification')return {ok:true,
     status:'CLAIMED',booking_id:bookingId,decision,outbox_id:'KLO-'+'b'.repeat(40),
@@ -259,7 +261,7 @@ test('outbox enabled: decision/claim/customer push/ACK/owner reply are strictly 
     assert.equal(opt.headers['X-Line-Retry-Key'],undefined);
     return ok({});
   });
-  assert.deepEqual(seen,['decideLineBookingPending','claimLineBookingNotification',
+  assert.deepEqual(seen,['lineDeliveryOutboxReadiness','decideLineBookingPending','claimLineBookingNotification',
     'customer-push','ackLineBookingNotification','owner-reply']);
   assert.equal(result.delivery_status,'ACCEPTED');
   assert.equal(result.status,'CONFIRMED');
@@ -280,14 +282,17 @@ test('outbox provider failure ACKs FAILED_UNCERTAIN but never tells owner succes
     seen.push('customer-push');
     return ok({message:'untrusted'},503);
   }),err=>err&&err.code==='LINE_SEND_FAILED'&&err.status===503);
-  assert.deepEqual(seen,['decideLineBookingPending','claimLineBookingNotification',
+  assert.deepEqual(seen,['lineDeliveryOutboxReadiness','decideLineBookingPending','claimLineBookingNotification',
     'customer-push','customer-push','ackLineBookingNotification']);
 });
 test('outbox approval fails closed when deployment/worker flags disagree',async()=>{
   for(const mismatch of [{outbox_id:''},{outbox_id:undefined}]){
     const e=env();let sends=0;
-    await assert.rejects(()=>Approval.processOwnerPostback(event('approve','BK-CONTRACT',e),e,async(url)=>{
-      if(url.startsWith('https://script.google.com/'))return ok(canonical('approve','BK-CONTRACT',mismatch));
+    await assert.rejects(()=>Approval.processOwnerPostback(event('approve','BK-CONTRACT',e),e,async(url,options)=>{
+      if(url.startsWith('https://script.google.com/')){
+        const action=JSON.parse(options.body).action;
+        return ok(action==='lineDeliveryOutboxReadiness'?responseFor(action,'BK-CONTRACT','approve'):canonical('approve','BK-CONTRACT',mismatch));
+      }
       sends++;return ok({});
     }),err=>err&&err.code==='LINE_DELIVERY_OUTBOX_CONTRACT_MISMATCH');
     assert.equal(sends,0);
@@ -306,6 +311,7 @@ test('outbox already accepted or in-flight claim never sends duplicate push',asy
     const result=await Approval.processOwnerPostback(event('approve','BK-REPLAY-OUTBOX',e),e,async(url,opt)=>{
       if(url.startsWith('https://script.google.com/')){
         const action=JSON.parse(opt.body).action;
+        if(action==='lineDeliveryOutboxReadiness')return ok(responseFor(action,'BK-REPLAY-OUTBOX','approve'));
         if(action==='decideLineBookingPending')
           return ok(canonical('approve','BK-REPLAY-OUTBOX',{idempotent_replay:true}));
         return ok({...responseFor(action,'BK-REPLAY-OUTBOX','approve'),status});
@@ -329,4 +335,38 @@ test('provider accepted but ACK unavailable never sends owner success or blindly
   }),err=>err&&err.code==='LINE_BOOKING_UPSTREAM_FAILED');
   assert.equal(pushes,1);
   assert.equal(replies,0);
+});
+
+test('GAS rejects stale OFF worker before any booking or outbox write',()=>{
+  const f=gasFixture();f.ctx.kkInstallLineDeliveryOutbox_();
+  assert.throws(()=>f.ctx.kkApiDecideLineBookingPending_({
+    booking_id:'BK-TEST',decision:'approve',outbox_contract:'off'
+  }),/OUTBOX_ACTIVATION_MISMATCH/);
+  assert.equal(readBook(f)[2],'pending');
+  assert.equal(rows(f).length,0);
+});
+test('GAS readiness reads exact header schema and refuses drift',()=>{
+  const f=gasFixture();f.ctx.kkInstallLineDeliveryOutbox_();
+  assert.equal(f.ctx.kkApiLineDeliveryOutboxReadiness_().outbox_contract,'v1');
+  outboxSheet(f).getRange(1,2,1,1).setValues([['tampered_header']]);
+  assert.throws(()=>f.ctx.kkApiLineDeliveryOutboxReadiness_(),/OUTBOX_SCHEMA_DRIFT/);
+  assert.throws(()=>decide(f,'approve'),/OUTBOX_SCHEMA_DRIFT/);
+  assert.equal(readBook(f)[2],'pending');
+});
+test('Node fails health handshake before canonical booking mutation when installed GAS not ready',async()=>{
+  const e=env();let decisionCalls=0,providerCalls=0;
+  await assert.rejects(
+    ()=>Approval.processOwnerPostback(event('approve','BK-NOT-READY',e),e,async(url,opt)=>{
+      if(url.startsWith('https://script.google.com/')){
+        const action=JSON.parse(opt.body).action;
+        if(action==='lineDeliveryOutboxReadiness')
+          return ok({ok:true,outbox_contract:'v1',enabled:false,schema_ok:true});
+        decisionCalls++;return ok(canonical('approve','BK-NOT-READY'));
+      }
+      providerCalls++;return ok({});
+    }),
+    err=>err&&err.code==='LINE_DELIVERY_OUTBOX_NOT_READY'
+  );
+  assert.equal(decisionCalls,0);
+  assert.equal(providerCalls,0);
 });
