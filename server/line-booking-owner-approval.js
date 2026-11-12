@@ -164,12 +164,30 @@ function ownerApprovalMessage(ctx={},env=process.env){
     }
   };
 }
-async function sendLine(url,body,token,fetchImpl=fetch){
+// The first LINE Push request MUST carry the same stable retry key as any retry.
+// LINE suppresses already-accepted push requests for 24h, but not after 24h;
+// this is NOT a substitute for a durable, audited outbox/receipt ledger.
+function ownerApprovalRetryKey(bookingId,target){
+  const id=text(bookingId),recipient=text(target);
+  if(!id||!recipient)throw Object.assign(new Error('owner retry key input missing'),{code:'LINE_APPROVAL_DATA_INCOMPLETE'});
+  const bytes=crypto.createHash('sha256').update(['kk-owner-card-v1',id,recipient].join('|'),'utf8').digest().subarray(0,16);
+  bytes[6]=(bytes[6]&0x0f)|0x40;
+  bytes[8]=(bytes[8]&0x3f)|0x80;
+  const hex=bytes.toString('hex');
+  return [hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20)].join('-');
+}
+async function sendLine(url,body,token,fetchImpl=fetch,{retryKey=''}={}){
+  // Reply API does not support retry keys. Refuse to attach them to reply calls.
+  if(retryKey && url!==LINE_PUSH_URL){
+    throw Object.assign(new Error('retry key requires LINE Push API'),{code:'LINE_APPROVAL_DATA_INCOMPLETE'});
+  }
+  const headers={Authorization:'Bearer '+text(token),'Content-Type':'application/json'};
+  if(retryKey)headers['X-Line-Retry-Key']=retryKey;
   let r;
   try{
     r=await fetchImpl(url,{
       method:'POST',
-      headers:{Authorization:'Bearer '+text(token),'Content-Type':'application/json'},
+      headers,
       body:JSON.stringify(body)
     });
   }catch(_){
@@ -179,6 +197,12 @@ async function sendLine(url,body,token,fetchImpl=fetch){
     throw err;
   }
   if(!r.ok){
+    // A 409 with LINE's accepted request ID proves an identical retry key
+    // already reached the provider. No second owner card was accepted.
+    // A bare 409 is not proof of anything and must stay a failure.
+    const acceptedId=retryKey && r.status===409 && r.headers &&
+      typeof r.headers.get==='function' && r.headers.get('x-line-accepted-request-id');
+    if(acceptedId) return {ok:true,accepted_replay:true};
     // Provider response text can reflect private recipient/message details.
     // Keep a fixed diagnostic and HTTP status; do not log upstream body.
     const err=new Error('LINE send failed');
@@ -186,10 +210,10 @@ async function sendLine(url,body,token,fetchImpl=fetch){
     err.status=r.status;
     throw err;
   }
-  return {ok:true};
+  return {ok:true,accepted_replay:false};
 }
-function pushMessage(to,message,env=process.env,fetchImpl=fetch){
-  return sendLine(LINE_PUSH_URL,{to,messages:[message]},env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
+function pushMessage(to,message,env=process.env,fetchImpl=fetch,retryKey=''){
+  return sendLine(LINE_PUSH_URL,{to,messages:[message]},env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl,{retryKey});
 }
 function replyMessage(replyToken,message,env=process.env,fetchImpl=fetch){
   return sendLine(LINE_REPLY_URL,{replyToken,messages:[message]},env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
@@ -197,8 +221,10 @@ function replyMessage(replyToken,message,env=process.env,fetchImpl=fetch){
 async function notifyOwner(context,env=process.env,fetchImpl=fetch){
   const ready=automationReadiness(env);
   if(!ready.ready) return {status:'DISABLED',reasons:ready.reasons};
-  await pushMessage(ownerTargetId(env),ownerApprovalMessage(context,env),env,fetchImpl);
-  return {status:'OWNER_NOTIFIED',target:ownerTargetId(env)};
+  const target=ownerTargetId(env);
+  const retryKey=ownerApprovalRetryKey(context.booking_id,target);
+  const receipt=await pushMessage(target,ownerApprovalMessage(context,env),env,fetchImpl,retryKey);
+  return {status:'OWNER_NOTIFIED',target,provider_accepted_replay:receipt.accepted_replay===true};
 }
 function customerDecisionMessage(decision,bookingId){
   if(decision==='approve') return {type:'text',text:'✅ ยืนยันการจองแล้ว\nBooking ID: '+bookingId+'\nร้านจะใช้ข้อมูลนี้ในการเตรียมอุปกรณ์และนัดรับต่อไป'};
