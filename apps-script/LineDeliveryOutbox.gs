@@ -215,7 +215,7 @@ function kkApiAckLineBookingNotification_(payload){
     var receipt=String(payload.provider_request_id||'').trim();
     if(!bookingId||['approve','reject'].indexOf(decision)<0||
        outboxId!==kkLineDeliveryOutboxId_(bookingId,decision)||
-       !/^[0-9a-fA-F-]{36}$/.test(claimId)||
+       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claimId)||
        ['ACCEPTED','FAILED_UNCERTAIN','FAILED_TERMINAL'].indexOf(disposition)<0||
        (receipt&&!/^[A-Za-z0-9_-]{1,128}$/.test(receipt)))
       throw new Error('LINE_DELIVERY_OUTBOX_INVALID_ACK');
