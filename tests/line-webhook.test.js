@@ -211,6 +211,11 @@ test('missing or other identity receipt cannot create pending, owner card or fal
     assert.equal(result.automation_status,'TERMS_EVIDENCE_REQUIRED');
     assert.equal(result.booking_id,'');
     assert.deepEqual(calls.map(x=>x.type),['private-receipt','customer-reply']);
+    const reply=calls.at(-1).body.messages[0];
+    assert.equal(reply.type,'text','an unaccepted booking must never receive a pending Flex card');
+    assert.match(reply.text,/ยังไม่ได้บันทึกคำขอจอง/);
+    assert.match(reply.text,/เชื่อมบัญชี LINE/);
+    assert.doesNotMatch(reply.text,/ร้านได้รับคำขอเช่าแล้ว|KK-TERMS-2026-11-06/);
   }
 });
 
@@ -243,6 +248,11 @@ test('private consent store downtime fails closed without untrusted error or PII
   const out=await mod._test.processEvent(identityEvent(),identityEnv(),failed,{signatureVerified:true});
   assert.equal(out.automation_status,'TERMS_EVIDENCE_REQUIRED');
   assert.deepEqual(calls.map(x=>x.type),['private-receipt','customer-reply']);
+  const reply=calls.at(-1).body.messages[0];
+  assert.equal(reply.type,'text');
+  assert.match(reply.text,/ขัดข้องชั่วคราว/);
+  assert.match(reply.text,/ยังไม่ได้บันทึกคำขอจอง/);
+  assert.doesNotMatch(reply.text,/เชื่อมบัญชี LINE|ร้านได้รับคำขอเช่าแล้ว/);
 });
 
 test('signed line receipt gate rejects unverified provider and malformed user before DB',async()=>{
