@@ -282,9 +282,17 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
     }
     if(env.KK_CUSTOMER_LOGIN_ENABLED==='true' &&
        termsStatus!=='VERIFIED_LINE_IDENTITY_TERMS_ACCEPTED'){
-      // Do not create Pending or send an owner approval card for a LINE user
-      // without a current authenticated receipt. Still acknowledge safely.
-      automationStatus='TERMS_EVIDENCE_REQUIRED';
+      // Do not acknowledge a booking that was never created. This response
+      // uses the still-valid LINE Reply token exactly once, without a write.
+      const temporaryFailure=termsStatus==='IDENTITY_RECEIPT_UNAVAILABLE';
+      const guidance=temporaryFailure
+        ? 'ระบบตรวจสอบการยอมรับเงื่อนไขขัดข้องชั่วคราว กรุณาลองส่งคำขอใหม่ภายหลัง'
+        : 'ยังไม่พบการยอมรับเงื่อนไขจาก LINE บัญชีนี้ กรุณาเปิด https://kk-phone-rental.vercel.app/ เชื่อมบัญชี LINE และกดยืนยันเงื่อนไขก่อนส่งคำขอใหม่';
+      await replyFlex(event.replyToken,{
+        type:'text',
+        text:guidance+'\\nยังไม่ได้บันทึกคำขอจอง และยังไม่ส่งให้ร้านอนุมัติค่ะ'
+      },env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
+      return {handled:true,booking_id:'',automation_status:'TERMS_EVIDENCE_REQUIRED'};
     }else{
       pending=await OwnerApproval.createPendingBooking(event,booking,canonical,env,fetchImpl);
       await OwnerApproval.notifyOwner({
