@@ -44,7 +44,7 @@ test('identity-verified Terms badge and owner durable outbox can coexist in one 
   assert.match(webhook,/signatureVerified:true/);
   assert.match(webhook,/TERMS_EVIDENCE_REQUIRED/);
   assert.match(webhook,/ยังไม่ได้บันทึกคำขอจองค่ะ/);
-  assert.match(webhook,/termsStatus:termsStatus/);
+  assert.match(webhook,/terms_status:termsStatus/);
 });
 test('missing Terms evidence cannot be marked accepted by mere legacy LINE copy',()=>{
   const b=bubble('NOT_CONFIRMED');
