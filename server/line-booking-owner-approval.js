@@ -3,6 +3,7 @@
 const crypto=require('node:crypto');
 const Intake=require('./line-booking-intake');
 const TermsEvidence=require('./kk-booking-terms-evidence');
+const DurableOutbox=require('./line-owner-durable-outbox');
 
 const VERSION='KK_LINE_BOOKING_OWNER_APPROVAL_V1';
 const LINE_PUSH_URL='https://api.line.me/v2/bot/message/push';
@@ -216,10 +217,33 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     return {handled:true,status:'UNAUTHORIZED_OWNER',booking_id:parsed.booking_id};
   }
   const decision=parsed.decision;
+  // Verify the canonical writer's feature flag and private outbox schema
+  // BEFORE deciding a booking. A half-deployed migration must never commit
+  // the decision and then discover that notification durability is absent.
+  if(enabled(env.KK_LINE_OWNER_OUTBOX_V1_ENABLED)){
+    if(!/^[A-Za-z0-9_-]{32,128}$/.test(text(env.KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET))){
+      const err=new Error('Owner outbox dispatch credential unavailable');
+      err.code='LINE_OWNER_OUTBOX_DISPATCH_NOT_READY';
+      throw err;
+    }
+    const readiness=await appsScriptCall({
+      action:'lineOwnerOutboxReadiness',
+      outbox_dispatch_key:text(env.KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET)
+    },env,fetchImpl);
+    const proof=readiness&&readiness.data||readiness||{};
+    if(proof.ready!==true||proof.outbox_mode!==DurableOutbox.VERSION||proof.columns!==11){
+      const err=new Error('Canonical LINE owner outbox readiness not verified');
+      err.code='LINE_OWNER_OUTBOX_PREFLIGHT_FAILED';
+      throw err;
+    }
+  }
   const result=await appsScriptCall({
     action:'decideLineBookingPending',
     booking_id:parsed.booking_id,
-    decision
+    decision,
+    ...(enabled(env.KK_LINE_OWNER_OUTBOX_V1_ENABLED) ? {
+      outbox_dispatch_key:text(env.KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET)
+    } : {})
   },env,fetchImpl);
   const data=result&&result.data||result||{};
   // The canonical writer must confirm the same booking we authorized.
@@ -248,6 +272,24 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     const err=new Error('Canonical replay status not verified');
     err.code='LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED';
     throw err;
+  }
+  // Feature-gated migration: when the canonical writer has an outbox,
+  // only its one-time durable claim can authorize LINE provider traffic.
+  // If the server is enabled before the writer, missing evidence fails closed.
+  // If the writer is enabled first, its idempotent_replay=true prevents this
+  // legacy branch from sending without an outbox claim.
+  if(enabled(env.KK_LINE_OWNER_OUTBOX_V1_ENABLED)){
+    return DurableOutbox.deliverDecision({
+      data, bookingId:parsed.booking_id, decision,
+      customerMessage:customerDecisionMessage(decision,parsed.booking_id)
+    },{
+      appsScriptCall:p=>appsScriptCall(p,env,fetchImpl),
+      lineToken:env.LINE_CHANNEL_ACCESS_TOKEN,
+      dispatchSecret:text(env.KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET),
+      fetchImpl,
+      replyOwner:event.replyToken?()=>
+        replyMessage(event.replyToken,ownerDecisionMessage(decision,parsed.booking_id),env,fetchImpl):null
+    });
   }
   // Canonical decision replay is not a receipt for customer LINE delivery.
   if(data.idempotent_replay===true){
