@@ -8,6 +8,7 @@ const InboxMedia = require('./kk-inbox-media');
 const {createPostgrestStore} = require('./kk-inbox-postgrest-store');
 const LineMessaging = require('./kk-line-messaging-api');
 const OwnerApproval = require('./line-booking-owner-approval');
+const LineIdentity = require('./kk-line-identity');
 const TermsEvidence = require('./kk-booking-terms-evidence');
 const IdentityReceipt = require('./kk-line-booking-terms-receipt');
 
@@ -256,15 +257,24 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
   // For admitted events, always require a nickname, even in REPLY_ONLY mode:
   // otherwise the generic Flex would falsely imply a viable booking request.
   // Owner-only sender identity checks stay guarded by automation readiness.
-  if(canonical && (!booking.nickname || (readiness.ready && (!event.source || !event.source.userId)))){
+  const senderUserId=event.source&&event.source.userId;
+  const missingSender=!senderUserId;
+  const invalidSender=readiness.ready && !LineIdentity.isUserId(senderUserId);
+  if(canonical && (!booking.nickname || invalidSender)){
     const missingName=!booking.nickname;
     await replyFlex(event.replyToken,{
       type:'text',
       text:missingName
         ? 'กรุณาระบุชื่อเล่นในข้อความจอง แล้วส่งใหม่อีกครั้งเพื่อให้ร้านตรวจสอบคิวค่ะ'
-        : 'กรุณาส่งคำขอจองจากแชทส่วนตัวกับ LINE OA เพื่อให้ร้านตรวจสอบได้ค่ะ'
+        : missingSender
+          ? 'กรุณาส่งคำขอจองจากแชทส่วนตัวกับ LINE OA เพื่อให้ร้านตรวจสอบได้ค่ะ'
+          : 'ยังไม่สามารถตรวจสอบบัญชี LINE สำหรับจองได้ค่ะ กรุณาส่งคำขอใหม่จากแชทส่วนตัวกับ LINE OA'
     },env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
-    return {handled:true,booking_id:'',automation_status:'CUSTOMER_DETAILS_REQUIRED'};
+    // A signed but malformed sender cannot reach private consent lookup,
+    // Pending writer or owner Push. Acknowledge safely without provider retry.
+    return {handled:true,booking_id:'',
+      automation_status:invalidSender&&!missingSender&&!missingName
+        ? 'CUSTOMER_IDENTITY_INVALID' : 'CUSTOMER_DETAILS_REQUIRED'};
   }
 
   let pending=null;

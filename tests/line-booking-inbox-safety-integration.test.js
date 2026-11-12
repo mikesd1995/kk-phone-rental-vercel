@@ -9,10 +9,10 @@ const ENV={LINE_CHANNEL_SECRET:'synthetic-signing-key',LINE_CHANNEL_ACCESS_TOKEN
  KK_INBOX_SUPABASE_URL:'https://example.supabase.co',KK_INBOX_SUPABASE_SERVICE_ROLE_KEY:'synthetic-private-key',
  KK_LINE_BOOKING_AUTOMATION_ENABLED:'true',KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/TEST_ONLY/exec',
  KK_ADMIN_API_KEY:'synthetic-admin-key',KK_OWNER_LINE_USER_ID:'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',KK_OWNER_LINE_TARGET_ID:'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'};
-const image={type:'message',webhookEventId:'synthetic-image-event',source:{type:'user',userId:'USYNTHETIC'},
+const image={type:'message',webhookEventId:'synthetic-image-event',source:{type:'user',userId:'U'+'d'.repeat(32)},
  message:{type:'image',id:'123456789012345'}};
 const booking={type:'message',webhookEventId:'synthetic-booking-event',replyToken:'synthetic-reply',
- source:{type:'user',userId:'USYNTHETIC'},message:{type:'text',
+ source:{type:'user',userId:'U'+'d'.repeat(32)},message:{type:'text',
  text:'งาน: Hidden event\nวันที่: 18/10/2026\nสถานที่: TEST VENUE\nรุ่น/แพ็กเกจ: vivo X300 Pro\nชื่อเล่น: Demo\nเบอร์โทร:'}};
 const WEB='event_id,event_name,event_date_text,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count\n'+
  'EVT-HIDDEN,Hidden event,18/10/2026,TEST VENUE,https://drive.google.com/thumbnail?id=synthetic,hide,เปิดจอง,1';
@@ -93,7 +93,7 @@ test('signed visible event retains international LINE contact, canonical price a
  const response=await deliver([booking]);
  assert.equal(response.statusCode,200);assert.deepEqual(logs.errors,[]);assert.deepEqual(logs.warnings,[]);
  assert.equal(writes.length,1);assert.equal(writes[0].action,'createLineBookingPending');
- assert.equal(writes[0].customer_contact,'USYNTHETIC');assert.equal(writes[0].customer_phone,'');
+ assert.equal(writes[0].customer_contact,'U'+'d'.repeat(32));assert.equal(writes[0].customer_phone,'');
  assert.equal(writes[0].template_id,'TPL-PHONE');assert.equal(writes[0].booking_status,'pending');
  assert.equal(pushes.length,1);assert.equal(pushes[0].to,'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
  assert.match(JSON.stringify(pushes[0]),/ติดต่อทาง LINE · ไม่ระบุเบอร์โทรศัพท์/);

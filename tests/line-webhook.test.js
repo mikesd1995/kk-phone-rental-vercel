@@ -200,6 +200,21 @@ test('verified signed LINE sender matches private current-version consent and re
   assert.equal(calls[3].body.messages.length,1);
 });
 
+test('malformed signed LINE customer is acknowledged without Consent DB, Pending or owner Push',async()=>{
+ const calls=[],event=identityEvent();
+ event.source.userId='USYNTHETIC';
+ const result=await mod._test.processEvent(event,identityEnv(),
+   syntheticLineFetch(calls),{signatureVerified:true});
+ assert.equal(result.handled,true);
+ assert.equal(result.booking_id,'');
+ assert.equal(result.automation_status,'CUSTOMER_IDENTITY_INVALID');
+ assert.deepEqual(calls.map(x=>x.type),['customer-reply']);
+ const reply=calls[0].body.messages[0];
+ assert.equal(reply.type,'text');
+ assert.match(reply.text,/ตรวจสอบบัญชี LINE/);
+ assert.doesNotMatch(reply.text,/จองแล้ว|ได้รับคำขอ/);
+});
+
 test('missing or other identity receipt cannot create pending, owner card or false confirmation',async()=>{
   for(const evidence of [null,{...EVIDENCE,provider_id:'other-provider'},
     {...EVIDENCE,line_user_id:'U'+'b'.repeat(32)},
