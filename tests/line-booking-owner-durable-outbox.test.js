@@ -9,7 +9,7 @@ const Approval = require('../server/line-booking-owner-approval');
 
 const BOOKING = 'BK-20261112-001';
 const CUSTOMER = 'U' + 'c'.repeat(32);
-const OWNER = 'U' + 'o'.repeat(32);
+const OWNER = 'U' + 'a'.repeat(32);
 const HEADERS = ['outbox_id','booking_id','decision','state',
   'retry_key','provider_message_id','recipient','message_type','request_id','updated_at','created_at'];
 const RETRY = '23ce4567-e89b-42d3-a456-426614174002';
