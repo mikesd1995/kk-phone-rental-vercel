@@ -55,7 +55,7 @@ test('only an exact customer-origin LINE statement for this terms version qualif
 });
 
 test('governed pending booking has bounded evidence marker linked to existing LINE request id, no new PII',()=>{
- const event={webhookEventId:'safely-synthetic-event',source:{userId:'UCUSTOMER001'}};
+ const event={webhookEventId:'safely-synthetic-event',source:{userId:'U'+'c'.repeat(32)}};
  const canonical={event_id:'EVT-1',template_id:'TPL-1',package_id:'PKG-1'};
  const ack=Webhook.parseBookingText(request([Evidence.ACK_LINE,Evidence.PRIVACY_LINE]));
  const yes=Intake.prepareBookingIntent(event,ack,canonical);
@@ -68,8 +68,8 @@ test('governed pending booking has bounded evidence marker linked to existing LI
  assert.equal(yes.payload.booking_status,'pending');
  assert.equal(yes.payload.payment_status,'unpaid');
  assert.equal(yes.payload.amount_received,0);
- assert.equal(yes.payload.customer_contact,'UCUSTOMER001');
- assert.doesNotMatch(yes.payload.booking_note,/Demo|UCUSTOMER001|590/);
+ assert.equal(yes.payload.customer_contact,'U'+'c'.repeat(32));
+ assert.doesNotMatch(yes.payload.booking_note,/Demo|U[0-9a-f]{32}|590/);
  assert.equal(yes.payload.terms_evidence,undefined,'no new unapproved canonical column');
 });
 

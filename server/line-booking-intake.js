@@ -2,6 +2,7 @@
 
 const crypto=require('node:crypto');
 const TermsEvidence=require('./kk-booking-terms-evidence');
+const LineIdentity=require('./kk-line-identity');
 
 function text(v){return String(v===undefined||v===null?'':v).trim();}
 function requestIdFromLineEvent(event){
@@ -16,11 +17,13 @@ function bookingIntent(event,booking,resolved={}){
   // must never be rejected solely because they do not have a Thai phone number.
   if(!booking||!text(booking.nickname)) return {ok:false,code:'CUSTOMER_FIELDS_REQUIRED'};
   if(!text(resolved.event_id)||!text(resolved.template_id)) return {ok:false,code:'CANONICAL_RESOLUTION_REQUIRED'};
-  if(!text(event&&event.source&&event.source.userId)) return {ok:false,code:'LINE_CUSTOMER_USER_ID_REQUIRED'};
+  const customerLineUserId=text(event&&event.source&&event.source.userId);
+  if(!customerLineUserId) return {ok:false,code:'LINE_CUSTOMER_USER_ID_REQUIRED'};
+  if(!LineIdentity.isUserId(customerLineUserId)) return {ok:false,code:'LINE_CUSTOMER_USER_ID_INVALID'};
   return {ok:true,payload:{
     action:'createLineBookingPending',request_id,
     event_id:text(resolved.event_id),template_id:text(resolved.template_id),
-    customer_name:text(booking.nickname),customer_contact:text(event&&event.source&&event.source.userId),
+    customer_name:text(booking.nickname),customer_contact:customerLineUserId,
     customer_phone:text(booking.phone),contact_channel:'LINE',
     booking_status:'pending',pickup_time:text(booking.pickup_time),
     payment_status:'unpaid',amount_received:0,

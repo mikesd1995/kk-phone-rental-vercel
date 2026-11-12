@@ -5,6 +5,8 @@ const fs=require('node:fs');
 const path=require('node:path');
 const Approval=require('../server/line-booking-owner-approval');
 const OWNER='U'+'a'.repeat(32);
+const CUSTOMER='U'+'c'.repeat(32);
+const FOREIGN='U'+'b'.repeat(32);
 
 function env(){
   return {
@@ -57,6 +59,18 @@ test('malformed owner identities and push targets block booking automation befor
   assert.equal(providerCalls,0);
 });
 
+test('malformed signed customer ID is rejected before any canonical Apps Script pending write',async()=>{
+ let upstream=0;
+ for(const userId of ['U1','UCUSTOMER','U'+'g'.repeat(32),'C'+'a'.repeat(32)]){
+   await assert.rejects(()=>Approval.createPendingBooking(
+     {webhookEventId:'evt-invalid-line-customer',source:{type:'user',userId}},
+     {nickname:'Synthetic',phone:''},{event_id:'EVT-1',template_id:'TPL-1'},
+     env(),async()=>{upstream++;throw Error('must not reach Apps Script');}
+   ),err=>err&&err.code==='LINE_CUSTOMER_USER_ID_INVALID');
+ }
+ assert.equal(upstream,0);
+});
+
 test('signed approval payload rejects tampering',()=>{
   const e=env();
   const data=Approval.decisionData('approve','BK-1',e);
@@ -71,7 +85,7 @@ test('pending intake writes only the governed pending action and requires bookin
     return response({ok:true,booking_id:'BK-20261003-001',row_number:25,booking_status:'pending'});
   };
   const result=await Approval.createPendingBooking(
-    {webhookEventId:'evt-1',source:{userId:'UCUSTOMER'}},
+    {webhookEventId:'evt-1',source:{userId:CUSTOMER}},
     {nickname:'Mint',phone:'0812345678',pickup_time:'16:00'},
     {event_id:'EVT-1',template_id:'TPL-1',package_id:'PKG-1'},
     env(),fetchImpl
@@ -94,14 +108,14 @@ test('foreign customer without phone stays pending via verified LINE contact; ow
    return response({ok:true,booking_id:'BK-FOREIGN-001',row_number:26,booking_status:'pending'});
  };
  const result=await Approval.createPendingBooking(
-   {webhookEventId:'evt-international-03',source:{userId:'UFOREIGNCUSTOMER001'}},
+   {webhookEventId:'evt-international-03',source:{userId:FOREIGN}},
    {nickname:'Alex',phone:''},
    {event_id:'EVT-1',template_id:'TPL-1',package_id:'PKG-1'},
    env(),fetchImpl
  );
  assert.equal(result.booking_id,'BK-FOREIGN-001');
  assert.equal(calls.length,1);
- assert.equal(calls[0].customer_contact,'UFOREIGNCUSTOMER001');
+ assert.equal(calls[0].customer_contact,FOREIGN);
  assert.equal(calls[0].customer_phone,'');
  assert.equal(calls[0].booking_status,'pending');
  assert.equal(calls[0].payment_status,'unpaid');

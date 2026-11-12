@@ -4,6 +4,7 @@ const crypto=require('node:crypto');
 const Intake=require('./line-booking-intake');
 const TermsEvidence=require('./kk-booking-terms-evidence');
 const DurableOutbox=require('./line-owner-durable-outbox');
+const LineIdentity=require('./kk-line-identity');
 
 const VERSION='KK_LINE_BOOKING_OWNER_APPROVAL_V1';
 const LINE_PUSH_URL='https://api.line.me/v2/bot/message/push';
@@ -11,8 +12,7 @@ const LINE_REPLY_URL='https://api.line.me/v2/bot/message/reply';
 // LINE-issued IDs are provider-scoped: user U + 32 lowercase hex;
 // a configured push destination may also be a group C or room R.
 // Reject malformed environment bindings BEFORE a canonical pending write.
-const LINE_USER_ID=/^U[0-9a-f]{32}$/;
-const LINE_PUSH_TARGET_ID=/^[UCR][0-9a-f]{32}$/;
+// Shared by pending customer intake and durable delivery to prevent regex drift.
 
 function text(v){return String(v===undefined||v===null?'':v).trim();}
 function enabled(v){return /^(1|true|yes|on)$/i.test(text(v));}
@@ -33,9 +33,9 @@ function automationReadiness(env=process.env){
   if(!text(env.LINE_CHANNEL_ACCESS_TOKEN)) reasons.push('LINE_ACCESS_TOKEN_MISSING');
   if(!approvalSecret(env)) reasons.push('APPROVAL_SECRET_MISSING');
   if(!ownerUserId(env)) reasons.push('OWNER_USER_ID_MISSING');
-  else if(!LINE_USER_ID.test(ownerUserId(env))) reasons.push('OWNER_USER_ID_INVALID');
+  else if(!LineIdentity.isUserId(ownerUserId(env))) reasons.push('OWNER_USER_ID_INVALID');
   if(!ownerTargetId(env)) reasons.push('OWNER_TARGET_ID_MISSING');
-  else if(!LINE_PUSH_TARGET_ID.test(ownerTargetId(env))) reasons.push('OWNER_TARGET_ID_INVALID');
+  else if(!LineIdentity.isPushTarget(ownerTargetId(env))) reasons.push('OWNER_TARGET_ID_INVALID');
   return {version:VERSION,ready:reasons.length===0,reasons};
 }
 async function appsScriptCall(payload,env=process.env,fetchImpl=fetch){
