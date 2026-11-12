@@ -5,9 +5,9 @@ const Approval=require('../server/line-booking-owner-approval');
 const ENV={KK_LINE_BOOKING_AUTOMATION_ENABLED:'true',
  KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/TEST_ONLY/exec',
  KK_ADMIN_API_KEY:'synthetic-admin-key',LINE_CHANNEL_ACCESS_TOKEN:'synthetic-token',
- LINE_CHANNEL_SECRET:'synthetic-secret',KK_OWNER_LINE_USER_ID:'UOWNER',KK_OWNER_LINE_TARGET_ID:'UOWNER'};
+ LINE_CHANNEL_SECRET:'synthetic-secret',KK_OWNER_LINE_USER_ID:'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',KK_OWNER_LINE_TARGET_ID:'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'};
 const upstream=body=>({ok:true,status:200,text:async()=>JSON.stringify(body)});
-function event(decision,id,actor='UOWNER'){
+function event(decision,id,actor='Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'){
  return {type:'postback',replyToken:'synthetic-owner-reply',
  source:{userId:actor},postback:{data:Approval.decisionData(decision,id,ENV)}};
 }
