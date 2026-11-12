@@ -47,3 +47,6 @@ Files: only source/test paths justified by concrete reviewer findings, plus `doc
 - Local clone failed DNS. Exact-ref connected source snapshot is used for local tests; remote exact-HEAD Actions supply complete-repository/native validation.
 - Existing local consent/API tests: 20/20 PASS. This does not execute the SQL migration.
 - Read-only connected active Inbox database contains neither customer auth table; this is not authorization to choose it as the migration target.
+
+- Native RED proved on test-only commit e163cdfe1faac7a3f620dbe10120f4d039c16142, Actions run 43295709740, job 131453370863: 7/10 passed, first acceptance PostgreSQL 42702 column reference provider_id is ambiguous; two dependent receipt checks failed. Existing full Node regression passed.
+- Implementation: explicit kk_customer_terms_identity_version_key constraint removes the OUT-parameter conflict; the authenticated API and SQL grants are unchanged. Migration reapply and real role-denial remain required.
