@@ -156,7 +156,8 @@ test('SQL migration is private source only and does not edit existing booking/in
   const sql=fs.readFileSync(path.join(__dirname,'../supabase/kk_customer_auth_v1.sql'),'utf8');
   assert.ok(sql.includes('enable row level security'));
   assert.ok(sql.includes('revoke all on table public.kk_customer_terms_evidence from public, anon, authenticated'));
-  assert.ok(sql.includes('on conflict (provider_id, line_user_id, terms_version) do nothing'));
+  assert.ok(sql.includes('constraint kk_customer_terms_identity_version_key unique (provider_id, line_user_id, terms_version)'));
+  assert.ok(sql.includes('on conflict on constraint kk_customer_terms_identity_version_key do nothing'));
   assert.ok(sql.includes('grant execute on function public.kk_customer_terms_accept'));
   assert.ok(sql.includes('create or replace function public.kk_customer_terms_lookup_for_line_webhook('));
   // Regression for a previously malformed SQL dollar-quote insertion.
