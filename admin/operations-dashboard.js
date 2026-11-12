@@ -85,10 +85,14 @@ function normalize(source,now=new Date()){
  const bookingById=new Map(),badBooking=new Set(),seenBookings=new Map();d.bookings.forEach(b=>{
   const id=String(b.event_id||'').trim();
   const status=String(b.booking_status||'').trim().toLowerCase();
-  const mightBeActive=ACTIVE.has(status)||(status!==''&&!CLOSED.has(status));
+  const bookingId=String(b.booking_id||'').trim();
+  // A nonblank Booking identity with no status cannot be considered closed.
+  // When it also lacks a valid Core/Web Ready event, block every readiness claim.
+  // Entirely blank ancillary rows remain harmless; known cancelled/completed
+  // orphan rows stay historical only.
+  const mightBeActive=ACTIVE.has(status)||(status!==''&&!CLOSED.has(status))||(!!bookingId&&!status);
   if(mightBeActive&&(!id||!eventById.has(id)||!sourceWebIds.has(id)))unassignedActiveBooking=true;
   if(!id)return;
-  const bookingId=String(b.booking_id||'').trim();
   // Never treat records without a unique Booking identity as verified counts.
   if(!bookingId)badBooking.add(id);
   else if(seenBookings.has(bookingId)){badBooking.add(id);badBooking.add(seenBookings.get(bookingId));}
@@ -259,7 +263,7 @@ function mount(doc,win){
   if(!response.ok)throw new Error('API_HTTP_'+response.status);
   const payload=await response.json();const data=normalize(payload);
   state.records=data.records;state.meta=data.meta;render();
-  const issues=[];if(!data.meta.fresh)issues.push('Snapshot ไม่สดหรือไม่มี generated_at');if(data.meta.viaPublic)issues.push('Reader ยังเป็น public GViz fallback');if(!data.meta.privateSourceVerified&&!data.meta.viaPublic)issues.push('Reader ยังไม่ยืนยันว่าเป็น private transport');if(!data.meta.locksAvailable)issues.push('Owner Locks ไม่อยู่ใน Snapshot: งานทั้งหมด HOLD รอตรวจ');if(data.meta.unassignedActiveBooking)issues.push('พบ Booking ใช้งานที่ไม่ผูกกับ Core และ Web Ready: ทุกงาน HOLD');issues.push('ยังไม่มี X Post Log ใน Snapshot และยังไม่ได้ยืนยัน Production ที่ลูกค้าเห็น');
+  const issues=[];if(!data.meta.fresh)issues.push('Snapshot ไม่สดหรือไม่มี generated_at');if(data.meta.viaPublic)issues.push('Reader ยังเป็น public GViz fallback');if(!data.meta.privateSourceVerified&&!data.meta.viaPublic)issues.push('Reader ยังไม่ยืนยันว่าเป็น private transport');if(!data.meta.locksAvailable)issues.push('Owner Locks ไม่อยู่ใน Snapshot: งานทั้งหมด HOLD รอตรวจ');if(data.meta.unassignedActiveBooking)issues.push('พบ Booking อาจยังใช้งานหรือมีสถานะไม่ครบ และไม่ผูกกับ Core/Web Ready: ทุกงาน HOLD');issues.push('ยังไม่มี X Post Log ใน Snapshot และยังไม่ได้ยืนยัน Production ที่ลูกค้าเห็น');
   status('อ่านข้อมูลหลังบ้านสำเร็จ '+data.records.length+' งาน · '+(data.meta.generatedAt||'ไม่ทราบเวลาต้นทาง')+' · '+issues.join(' · '),issues.length?'':'ready');
  }catch(e){state.records=[];state.meta=null;$('app').hidden=true;status('HOLD — ไม่แสดงข้อมูลหลังบ้าน เพราะ '+(e.message==='LOGIN_REQUIRED'?'ยังไม่ได้เข้าสู่ระบบ Admin: เปิด /admin เพื่อเข้าสู่ระบบ':display(e.message,100)),'error')}
  finally{$('refresh').disabled=false}}

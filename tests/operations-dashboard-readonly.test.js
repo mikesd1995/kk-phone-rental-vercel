@@ -381,11 +381,14 @@ test('active booking referencing an absent Core or Web Ready event holds all ava
   assert.equal(x.records[0].bookingTotal,null);
  }
 });
-test('closed orphan booking and blank ancillary rows do not create false global HOLD',()=>{
- for(const status of ['cancelled','completed','']){
-  const d=positiveStockFixture({bookings:[{
-   booking_id:'SYNTHETIC_NONACTIVE',event_id:'',booking_status:status
-  }]});
+test('closed orphan Booking or fully blank ancillary row do not create false global HOLD',()=>{
+ const cases=[
+  {booking_id:'SYNTHETIC_NONACTIVE',event_id:'',booking_status:'cancelled'},
+  {booking_id:'SYNTHETIC_NONACTIVE',event_id:'',booking_status:'completed'},
+  {booking_id:'',event_id:'',booking_status:''}
+ ];
+ for(const record of cases){
+  const d=positiveStockFixture({bookings:[record]});
   const x=Ops.normalize(d,NOW);
   assert.equal(x.meta.unassignedActiveBooking,false);
   assert.equal(x.records[0].phoneReady,true);
@@ -477,4 +480,47 @@ test('operational filter and audit history are labelled independently in UI',()=
  assert.match(html,/<th>บุกกิ้งยังใช้งาน<\/th>/);
  assert.match(script,/bookingFilterMatches\(e,bk\)/);
  assert.match(script,/ประวัติทั้งหมด/);
+});
+
+
+// R23 source-driven: four actual canonical rows (5/6/17/21) have Booking-like
+// IDs but blank status AND event association. Such rows are not provably closed.
+test('orphan Booking identity with blank status triggers global integrity HOLD',()=>{
+ const d=positiveStockFixture({bookings:[
+  {booking_id:'SYNTHETIC_BOOKING_1',event_id:'',booking_status:''},
+  {booking_id:'SYNTHETIC_KNOWN_VALID',event_id:'EVT-20261203-BTS-ARIRANG',booking_status:'confirmed'}
+ ]});
+ const x=Ops.normalize(d,NOW);
+ assert.equal(x.meta.unassignedActiveBooking,true);
+ assert.equal(x.meta.complete,false);
+ assert.equal(x.records[0].phoneReady,false);
+ assert.equal(x.records[0].bundleReady,false);
+ assert.equal(x.records[0].stock,2,'source audit count is still visible');
+ assert.equal(x.records[0].bookings,null,'cannot claim known active booking count');
+ assert.equal(x.records[0].bookingTotal,null);
+ assert.ok(x.records[0].gate.includes('Booking ไม่ผูกกับงานหลัก'));
+ assert.ok(x.records[0].qa.includes('Booking ตรวจไม่ผ่าน'));
+});
+test('blank-status orphan without Booking ID stays harmless; closed IDs remain history',()=>{
+ for(const b of [
+  {booking_id:'',event_id:'',booking_status:''},
+  {booking_id:'SYNTHETIC_CANCELLED',event_id:'',booking_status:'cancelled'},
+  {booking_id:'SYNTHETIC_COMPLETED',event_id:'',booking_status:'completed'}
+ ]){
+  const x=Ops.normalize(positiveStockFixture({bookings:[b]}),NOW);
+  assert.equal(x.meta.unassignedActiveBooking,false);
+  assert.equal(x.records[0].phoneReady,true);
+  assert.equal(x.records[0].bundleReady,true);
+ }
+});
+test('missing status with valid event identity is locally unknown and not falsely zero',()=>{
+ const d=positiveStockFixture({bookings:[{
+  booking_id:'SYNTHETIC_VALID_BUT_STATUS_BLANK',event_id:'EVT-20261203-BTS-ARIRANG',booking_status:''
+ }]});
+ const x=Ops.normalize(d,NOW);
+ assert.equal(x.meta.unassignedActiveBooking,false,'linked source issue is local');
+ assert.equal(x.records[0].phoneReady,false);
+ assert.equal(x.records[0].bookings,null);
+ assert.equal(x.records[0].bookingTotal,null);
+ assert.ok(x.records[0].gate.includes('Booking ไม่ครบ/ID ซ้ำ/สถานะไม่รู้จัก'));
 });
