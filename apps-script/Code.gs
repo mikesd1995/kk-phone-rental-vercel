@@ -1451,6 +1451,7 @@ function doPost(e) {
       case 'deleteAsset': result = kkApiDeleteAsset_(payload); break;
       case 'createBooking': result = kkApiCreateBooking_(payload); break;
       case 'createLineBookingPending': result = kkApiCreateLineBookingPending_(payload); break;
+      case 'lineDeliveryOutboxReadiness': result = kkApiLineDeliveryOutboxReadiness_(); break;
       case 'decideLineBookingPending': result = kkApiDecideLineBookingPending_(payload); break;
       case 'claimLineBookingNotification': result = kkApiClaimLineBookingNotification_(payload); break;
       case 'ackLineBookingNotification': result = kkApiAckLineBookingNotification_(payload); break;
@@ -1458,7 +1459,7 @@ function doPost(e) {
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
     }
-    if (action && action !== 'snapshot' && action !== 'phase1Health' && action !== 'privateCoreRead') {
+    if (action && action !== 'snapshot' && action !== 'phase1Health' && action !== 'privateCoreRead' && action !== 'lineDeliveryOutboxReadiness') {
       // Do not retain one-time claim IDs, contacts, or outbox provider details in audit rows.
       const privateLine = action === 'claimLineBookingNotification' || action === 'ackLineBookingNotification';
       kkAuditLog_(action, privateLine ? {booking_id: String(payload.booking_id || '')} : payload,
@@ -2812,6 +2813,12 @@ function kkApiDecideLineBookingPending_(payload) {
     const decision = String(payload.decision || '').toLowerCase().trim();
     if (!bookingId) throw new Error('booking_id is required');
     if (!['approve', 'reject'].includes(decision)) throw new Error('decision must be approve or reject');
+    // Both code paths must explicitly agree BEFORE the canonical status write.
+    // Legacy workers without this field are OFF-compatible only.
+    const requestedOutbox = String(payload.outbox_contract || 'off');
+    const deployedOutbox = kkLineDeliveryOutboxEnabled_() ? 'v1' : 'off';
+    if (requestedOutbox !== deployedOutbox)
+      throw new Error('LINE_DELIVERY_OUTBOX_ACTIVATION_MISMATCH');
 
     const row = kkFindBookingRow_('', bookingId);
     const sh = kkSheet_(KK.bookings);
