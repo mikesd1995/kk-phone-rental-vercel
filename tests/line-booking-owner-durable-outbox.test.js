@@ -196,7 +196,7 @@ function ownerEvent(e) {
     postback:{data:Approval.decisionData('approve',BOOKING,e)}
   };
 }
-function transport({initial='READY',provider='OK',claim='OK',settle='OK'}={}) {
+function transport({initial='READY',provider='OK',claim='OK',settle='OK',recipient=CUSTOMER}={}) {
   const e=env(),calls=[],outboxId='LINE_OWNER_V1_'+'a'.repeat(48);
   const fetchImpl=async(url,options)=>{
     const request=JSON.parse(options.body);calls.push({url,request,options});
@@ -216,7 +216,7 @@ function transport({initial='READY',provider='OK',claim='OK',settle='OK'}={}) {
       if(request.action==='claimLineBookingDecisionDelivery'){
         if(claim==='BAD')return response({...baseline,claimed:false,outbox_state:'CLAIMED'});
         return response({...baseline,claimed:true,retry_key:request.retry_key,
-          outbox_state:'CLAIMED',customer_contact:CUSTOMER});
+          outbox_state:'CLAIMED',customer_contact:recipient});
       }
       if(request.action==='settleLineBookingDecisionDelivery'){
         if(settle==='FAIL')return response({ok:false},503);
@@ -259,6 +259,27 @@ test('server: refused claim cannot reach provider',async()=>{
   assert.equal(r.status,'DELIVERY_REVIEW_REQUIRED');
   assert.equal(t.calls.length,3);
 });
+test('server: malformed canonical recipient is never pushed after a one-time claim',async()=>{
+  const invalidRecipients=[
+    'UOWNER',                        // historical fake fixture must not be accepted
+    'U'+'z'.repeat(32),             // not provider-issued hexadecimal
+    'U'+'a'.repeat(33),             // valid chars, invalid length
+    'C'+'a'.repeat(32),             // group is not a customer identity
+    'R'+'a'.repeat(32)              // room is not a customer identity
+  ];
+  for(const recipient of invalidRecipients){
+    const t=transport({recipient});
+    const result=await approve(t);
+    assert.equal(result.status,'DELIVERY_REVIEW_REQUIRED');
+    assert.equal(result.delivery_status,'CLAIM_READBACK_INVALID');
+    assert.equal(result.customer_notifications,0);
+    assert.equal(result.requires_manual_delivery_review,true);
+    assert.deepEqual(t.calls.map(c=>c.url.startsWith('https://script.google.com/')?c.request.action:c.url.split('/').pop()),
+      ['lineOwnerOutboxReadiness','decideLineBookingPending','claimLineBookingDecisionDelivery']);
+    assert.equal(t.calls.some(c=>c.url.endsWith('/push')||c.url.endsWith('/reply')),false);
+  }
+});
+
 test('server: provider timeout/rejection/missing receipt all settle UNCERTAIN without resend',async()=>{
   for(const provider of ['THROW','FAIL','NO_RECEIPT']){
     const t=transport({provider}),r=await approve(t);
