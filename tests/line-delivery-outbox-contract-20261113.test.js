@@ -370,3 +370,22 @@ test('Node fails health handshake before canonical booking mutation when install
   assert.equal(decisionCalls,0);
   assert.equal(providerCalls,0);
 });
+
+test('owner-only outbox health is read-only, aggregated and strips booking/contact/claim identities',()=>{
+  const f=gasFixture();f.ctx.kkInstallLineDeliveryOutbox_();
+  const d=decide(f,'approve');
+  const args={booking_id:'BK-TEST',decision:'approve',outbox_id:d.outbox_id};
+  const before=f.ctx.kkLineDeliveryOutboxHealth_();
+  assert.equal(before.total,1);
+  assert.equal(before.statuses.READY,1);
+  assert.doesNotMatch(JSON.stringify(before),/BK-TEST|UCUSTOMER|KLO-/);
+  const claimed=f.ctx.kkApiClaimLineBookingNotification_(args);
+  outboxSheet(f).getRange(2,7,1,1).setValues([['2020-01-01T00:00:00.000Z']]);
+  const health=f.ctx.kkLineDeliveryOutboxHealth_();
+  assert.equal(health.statuses.CLAIMED,1);
+  assert.equal(health.stale_claims,1);
+  assert.equal(health.manual_review,1);
+  assert.equal(health.total,1);
+  assert.doesNotMatch(JSON.stringify(health),/BK-TEST|UCUSTOMER|KLO-|123e4567/);
+  assert.equal(rows(f)[0][5],claimed.claim_id);
+});
