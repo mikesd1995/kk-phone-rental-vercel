@@ -12,6 +12,12 @@ const pageRows=(rows,limit=TABLE_PAGE_SIZE)=>rows.slice(0,Number.isSafeInteger(l
 const CLOSED=new Set(['completed','complete','cancelled','canceled','no_show','rejected','closed']);
 const ACTIVE=new Set(['pending','confirmed','prepared','picked_up','returned','uploaded']);
 const SAFE_LOCK=new Set(['SEEN_CORE','REOPENED']);
+ // Booking filter is an operational ACTIVE-count filter, not historical presence.
+ // Unknown integrity must stay unknown (never treated as 'no active bookings').
+ const bookingFilterMatches=(record,choice)=>!choice||
+  (choice==='unknown'?record.bookings===null:
+   choice==='yes'?record.bookings!==null&&record.bookings>0:
+   choice==='no'?record.bookings===0:false);
 const display=(v,max=180)=>String(v??'').slice(0,max);
 const amount=v=>{if(v===null||v===undefined||v==='')return null;const n=Number(String(v).replace(/,/g,''));return Number.isFinite(n)&&n>=0?n:null};
 // Inventory counts must be non-negative whole units, not fractions or overflow values.
@@ -164,7 +170,7 @@ function normalize(source,now=new Date()){
   if(dateRisk||!/\S/.test(r.venue||'')||/รอยืนยัน|not yet confirmed/i.test(r.venue||''))qa.push('วันที่/สถานที่ต้องตรวจ');
   if(!validPrice||ambiguous)qa.push('ราคา/แพ็กเกจไม่ครบหรือกำกวม');
   if(web==='show'&&((!sourceUnverified&&!phoneReady&&!bundleReady)||stockClaim===0||stockClaim===null))qa.push('สถานะเปิดแต่มือถือไม่พร้อม');
-  if(eventDate>=bangkokToday(now)&&!book.total)qa.push('ไม่พบบุกกิ้งใน Snapshot');
+  if(eventDate>=bangkokToday(now)&&!bookingUnverified&&book.active===0)qa.push('ไม่พบบุกกิ้งที่ยังใช้งานใน Snapshot');
   qa.push('ยังไม่มีหลักฐานราคาคู่แข่งใน Snapshot');
   const gate=[];
   if(web!=='show')gate.push('หน้าร้านไม่เปิด');
@@ -206,13 +212,13 @@ function mount(doc,win){
   return state.records.filter(e=>{
    const ready=e.phoneReady||e.bundleReady;
    const money=e.phone===null||e.bundle===null?'missing':`${e.phone}/${e.bundle}`;
-   return (!q||[e.name,e.venue,e.id].join(' ').toLocaleLowerCase('th').includes(q))&&(!m||e.date.startsWith(m))&&(!dt||e.date===dt)&&(!v||e.venue===v)&&(!w||e.web===w)&&(!st||(st==='ready'?ready:st==='full'?(!ready&&e.stock===0):(!ready&&e.stock!==0)))&&(!bk||(bk==='unknown'?e.bookings===null:bk==='yes'?e.bookingTotal>0:e.bookingTotal===0))&&(!pr||(pr==='other'?!['490/590','590/690','790/990','missing'].includes(money):pr===money));
+   return (!q||[e.name,e.venue,e.id].join(' ').toLocaleLowerCase('th').includes(q))&&(!m||e.date.startsWith(m))&&(!dt||e.date===dt)&&(!v||e.venue===v)&&(!w||e.web===w)&&(!st||(st==='ready'?ready:st==='full'?(!ready&&e.stock===0):(!ready&&e.stock!==0)))&&bookingFilterMatches(e,bk)&&(!pr||(pr==='other'?!['490/590','590/690','790/990','missing'].includes(money):pr===money));
   }).sort((a,b)=>a.date.localeCompare(b.date)||a.name.localeCompare(b.name,'th'));
  }
  function openDetails(id){const e=state.records.find(x=>x.id===id);if(!e)return;const root=$('detailBody');root.replaceChildren();
   if(e.poster){const img=node(doc,'img');img.src=e.poster;img.alt='โปสเตอร์ '+e.name;img.referrerPolicy='no-referrer';root.appendChild(img)}
   const div=node(doc,'div','detail-text');div.appendChild(node(doc,'h3','',e.name));
-  [e.date+' · '+e.venue,'Event ID: '+e.id,'เว็บ: '+e.web,'มือถือ: '+(e.stock??'ไม่ทราบ')+' · โทรศัพท์ '+(e.phone??'ไม่ระบุ')+' บาท / พร้อมเลนส์ '+(e.bundle??'ไม่ระบุ')+' บาท','บุกกิ้งใน Snapshot: '+(e.bookingTotal??'ไม่ทราบ'),'Owner Lock: '+e.lock,'ประเด็น QA: '+e.qa.join(' / ')].forEach(t=>div.appendChild(node(doc,'p','',t)));
+  [e.date+' · '+e.venue,'Event ID: '+e.id,'เว็บ: '+e.web,'มือถือ: '+(e.stock??'ไม่ทราบ')+' · โทรศัพท์ '+(e.phone??'ไม่ระบุ')+' บาท / พร้อมเลนส์ '+(e.bundle??'ไม่ระบุ')+' บาท','บุกกิ้งที่ยังใช้งาน: '+(e.bookings??'รอตรวจ')+' · ประวัติทั้งหมด: '+(e.bookingTotal??'รอตรวจ'),'Owner Lock: '+e.lock,'ประเด็น QA: '+e.qa.join(' / ')].forEach(t=>div.appendChild(node(doc,'p','',t)));
   div.appendChild(node(doc,'h4','','Post safety gate: HOLD'));div.appendChild(node(doc,'p','reasons',e.gate.join(' / ')));
   const link=node(doc,'a','btn','ตรวจหน้าร้านจริง');link.href='https://kk-phone-rental.vercel.app/';link.target='_blank';link.rel='noopener noreferrer';div.appendChild(link);root.appendChild(div);$('details').hidden=false;$('details').scrollIntoView({behavior:'smooth',block:'start'});
  }
@@ -220,7 +226,7 @@ function mount(doc,win){
   const tr=node(doc,'tr');const name=node(doc,'td');name.appendChild(node(doc,'div','name',e.name));name.appendChild(node(doc,'div','tiny',e.date));tr.appendChild(name);
   addCell(tr,e.venue);const tag=node(doc,'span','state '+(e.web==='show'?'good':e.web==='show_full'?'bad':'warn'),e.web==='show'?'เปิด':e.web==='show_full'?'เต็ม':e.web==='hide'?'ซ่อน':'ไม่ทราบ');tdWith(tr,tag);
   addCell(tr,(e.phoneReady||e.bundleReady)?`พร้อม ${e.stock??'?'} เครื่อง`:(e.stock===0?'ไม่มีเครื่อง':'ต้องตรวจ'));
-  addCell(tr,(e.phone??'—')+' / '+(e.bundle??'—'));addCell(tr,e.bookingTotal===null?'รอตรวจ':String(e.bookingTotal));
+  addCell(tr,(e.phone??'—')+' / '+(e.bundle??'—'));addCell(tr,e.bookings===null?'รอตรวจ':String(e.bookings));
   const btn=node(doc,'button','mini-btn',e.qa.length+' QA · ดู');btn.type='button';btn.addEventListener('click',()=>openDetails(e.id));tdWith(tr,btn);tbody.appendChild(tr)
  }if(!rows.length)tbody.appendChild(node(doc,'tr')).appendChild(text(node(doc,'td'), 'ไม่พบรายการ'));
    text($('tableCount'),'ตารางแสดง '+visible.length+' จาก '+rows.length+' งาน');
@@ -240,7 +246,7 @@ function mount(doc,win){
   more.addEventListener('click',next);next();cal.appendChild(d);
  }
 }
- function renderQa(rows){const qa=$('qa');qa.replaceChildren();const groups=[['โปสเตอร์',x=>x.qa.some(v=>v.includes('โปสเตอร์'))],['งานย้อนหลัง',x=>x.qa.some(v=>v.includes('งานผ่านวันที่แล้ว'))],['วันที่/สถานที่',x=>x.qa.some(v=>v.includes('วันที่/สถานที่'))],['ราคาและแพ็กเกจ',x=>x.qa.some(v=>v.includes('ราคา/แพ็กเกจ'))],['เว็บเปิดแต่สต็อก/Core ไม่พร้อม',x=>x.qa.some(v=>v.includes('สถานะเปิด'))],['Snapshot/Reader ต้องตรวจ',x=>x.qa.some(v=>v.includes('Reader ไม่ผ่าน'))],['Owner Locks ต้องตรวจ',x=>x.qa.some(v=>v.includes('Owner Locks'))],['Booking ผิดปกติ',x=>x.qa.some(v=>v.includes('Booking ตรวจไม่ผ่าน'))],['ไม่มี Booking ใน Snapshot',x=>x.qa.some(v=>v.includes('ไม่พบบุกกิ้ง'))],['ยังไม่มีหลักฐานราคาคู่แข่ง',x=>x.qa.some(v=>v.includes('คู่แข่ง'))]];for(const [title,predicate] of groups){const items=rows.filter(predicate);const item=node(doc,'article','qa-box');item.appendChild(node(doc,'h3','',title+' · '+items.length));items.slice(0,40).forEach(e=>{const b=node(doc,'button','',e.date+' '+e.name);b.type='button';b.addEventListener('click',()=>openDetails(e.id));item.appendChild(b);item.appendChild(node(doc,'p','',e.venue))});if(items.length>40)item.appendChild(node(doc,'p','',`และอีก ${items.length-40} งาน (ใช้ตัวกรองเพื่อลดรายการ)`));qa.appendChild(item)}}
+ function renderQa(rows){const qa=$('qa');qa.replaceChildren();const groups=[['โปสเตอร์',x=>x.qa.some(v=>v.includes('โปสเตอร์'))],['งานย้อนหลัง',x=>x.qa.some(v=>v.includes('งานผ่านวันที่แล้ว'))],['วันที่/สถานที่',x=>x.qa.some(v=>v.includes('วันที่/สถานที่'))],['ราคาและแพ็กเกจ',x=>x.qa.some(v=>v.includes('ราคา/แพ็กเกจ'))],['เว็บเปิดแต่สต็อก/Core ไม่พร้อม',x=>x.qa.some(v=>v.includes('สถานะเปิด'))],['Snapshot/Reader ต้องตรวจ',x=>x.qa.some(v=>v.includes('Reader ไม่ผ่าน'))],['Owner Locks ต้องตรวจ',x=>x.qa.some(v=>v.includes('Owner Locks'))],['Booking ผิดปกติ',x=>x.qa.some(v=>v.includes('Booking ตรวจไม่ผ่าน'))],['ไม่มี Booking ที่ยังใช้งานใน Snapshot',x=>x.qa.some(v=>v.includes('ไม่พบบุกกิ้งที่ยังใช้งาน'))],['ยังไม่มีหลักฐานราคาคู่แข่ง',x=>x.qa.some(v=>v.includes('คู่แข่ง'))]];for(const [title,predicate] of groups){const items=rows.filter(predicate);const item=node(doc,'article','qa-box');item.appendChild(node(doc,'h3','',title+' · '+items.length));items.slice(0,40).forEach(e=>{const b=node(doc,'button','',e.date+' '+e.name);b.type='button';b.addEventListener('click',()=>openDetails(e.id));item.appendChild(b);item.appendChild(node(doc,'p','',e.venue))});if(items.length>40)item.appendChild(node(doc,'p','',`และอีก ${items.length-40} งาน (ใช้ตัวกรองเพื่อลดรายการ)`));qa.appendChild(item)}}
  function renderPlans(){const el=$('plans');el.replaceChildren();for(const p of state.plans){const e=state.records.find(x=>x.id===p.eventId);const card=node(doc,'div','plan-card');card.appendChild(node(doc,'strong','',p.at+' · '+(e?e.name:p.eventId)));card.appendChild(node(doc,'small','', 'ร่างรอตรวจสด · '+(p.type==='near'?'ใกล้วันเช่า':'เพิ่มเอนเกจ')));card.appendChild(node(doc,'div','',p.reason));const b=node(doc,'button','mini-btn','ลบร่าง');b.addEventListener('click',()=>{state.plans=state.plans.filter(x=>x!==p);persist();renderPlans()});card.appendChild(b);el.appendChild(card)} }
  function render(){state.tableLimit=TABLE_PAGE_SIZE;setFilters();const rows=filtered();$('app').hidden=false;const kpis=$('kpis');kpis.replaceChildren(card('งานทั้งหมด',state.records.length),card('เปิดในชีต',state.records.filter(x=>x.web==='show').length),card('แสดงว่าเต็ม',state.records.filter(x=>x.web==='show_full').length),card('เว็บเปิดแต่ไม่พร้อม',state.records.filter(x=>x.qa.some(z=>z.includes('สถานะเปิด'))).length));$('resultCount').textContent='พบ '+rows.length+' งาน';renderTable(rows);renderCalendar(rows);renderQa(rows);
   const sel=$('postEvent');const old=sel.value;const options=state.records.filter(e=>e.web==='show').sort((a,b)=>a.date.localeCompare(b.date)).map(e=>new Option(e.date+' · '+e.name,e.id));sel.replaceChildren(new Option('เลือกงาน',''),...options);sel.value=state.records.some(e=>e.id===old)?old:'';
@@ -275,5 +281,5 @@ function mount(doc,win){
  });
  load();return {reload:load,inspect:()=>({meta:state.meta,count:state.records.length,plans:state.plans.length})};
 }
-return {normalize,isoDate,bangkokToday,bangkokClock,safePoster,pageRows,mount};
+return {normalize,isoDate,bangkokToday,bangkokClock,safePoster,pageRows,bookingFilterMatches,mount};
 });

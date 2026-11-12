@@ -40,7 +40,7 @@ function fixture(many=false){
  const raw={
   ok:true,data:{generated_at:new Date().toISOString(),snapshot_source:'synthetic-private-test-only',
   fallback_reader:'synthetic-private-test-only',events,web_ready,web_packages,
-  bookings:[{event_id:specs[0][0],booking_id:'SYNTHETIC_BOOKING_DO_NOT_EXPOSE',
+  bookings:[{event_id:specs[1][0],booking_id:'SYNTHETIC_CANCELLED_HISTORY',booking_status:'cancelled'},{event_id:specs[0][0],booking_id:'SYNTHETIC_BOOKING_DO_NOT_EXPOSE',
      booking_status:'confirmed',customer_name:'SYNTHETIC_CUSTOMER_DO_NOT_EXPOSE',customer_phone:'0980000000',amount_received:9999}],
   visibility_locks:specs.map(s=>({event_id:s[0],lock_state:'SEEN_CORE'}))}
  };
@@ -107,6 +107,16 @@ async function main(){
    await page.goto(address,{waitUntil:'load',timeout:30000});
    await page.locator('#app').waitFor({state:'visible',timeout:12000});
    await page.waitForFunction(()=>document.querySelectorAll('#rows tr').length===3,{timeout:12000});
+   // Browser regression: one confirmed + one cancelled history + one never booked.
+   await page.locator('#booking').selectOption('yes');
+   assert.equal(await page.locator('#rows tr').count(),1,'only confirmed booking is active');
+   assert.match(await page.locator('#rows').innerText(),/QA SYNTHETIC A/);
+   await page.locator('#booking').selectOption('no');
+   assert.equal(await page.locator('#rows tr').count(),2,'cancelled history counts as no active booking');
+   assert.match(await page.locator('#rows').innerText(),/QA SYNTHETIC B/);
+   assert.match(await page.locator('#rows').innerText(),/QA SYNTHETIC C/);
+   await page.locator('#booking').selectOption('');
+   assert.equal(await page.locator('#rows tr').count(),3,'cleared filter restores all rows');
    const metrics=await page.evaluate(()=>{
     const visible=el=>!!(el.getClientRects().length) && getComputedStyle(el).visibility!=='hidden';
     const targets=Array.from(document.querySelectorAll('a,button,.filters input,.filters select'))

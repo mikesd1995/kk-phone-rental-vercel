@@ -440,3 +440,41 @@ test('past-day HOLD transitions at midnight in Asia/Bangkok, never UTC midnight'
  assert.equal(Ops.normalize(b,after).records[0].phoneReady,false);
  assert.ok(Ops.normalize(b,after).records[0].gate.includes('วันที่งานผ่านไปแล้ว'));
 });
+
+
+// R22: A cancelled/completed booking is history, not an active booking.
+test('booking filter uses active counts and preserves unknown state',()=>{
+ const cancelled=Ops.normalize(positiveStockFixture({bookings:[
+   {event_id:'EVT-20261203-BTS-ARIRANG',booking_id:'TEST-CANCELLED',booking_status:'cancelled'}
+ ]}),NOW).records[0];
+ assert.equal(cancelled.bookings,0);
+ assert.equal(cancelled.bookingTotal,1);
+ assert.equal(Ops.bookingFilterMatches(cancelled,'yes'),false);
+ assert.equal(Ops.bookingFilterMatches(cancelled,'no'),true);
+ assert.equal(Ops.bookingFilterMatches(cancelled,'unknown'),false);
+ assert.ok(cancelled.qa.includes('ไม่พบบุกกิ้งที่ยังใช้งานใน Snapshot'));
+ const confirmed=Ops.normalize(positiveStockFixture(),NOW).records[0];
+ assert.equal(confirmed.bookings,1);
+ assert.equal(Ops.bookingFilterMatches(confirmed,'yes'),true);
+ assert.equal(Ops.bookingFilterMatches(confirmed,'no'),false);
+});
+test('bad Booking source is unknown rather than falsely classified as zero',()=>{
+ const x=Ops.normalize(positiveStockFixture({bookings:[
+  {event_id:'EVT-20261203-BTS-ARIRANG',booking_id:'BAD',booking_status:'future_unknown'}
+ ]}),NOW).records[0];
+ assert.equal(x.bookings,null);
+ assert.equal(x.bookingTotal,null);
+ assert.equal(Ops.bookingFilterMatches(x,'unknown'),true);
+ assert.equal(Ops.bookingFilterMatches(x,'yes'),false);
+ assert.equal(Ops.bookingFilterMatches(x,'no'),false);
+ assert.ok(!x.qa.includes('ไม่พบบุกกิ้งที่ยังใช้งานใน Snapshot'));
+});
+test('operational filter and audit history are labelled independently in UI',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const html=fs.readFileSync(path.join(__dirname,'../admin/operations-dashboard.html'),'utf8');
+ const script=fs.readFileSync(path.join(__dirname,'../admin/operations-dashboard.js'),'utf8');
+ assert.match(html,/บุกกิ้งที่ยังใช้งาน<select id="booking"/);
+ assert.match(html,/<th>บุกกิ้งยังใช้งาน<\/th>/);
+ assert.match(script,/bookingFilterMatches\(e,bk\)/);
+ assert.match(script,/ประวัติทั้งหมด/);
+});
