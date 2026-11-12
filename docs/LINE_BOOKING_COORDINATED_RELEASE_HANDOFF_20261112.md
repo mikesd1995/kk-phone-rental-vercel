@@ -41,3 +41,18 @@ Before activating any new live owner decision, snapshot Booking/Owner Locks and 
 Production Vercel `READY`, deployment `dpl_2CyyhK7vyUm2cUMeiDzEgBdSBN2n`, `main` SHA `735bbf7c159df7f2fd6b93e5324df131727f91c9` (still older code); last Runtime Errors 24h grouping contains `[line-webhook] LINE booking reply failed`, last at 2026-11-12T00:18:10Z. No provider HTTP status known. Current production lacks owner and customer-login/outbox env names (read-only key inventory).
 
 Cross-chat sources: #861, #855, #871, #873, #874, #852, #862, #872. **Do not close #861 until real customer and owner receipt verified in Production.**
+
+## 2026-11-12 — Blank nickname fail-closed correction (follow-up)
+
+### Owner evidence and reason
+The owner's screenshot of the `NAMTAN FILM GLAMOROUS FANCON` 13 Nov draft shows a **blank nickname** while both legal lines are still present on legacy Production. Prior integrated candidate `#875` already rejected a missing nickname **when** owner automation was enabled, but the default `REPLY_ONLY` path could emit the generic `ร้านได้รับคำขอเช่าแล้ว` Flex without any canonical Pending Booking. This could falsely reassure a customer while the owner card remained disabled. No user-supplied screenshot is a booking receipt and no user-specific booking state was inferred or changed.
+
+### Minimal source fix in #875 (not a parallel system)
+- In `server/line-booking-webhook.js`, after the canonical event/package admission check, reject **missing nickname for a bookable event even if `KK_LINE_BOOKING_AUTOMATION_ENABLED` is OFF**. Send one safe `text` correction via the existing LINE Reply API; return `CUSTOMER_DETAILS_REQUIRED`, `booking_id:''`. Keep legacy sender-identity requirement scoped to owner-automation-enabled mode. Preserve canonical hidden/full fail-closed behavior and no provider/send retry.
+- In existing `tests/line-webhook.test.js`, add a synthetic OFF-mode test: expect one correction, no `ร้านได้รับคำขอเช่าแล้ว`, no Terms/Privacy footer, no Apps Script/consent DB/Owner Push, and no Booking ID. No new workflow, endpoint, database, or customer data.
+- This fix addresses **misleading acknowledgement only**; it is not a claim that actual customer Reply API delivery or owner-card automation is fixed in Production. The known provider error status remains unknown until the governed diagnostic source is deployed, and owner/identity/outbox settings are still absent in Production.
+
+### Release/retention safety
+- The rest of unified #875 remains unchanged: no duplicate Booking, no inventory/Owner Lock modifications, no real provider traffic, no Supabase schema change, no GAS runtime, no production deploy or flags.
+- Reconfirm **exact new HEAD** and 8 targeted/full workflows before accepting any technical success; independent review, same LINE Provider and customer Login setup, privacy/retention approval and private Supabase migration, owner identity, GAS deployed source/11-column owner outbox and dispatch secret, actual provider E2E and visual owner acceptance remain mandatory.
+- Parent incident: https://github.com/mikesd1995/kk-phone-rental-vercel/issues/861 ; coordinated candidate: https://github.com/mikesd1995/kk-phone-rental-vercel/pull/875. Keep #861 OPEN until customer+owner receipts and canonical Booking decisions are verified in actual Production.
