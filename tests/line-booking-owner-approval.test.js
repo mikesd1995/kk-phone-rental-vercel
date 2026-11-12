@@ -4,6 +4,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const Approval=require('../server/line-booking-owner-approval');
+const OWNER='U'+'a'.repeat(32);
 
 function env(){
   return {
@@ -12,8 +13,8 @@ function env(){
     KK_ADMIN_API_KEY:'admin-api-key',
     LINE_CHANNEL_ACCESS_TOKEN:'line-token',
     LINE_CHANNEL_SECRET:'line-secret',
-    KK_OWNER_LINE_USER_ID:'UOWNER',
-    KK_OWNER_LINE_TARGET_ID:'UOWNER'
+    KK_OWNER_LINE_USER_ID:OWNER,
+    KK_OWNER_LINE_TARGET_ID:OWNER
   };
 }
 function response(body,status=200){
@@ -25,6 +26,35 @@ test('automation stays fail-closed until all production bindings are present',()
   assert.equal(r.ready,false);
   assert.ok(r.reasons.includes('AUTOMATION_DISABLED'));
   assert.ok(r.reasons.includes('OWNER_USER_ID_MISSING'));
+});
+
+test('malformed owner identities and push targets block booking automation before any write',async()=>{
+  const valid=env();
+  assert.equal(Approval.automationReadiness(valid).ready,true);
+  const invalid=[
+    [{KK_OWNER_LINE_USER_ID:'UOWNER'},'OWNER_USER_ID_INVALID'],
+    [{KK_OWNER_LINE_USER_ID:'C'+'b'.repeat(32)},'OWNER_USER_ID_INVALID'],
+    [{KK_OWNER_LINE_USER_ID:'U'+'G'.repeat(32)},'OWNER_USER_ID_INVALID'],
+    [{KK_OWNER_LINE_TARGET_ID:'UOWNER'},'OWNER_TARGET_ID_INVALID'],
+    [{KK_OWNER_LINE_TARGET_ID:'https://invalid.example/line'},'OWNER_TARGET_ID_INVALID']
+  ];
+  for(const [patch,code] of invalid){
+    const readiness=Approval.automationReadiness({...valid,...patch});
+    assert.equal(readiness.ready,false);
+    assert.ok(readiness.reasons.includes(code),code);
+  }
+  assert.equal(Approval.automationReadiness({...valid,
+    KK_OWNER_LINE_TARGET_ID:'C'+'b'.repeat(32)}).ready,true,
+    'well-formed group IDs preserve the existing explicit target capability');
+  let providerCalls=0;
+  await assert.rejects(()=>Approval.createPendingBooking(
+    {webhookEventId:'evt-synthetic-owner-invalid',source:{type:'user',userId:'U'+'c'.repeat(32)}},
+    {nickname:'Synthetic',phone:''},
+    {event_id:'EVT-SYNTHETIC',template_id:'TPL-SYNTHETIC',package_id:'PKG-SYNTHETIC'},
+    {...valid,KK_OWNER_LINE_USER_ID:'UOWNER'},
+    async()=>{providerCalls++;throw Error('must not reach provider');}
+  ),err=>err&&err.code==='LINE_BOOKING_AUTOMATION_NOT_READY');
+  assert.equal(providerCalls,0);
 });
 
 test('signed approval payload rejects tampering',()=>{
@@ -112,7 +142,7 @@ test('owner approval requires exact owner identity and performs atomic decision 
     return response({ok:true});
   };
   const r=await Approval.processOwnerPostback({
-    type:'postback',replyToken:'reply-owner',source:{type:'user',userId:'UOWNER'},postback:{data}
+    type:'postback',replyToken:'reply-owner',source:{type:'user',userId:OWNER},postback:{data}
   },e,fetchImpl);
   assert.equal(r.handled,true);
   assert.equal(r.status,'CONFIRMED');
@@ -130,7 +160,7 @@ test('owner decision fails closed if canonical customer contact is missing',asyn
   let lineSends=0;
   await assert.rejects(
     ()=>Approval.processOwnerPostback({
-      type:'postback',source:{type:'user',userId:'UOWNER'},postback:{data}
+      type:'postback',source:{type:'user',userId:OWNER},postback:{data}
     },e,async(url,opt)=>{
       if(String(url).startsWith('https://script.google.com/')){
         return response({ok:true,booking_id:'BK-NO-CONTACT',booking_status:'confirmed',idempotent_replay:false});
