@@ -1461,14 +1461,16 @@ function doPost(e) {
     }
     if (action && action !== 'snapshot' && action !== 'phase1Health' && action !== 'privateCoreRead' && action !== 'lineDeliveryOutboxReadiness') {
       // Do not retain one-time claim IDs, contacts, or outbox provider details in audit rows.
-      const privateLine = action === 'claimLineBookingNotification' || action === 'ackLineBookingNotification';
+      const privateLine = ['lineDeliveryOutboxReadiness','decideLineBookingPending',
+        'claimLineBookingNotification','ackLineBookingNotification'].includes(action);
       kkAuditLog_(action, privateLine ? {booking_id: String(payload.booking_id || '')} : payload,
-        privateLine ? {status: String(result && result.status || ''), booking_id: String(result && result.booking_id || '')} : result, startedAt);
+        privateLine ? {status: String(result && (result.status || result.booking_status) || ''), booking_id: String(result && result.booking_id || '')} : result, startedAt);
     }
     return kkApiJson_(kkApiOk_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, result || {})));
   } catch (err) {
     if (keyOk && action !== 'privateCoreRead') {
-      const privateLine = action === 'claimLineBookingNotification' || action === 'ackLineBookingNotification';
+      const privateLine = ['lineDeliveryOutboxReadiness','decideLineBookingPending',
+        'claimLineBookingNotification','ackLineBookingNotification'].includes(action);
       kkErrorLog_(action || (payload && payload.action) || '',
         privateLine ? {booking_id: String(payload.booking_id || '')} : payload, err, startedAt);
     }
