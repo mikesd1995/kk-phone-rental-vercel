@@ -6,7 +6,7 @@ const SECRET='SYNTHETIC_CUSTOMER_PRIVATE_0123456789';
 const ENV={KK_LINE_BOOKING_AUTOMATION_ENABLED:'true',
  KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/SYNTHETIC/exec',
  KK_ADMIN_API_KEY:'mock-admin-secret',LINE_CHANNEL_ACCESS_TOKEN:'mock-line-token',
- LINE_CHANNEL_SECRET:'mock-line-secret',KK_OWNER_LINE_USER_ID:'UOWNER',KK_OWNER_LINE_TARGET_ID:'UOWNER'};
+ LINE_CHANNEL_SECRET:'mock-line-secret',KK_OWNER_LINE_USER_ID:'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',KK_OWNER_LINE_TARGET_ID:'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'};
 
 test('LINE Booking Flex reply rejection never echoes untrusted provider response',async()=>{
  let calls=0;
