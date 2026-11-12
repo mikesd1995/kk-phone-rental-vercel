@@ -1452,14 +1452,25 @@ function doPost(e) {
       case 'createBooking': result = kkApiCreateBooking_(payload); break;
       case 'createLineBookingPending': result = kkApiCreateLineBookingPending_(payload); break;
       case 'decideLineBookingPending': result = kkApiDecideLineBookingPending_(payload); break;
+      case 'claimLineBookingNotification': result = kkApiClaimLineBookingNotification_(payload); break;
+      case 'ackLineBookingNotification': result = kkApiAckLineBookingNotification_(payload); break;
       case 'updateBooking': result = kkApiUpdateBooking_(payload); break;
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
     }
-    if (action && action !== 'snapshot' && action !== 'phase1Health' && action !== 'privateCoreRead') kkAuditLog_(action, payload, result, startedAt);
+    if (action && action !== 'snapshot' && action !== 'phase1Health' && action !== 'privateCoreRead') {
+      // Do not retain one-time claim IDs, contacts, or outbox provider details in audit rows.
+      const privateLine = action === 'claimLineBookingNotification' || action === 'ackLineBookingNotification';
+      kkAuditLog_(action, privateLine ? {booking_id: String(payload.booking_id || '')} : payload,
+        privateLine ? {status: String(result && result.status || ''), booking_id: String(result && result.booking_id || '')} : result, startedAt);
+    }
     return kkApiJson_(kkApiOk_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, result || {})));
   } catch (err) {
-    if (keyOk && action !== 'privateCoreRead') kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
+    if (keyOk && action !== 'privateCoreRead') {
+      const privateLine = action === 'claimLineBookingNotification' || action === 'ackLineBookingNotification';
+      kkErrorLog_(action || (payload && payload.action) || '',
+        privateLine ? {booking_id: String(payload.booking_id || '')} : payload, err, startedAt);
+    }
     if(action==='privateCoreRead') return kkApiJson_({ok:false,admin_api_version:KK_ADMIN_VERSION,error_code:'PRIVATE_CORE_READ_UNAVAILABLE',error:'Private Core read unavailable'});
     return kkApiJson_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, kkApiFail_(err)));
   }
@@ -2819,7 +2830,10 @@ function kkApiDecideLineBookingPending_(payload) {
     const currentStatus = String(current[2] || '').toLowerCase().trim();
     const targetStatus = decision === 'approve' ? 'confirmed' : 'cancelled';
     if (currentStatus === targetStatus) {
-      return {
+      // A durable intent must exist for any decision made with outbox enabled.
+      // Legacy decisions without an intent are deliberately held for manual review.
+      const outbox = kkLineDeliveryOutboxReadyLocked_(bookingId,decision,customerContact);
+      return Object.assign({
         row_number: row,
         booking_id: bookingId,
         booking_status: currentStatus,
@@ -2829,12 +2843,14 @@ function kkApiDecideLineBookingPending_(payload) {
         lens_asset_id: String(current[10] || '').trim(),
         decision: decision,
         idempotent_replay: true
-      };
+      },outbox || {});
     }
     if (currentStatus !== 'pending') {
       throw new Error('LINE pending booking already decided: ' + bookingId + ' / status=' + currentStatus);
     }
 
+    // PREPARED outbox intent must be durable before we change Booking state.
+    kkLineDeliveryOutboxPrepareLocked_(bookingId,decision,customerContact);
     const next = current.slice();
     next[2] = targetStatus;
     sh.getRange(row, 1, 1, 20).setValues([next]);
@@ -2846,7 +2862,8 @@ function kkApiDecideLineBookingPending_(payload) {
     if (kkBookingRequestIdFromNote_(persisted[19]) !== requestId) throw new Error('LINE request identity readback failed: ' + bookingId);
     if (String(persisted[5] || '').trim() !== customerContact) throw new Error('LINE customer contact readback failed: ' + bookingId);
 
-    return {
+    const outbox = kkLineDeliveryOutboxReadyLocked_(bookingId,decision,customerContact);
+    return Object.assign({
       row_number: row,
       booking_id: bookingId,
       booking_status: targetStatus,
@@ -2856,7 +2873,7 @@ function kkApiDecideLineBookingPending_(payload) {
       lens_asset_id: String(persisted[10] || '').trim(),
       decision: decision,
       idempotent_replay: false
-    };
+    },outbox || {});
   } finally {
     lock.releaseLock();
   }
