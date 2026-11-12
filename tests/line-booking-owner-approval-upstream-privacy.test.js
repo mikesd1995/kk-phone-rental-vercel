@@ -8,7 +8,7 @@ const ENV={
  KK_ADMIN_API_KEY:'synthetic-api-key',
  LINE_CHANNEL_ACCESS_TOKEN:'synthetic-line-token',
  LINE_CHANNEL_SECRET:'synthetic-line-secret',
- KK_OWNER_LINE_USER_ID:'UOWNER',KK_OWNER_LINE_TARGET_ID:'UOWNER'
+ KK_OWNER_LINE_USER_ID:'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',KK_OWNER_LINE_TARGET_ID:'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 };
 const SECRET_MARKER='SYNTHETIC_PRIVATE_CONTACT_0001234567';
 function response(body,status=200){
@@ -16,7 +16,7 @@ function response(body,status=200){
   text:async()=>typeof body==='string'?body:JSON.stringify(body)};
 }
 function event(decision,id='BK-SYNTHETIC'){
- return {type:'postback',replyToken:'synthetic-owner-reply',source:{type:'user',userId:'UOWNER'},
+ return {type:'postback',replyToken:'synthetic-owner-reply',source:{type:'user',userId:'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'},
   postback:{data:Approval.decisionData(decision,id,ENV)}};
 }
 function canonical(decision,id){
