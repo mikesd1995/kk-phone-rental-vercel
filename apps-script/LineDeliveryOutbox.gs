@@ -53,6 +53,12 @@ function kkLineDeliveryOutboxPreflight_(){
   var sh=kkLineDeliveryOutboxSheet_();
   return {enabled:enabled,schema_ok:true,row_count:Math.max(0,sh.getLastRow()-1)};
 }
+// Authenticated, read-only pre-decision contract handshake; no private data.
+function kkApiLineDeliveryOutboxReadiness_(){
+  var preflight=kkLineDeliveryOutboxPreflight_();
+  return {outbox_contract:'v1',enabled:preflight.enabled,
+    schema_ok:preflight.schema_ok};
+}
 function kkLineDeliveryOutboxFind_(sh,outboxId){
   var count=sh.getLastRow()-1;
   if(count<=0)return null;
