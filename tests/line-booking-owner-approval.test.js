@@ -173,3 +173,52 @@ test('Apps Script owner decision is a separate atomic pending-only action',()=>{
   assert.match(body,/customerContact = String\(current\[5\]/);
   assert.match(body,/String\(persisted\[5\]/);
 });
+
+test('owner card is provider-idempotent on first push and subsequent 409 retry',async()=>{
+  const context={booking_id:'BK-SYNTHETIC-RETRY',event_name:'SYNTHETIC FANCON',
+    event_date:'2026-11-13',nickname:'Synthetic Customer',package_name:'vivo X300 Pro + Lens',
+    price_display:'890 บาท',terms_status:'VERIFIED_LINE_IDENTITY_TERMS_ACCEPTED',
+    terms_version:'KK-TERMS-2026-11-06'};
+  const calls=[];
+  const fetchImpl=async (url,opts)=>{
+    assert.match(String(url),/api\.line\.me\/v2\/bot\/message\/push$/);
+    calls.push({url,headers:opts.headers,body:JSON.parse(opts.body)});
+    return calls.length===1 ? {ok:true,status:200} : {
+      ok:false,status:409,headers:{get(name){
+        return name==='x-line-accepted-request-id'?'SYNTHETIC_ACCEPTED_REQUEST':'';
+      }}
+    };
+  };
+  const first=await Approval.notifyOwner(context,env(),fetchImpl);
+  const replay=await Approval.notifyOwner(context,env(),fetchImpl);
+  assert.equal(first.status,'OWNER_NOTIFIED');
+  assert.equal(first.provider_accepted_replay,false);
+  assert.equal(replay.provider_accepted_replay,true);
+  assert.equal(calls.length,2);
+  assert.equal(calls[0].body.to,'UOWNER');
+  assert.deepEqual(calls[0].body,calls[1].body);
+  const key=calls[0].headers['X-Line-Retry-Key'];
+  assert.match(key,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.equal(calls[1].headers['X-Line-Retry-Key'],key);
+  assert.ok(!JSON.stringify(calls).includes('SYNTHETIC_ACCESS_TOKEN'));
+});
+
+test('owner retry key changes for a different Booking and 409 without receipt fails closed',async()=>{
+  const calls=[];
+  const fake=async(url,opts)=>{
+    calls.push({url,headers:opts.headers});
+    return {ok:false,status:409,headers:{get:()=>null}};
+  };
+  await assert.rejects(()=>Approval.notifyOwner({booking_id:'BK-SYNTHETIC-RETRY'},env(),fake),
+    err=>err&&err.code==='LINE_SEND_FAILED'&&err.status===409);
+  assert.equal(calls.length,1);
+  const keys=[];
+  const success=async(_url,opts)=>{
+    keys.push(opts.headers['X-Line-Retry-Key']);
+    return {ok:true,status:200};
+  };
+  await Approval.notifyOwner({booking_id:'BK-SYNTHETIC-A'},env(),success);
+  await Approval.notifyOwner({booking_id:'BK-SYNTHETIC-B'},env(),success);
+  assert.notEqual(keys[0],keys[1]);
+  assert.equal(keys.length,2);
+});
