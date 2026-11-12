@@ -290,7 +290,7 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
         : 'ยังไม่พบการยอมรับเงื่อนไขจาก LINE บัญชีนี้ กรุณาเปิด https://kk-phone-rental.vercel.app/ เชื่อมบัญชี LINE และกดยืนยันเงื่อนไขก่อนส่งคำขอใหม่';
       await replyFlex(event.replyToken,{
         type:'text',
-        text:guidance+'\\nยังไม่ได้บันทึกคำขอจอง และยังไม่ส่งให้ร้านอนุมัติค่ะ'
+        text:guidance+'\nยังไม่ได้บันทึกคำขอจอง และยังไม่ส่งให้ร้านอนุมัติค่ะ'
       },env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
       return {handled:true,booking_id:'',automation_status:'TERMS_EVIDENCE_REQUIRED'};
     }else{
