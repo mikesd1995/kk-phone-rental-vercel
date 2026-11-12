@@ -348,7 +348,7 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     }
     const claimId=text(claim.claim_id);
     const customerUserId=text(claim.customer_contact);
-    if(!/^[0-9a-fA-F-]{36}$/.test(claimId) || !customerUserId ||
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claimId) || !customerUserId ||
        (text(data.customer_contact)&&text(data.customer_contact)!==customerUserId)){
       const err=new Error('LINE delivery contact or claim evidence missing');
       err.code='LINE_DELIVERY_OUTBOX_CLAIM_MISMATCH';
