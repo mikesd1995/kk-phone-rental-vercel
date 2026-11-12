@@ -53,6 +53,30 @@ function kkLineDeliveryOutboxPreflight_(){
   var sh=kkLineDeliveryOutboxSheet_();
   return {enabled:enabled,schema_ok:true,row_count:Math.max(0,sh.getLastRow()-1)};
 }
+// Owner-only read-only status counters; no recipient, booking or claim data.
+function kkLineDeliveryOutboxHealth_(){
+  var sh=kkLineDeliveryOutboxSheet_();
+  var n=sh.getLastRow()-1;
+  var statuses={PREPARED:0,READY:0,CLAIMED:0,ACCEPTED:0,
+    FAILED_UNCERTAIN:0,FAILED_TERMINAL:0,UNCERTAIN:0,UNKNOWN:0};
+  var stale_claims=0,stale_ready=0;
+  if(n>0){
+    var values=sh.getRange(2,1,n,KK_LINE_DELIVERY_OUTBOX_HEADERS_.length).getValues();
+    var now=Date.now();
+    values.forEach(function(r){
+      var state=String(r[4]||'');
+      if(Object.prototype.hasOwnProperty.call(statuses,state))statuses[state]++;
+      else statuses.UNKNOWN++;
+      var when=Date.parse(String(state==='CLAIMED'?r[6]:r[10]||''));
+      if(state==='CLAIMED'&&(!Number.isFinite(when)||now-when>120000))stale_claims++;
+      if(state==='READY'&&(!Number.isFinite(when)||now-when>900000))stale_ready++;
+    });
+  }
+  return {schema_ok:true,enabled:kkLineDeliveryOutboxEnabled_(),
+    total:n,statuses:statuses,stale_claims:stale_claims,stale_ready:stale_ready,
+    manual_review:statuses.FAILED_UNCERTAIN+statuses.FAILED_TERMINAL+
+      statuses.UNCERTAIN+stale_claims+statuses.UNKNOWN};
+}
 // Authenticated, read-only pre-decision contract handshake; no private data.
 function kkApiLineDeliveryOutboxReadiness_(){
   var preflight=kkLineDeliveryOutboxPreflight_();
