@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'server/line-booking-owner-approval.js'
+      - 'apps-script/Code.gs'
+      - 'apps-script/LineDeliveryOutbox.gs'
+      - 'tests/line-delivery-outbox-contract-20261113.test.js'
       - 'tests/line-owner-delivery-failure-regression-20261111.test.js'
       - 'tests/line-booking-owner-approval-upstream-privacy.test.js'
       - 'docs/LINE_DELIVERY_SAFETY_REGRESSION_20261111.md'
@@ -24,6 +27,8 @@ jobs:
           node-version: '22'
       - name: Exact owner delivery safety tests
         run: node --test tests/line-owner-delivery-failure-regression-20261111.test.js
+      - name: Canonical outbox and LINE claim ACK crash tests
+        run: node --test tests/line-delivery-outbox-contract-20261113.test.js
       - name: Existing upstream privacy and owner decision regressions
         run: node --test tests/line-booking-owner-approval-upstream-privacy.test.js
       - name: Syntax checks
@@ -31,3 +36,4 @@ jobs:
           node --check server/line-booking-owner-approval.js
           node --check tests/line-owner-delivery-failure-regression-20261111.test.js
           node --check tests/line-booking-owner-approval-upstream-privacy.test.js
+          node --check tests/line-delivery-outbox-contract-20261113.test.js
