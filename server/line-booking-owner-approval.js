@@ -264,10 +264,26 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     return {handled:true,status:'UNAUTHORIZED_OWNER',booking_id:parsed.booking_id};
   }
   const decision=parsed.decision;
+  const outboxRequired=enabled(env.KK_LINE_DELIVERY_OUTBOX_ENABLED);
+  if(outboxRequired){
+    // Read-only deployed GAS handshake BEFORE the booking decision. An old or
+    // partially rolled-out writer cannot mutate Booking without outbox intent.
+    const healthResult=await appsScriptCall({
+      action:'lineDeliveryOutboxReadiness'
+    },env,fetchImpl);
+    const health=healthResult&&healthResult.data||healthResult||{};
+    if(health.outbox_contract!=='v1' || health.enabled!==true ||
+       health.schema_ok!==true){
+      const err=new Error('LINE delivery outbox canonical writer is not ready');
+      err.code='LINE_DELIVERY_OUTBOX_NOT_READY';
+      throw err;
+    }
+  }
   const result=await appsScriptCall({
     action:'decideLineBookingPending',
     booking_id:parsed.booking_id,
-    decision
+    decision,
+    outbox_contract:outboxRequired?'v1':'off'
   },env,fetchImpl);
   const data=result&&result.data||result||{};
   // The canonical writer must confirm the same booking we authorized.
@@ -297,7 +313,6 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     err.code='LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED';
     throw err;
   }
-  const outboxRequired=enabled(env.KK_LINE_DELIVERY_OUTBOX_ENABLED);
   const outboxId=text(data.outbox_id);
   if(outboxRequired || outboxId){
     // Never mix the old immediate sender with canonical outbox staging. Either
