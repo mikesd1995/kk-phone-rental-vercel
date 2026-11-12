@@ -252,8 +252,10 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
   const readiness=OwnerApproval.automationReadiness(env);
   // Validate canonical bookability FIRST. A hidden/invalid event retains the
   // existing fail-closed warning even if the customer also omitted a field.
-  // Only admitted bookings prompt for missing contact fields before writes.
-  if(readiness.ready && canonical && (!booking.nickname || !event.source || !event.source.userId)){
+  // For admitted events, always require a nickname, even in REPLY_ONLY mode:
+  // otherwise the generic Flex would falsely imply a viable booking request.
+  // Owner-only sender identity checks stay guarded by automation readiness.
+  if(canonical && (!booking.nickname || (readiness.ready && (!event.source || !event.source.userId)))){
     const missingName=!booking.nickname;
     await replyFlex(event.replyToken,{
       type:'text',
