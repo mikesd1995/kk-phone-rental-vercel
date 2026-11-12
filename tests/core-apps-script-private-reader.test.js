@@ -88,8 +88,11 @@ test('Apps Script action requires a separate private read key and extra Script P
  assert.match(appSource,/KK_PRIVATE_CORE_READ_ALLOWLIST/);
  assert.match(appSource,/KK_PRIVATE_CORE_READ_ALLOWLIST\[sheet\]\.indexOf\(range\)<0/);
  assert.match(appSource,/requestedEnd>4000/);
- assert.match(appSource,/action !== 'privateCoreRead'\) kkAuditLog_/);
- assert.match(appSource,/action !== 'privateCoreRead'\) kkErrorLog_/);
+ const dispatcher=appSource.slice(appSource.indexOf('function doPost(e) {'),appSource.indexOf('function doGet()'));
+ assert.match(dispatcher,/if \(action &&[^\n]*action !== 'privateCoreRead'/);
+ assert.match(dispatcher,/kkAuditLog_\(action,/);
+ assert.match(dispatcher,/if \(keyOk && action !== 'privateCoreRead'\)/);
+ assert.match(dispatcher,/kkErrorLog_\(action/);
  const open=appSource.match(/function doGet\(\)\s*\{[\s\S]*?\n\}/);
  assert.ok(open);
  assert.doesNotMatch(open[0],/spreadsheet_id/);

@@ -181,9 +181,11 @@ async function sendLine(url,body,token,fetchImpl=fetch,retryKey=''){
     // earlier acceptance of the SAME push request/retry key (valid 24 hours).
     // Any other 409 is an error; never inspect/log provider response bodies.
     if(retryKey && url===LINE_PUSH_URL && r.status===409 &&
-       r.headers && typeof r.headers.get==='function' &&
-       text(r.headers.get('x-line-accepted-request-id'))){
-      return {ok:true,accepted_replay:true};
+       r.headers && typeof r.headers.get==='function'){
+      const receipt=text(r.headers.get('x-line-accepted-request-id'));
+      if(/^[A-Za-z0-9_-]{1,128}$/.test(receipt)){
+        return {ok:true,accepted_replay:true,provider_request_id:receipt};
+      }
     }
     // Provider response text can reflect private recipient/message details.
     // Keep a fixed diagnostic and HTTP status; do not log upstream body.
@@ -192,7 +194,11 @@ async function sendLine(url,body,token,fetchImpl=fetch,retryKey=''){
     err.status=r.status;
     throw err;
   }
-  return {ok:true};
+  // Provider request IDs are non-secret opaque correlation evidence. Never
+  // retain its response body; validate before forwarding to the canonical ACK.
+  const receipt=r.headers&&typeof r.headers.get==='function'?
+    text(r.headers.get('x-line-request-id')):'';
+  return {ok:true,provider_request_id:/^[A-Za-z0-9_-]{1,128}$/.test(receipt)?receipt:''};
 }
 function pushMessage(to,message,env=process.env,fetchImpl=fetch,retryKey=''){
   return sendLine(LINE_PUSH_URL,{to,messages:[message]},env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl,retryKey);
@@ -258,10 +264,26 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     return {handled:true,status:'UNAUTHORIZED_OWNER',booking_id:parsed.booking_id};
   }
   const decision=parsed.decision;
+  const outboxRequired=enabled(env.KK_LINE_DELIVERY_OUTBOX_ENABLED);
+  if(outboxRequired){
+    // Read-only deployed GAS handshake BEFORE the booking decision. An old or
+    // partially rolled-out writer cannot mutate Booking without outbox intent.
+    const healthResult=await appsScriptCall({
+      action:'lineDeliveryOutboxReadiness'
+    },env,fetchImpl);
+    const health=healthResult&&healthResult.data||healthResult||{};
+    if(health.outbox_contract!=='v1' || health.enabled!==true ||
+       health.schema_ok!==true){
+      const err=new Error('LINE delivery outbox canonical writer is not ready');
+      err.code='LINE_DELIVERY_OUTBOX_NOT_READY';
+      throw err;
+    }
+  }
   const result=await appsScriptCall({
     action:'decideLineBookingPending',
     booking_id:parsed.booking_id,
-    decision
+    decision,
+    outbox_contract:outboxRequired?'v1':'off'
   },env,fetchImpl);
   const data=result&&result.data||result||{};
   // The canonical writer must confirm the same booking we authorized.
@@ -291,7 +313,87 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     err.code='LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED';
     throw err;
   }
-  // Canonical decision replay is not a receipt for customer LINE delivery.
+  const outboxId=text(data.outbox_id);
+  if(outboxRequired || outboxId){
+    // Never mix the old immediate sender with canonical outbox staging. Either
+    // side enabled alone fails closed without any provider request.
+    if(!outboxRequired || !/^KLO-[0-9a-f]{40}$/.test(outboxId)){
+      const err=new Error('LINE delivery outbox contract mismatch');
+      err.code='LINE_DELIVERY_OUTBOX_CONTRACT_MISMATCH';
+      throw err;
+    }
+    const claimResult=await appsScriptCall({
+      action:'claimLineBookingNotification',
+      booking_id:parsed.booking_id,decision,outbox_id:outboxId
+    },env,fetchImpl);
+    const claim=claimResult&&claimResult.data||claimResult||{};
+    if(text(claim.booking_id)!==parsed.booking_id || text(claim.decision)!==decision ||
+       text(claim.outbox_id)!==outboxId){
+      const err=new Error('LINE delivery claim readback mismatch');
+      err.code='LINE_DELIVERY_OUTBOX_CLAIM_MISMATCH';
+      throw err;
+    }
+    if(claim.status==='ALREADY_ACCEPTED'){
+      return {handled:true,status:'ALREADY_APPLIED',booking_id:parsed.booking_id,
+        idempotent_replay:true,delivery_status:'ACCEPTED',
+        customer_notifications:0,owner_notifications:0};
+    }
+    if(claim.status!=='CLAIMED'){
+      // This includes in-flight claims and uncertainty after a crash/timeout.
+      // Never blindly resend a previously claimed or ambiguous push.
+      return {handled:true,status:'DELIVERY_REQUIRES_RECONCILIATION',
+        booking_id:parsed.booking_id,delivery_status:text(claim.status),
+        customer_notifications:0,owner_notifications:0,
+        requires_manual_delivery_review:true};
+    }
+    const claimId=text(claim.claim_id);
+    const customerUserId=text(claim.customer_contact);
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(claimId) || !customerUserId ||
+       (text(data.customer_contact)&&text(data.customer_contact)!==customerUserId)){
+      const err=new Error('LINE delivery contact or claim evidence missing');
+      err.code='LINE_DELIVERY_OUTBOX_CLAIM_MISMATCH';
+      throw err;
+    }
+    const ackDelivery=async (disposition,providerRequestId='')=>{
+      const ackResult=await appsScriptCall({
+        action:'ackLineBookingNotification',
+        booking_id:parsed.booking_id,decision,outbox_id:outboxId,
+        claim_id:claimId,disposition,provider_request_id:providerRequestId
+      },env,fetchImpl);
+      const ack=ackResult&&ackResult.data||ackResult||{};
+      if(text(ack.booking_id)!==parsed.booking_id ||
+         text(ack.decision)!==decision || text(ack.outbox_id)!==outboxId ||
+         ![disposition,'ALREADY_ACKED'].includes(text(ack.status))){
+        const err=new Error('LINE delivery ACK readback mismatch');
+        err.code='LINE_DELIVERY_OUTBOX_ACK_MISMATCH';
+        throw err;
+      }
+      return ack;
+    };
+    let pushed;
+    try{
+      pushed=await pushOwnerDecisionWithRetry(customerUserId,decision,parsed.booking_id,env,fetchImpl);
+    }catch(err){
+      const uncertain=err && (err.code==='LINE_SEND_TRANSPORT_FAILED'||
+        (err.code==='LINE_SEND_FAILED'&&Number(err.status)>=500));
+      try{
+        await ackDelivery(uncertain?'FAILED_UNCERTAIN':'FAILED_TERMINAL');
+      }catch(_){
+        // A failed ACK leaves the claim in-flight/uncertain. It must not
+        // mask the provider error or authorize an owner success message.
+      }
+      throw err;
+    }
+    await ackDelivery('ACCEPTED',text(pushed&&pushed.provider_request_id));
+    if(event.replyToken){
+      await replyMessage(event.replyToken,ownerDecisionMessage(decision,parsed.booking_id),env,fetchImpl);
+    }
+    return {handled:true,status:expected.toUpperCase(),
+      booking_id:parsed.booking_id,idempotent_replay:Boolean(data.idempotent_replay),
+      delivery_status:'ACCEPTED'};
+  }
+  // Legacy, explicit OFF path only: replay prevents duplicate LINE sends but
+  // requires manual delivery inspection because no durable receipt exists.
   if(data.idempotent_replay===true){
     return {handled:true,status:'ALREADY_APPLIED',booking_id:parsed.booking_id,
       decision_status:expected.toUpperCase(),idempotent_replay:true,
@@ -304,14 +406,11 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     err.code='LINE_CUSTOMER_CONTACT_READBACK_REQUIRED';
     throw err;
   }
-  // Customer delivery must finish before telling the owner the notification was sent.
-  // This does not make the flow exactly-once: durable outbox/receipt is still required
-  // to recover a committed decision after provider failure.
   await pushOwnerDecisionWithRetry(customerUserId,decision,parsed.booking_id,env,fetchImpl);
   if(event.replyToken){
     await replyMessage(event.replyToken,ownerDecisionMessage(decision,parsed.booking_id),env,fetchImpl);
   }
-  return {handled:true,status:expected.toUpperCase(),booking_id:parsed.booking_id,idempotent_replay:Boolean(data.idempotent_replay)};
+  return {handled:true,status:expected.toUpperCase(),booking_id:parsed.booking_id,idempotent_replay:false};
 }
 
 module.exports={
