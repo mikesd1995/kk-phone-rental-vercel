@@ -296,6 +296,32 @@ test('canonical bookable event with blank nickname asks for details without Book
   assert.equal(calls.some(x=>x.url.includes('script.google.com')||x.url.includes('/rpc/')||x.url.endsWith('/push')),false);
 });
 
+test('REPLY_ONLY mode never falsely acknowledges a bookable request with blank nickname',async()=>{
+  const e=identityEvent();
+  e.message.text=e.message.text.replace('👤 ชื่อเล่น: Synthetic Customer','👤 ชื่อเล่น: ');
+  const calls=[];
+  const response=await mod._test.processEvent(e,{
+    LINE_CHANNEL_ACCESS_TOKEN:'synthetic-messaging-only-token'
+    // Owner automation intentionally OFF; an inbound LINE request is not a Booking.
+  },async (url,options={})=>{
+    const u=String(url);
+    calls.push({url:u,body:options.body?JSON.parse(options.body):null});
+    if(u.includes('08_Web_Ready'))return {ok:true,text:async()=>syntheticVisibleRow()};
+    if(u.includes('09_Web_Packages'))return {ok:true,text:async()=>PACKAGES};
+    if(u.endsWith('/reply'))return {ok:true,status:200};
+    throw Error('no private DB, Apps Script, owner LINE or customer push allowed');
+  });
+  assert.equal(response.handled,true);
+  assert.equal(response.automation_status,'CUSTOMER_DETAILS_REQUIRED');
+  assert.equal(response.booking_id,'');
+  const replies=calls.filter(x=>x.url.endsWith('/reply'));
+  assert.equal(replies.length,1,'exactly one customer correction reply');
+  assert.equal(replies[0].body.messages[0].type,'text');
+  assert.match(replies[0].body.messages[0].text,/กรุณาระบุชื่อเล่น/);
+  assert.doesNotMatch(JSON.stringify(replies[0].body),/ร้านได้รับคำขอเช่าแล้ว|KK-TERMS-2026-11-06|รับทราบนโยบายความเป็นส่วนตัว/);
+  assert.equal(calls.some(x=>x.url.includes('script.google.com')||x.url.includes('/rpc/')||x.url.endsWith('/push')),false);
+});
+
 test('canonical bookable event without customer LINE identity gets a safe reply only',async()=>{
   const e=identityEvent();
   delete e.source.userId;
