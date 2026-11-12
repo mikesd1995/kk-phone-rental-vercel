@@ -25,6 +25,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install pinned repository dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Full repository syntax and static checks
+        run: npm run check
+      - name: Full repository test suite
+        run: npm test
       - name: Exact owner delivery safety tests
         run: node --test tests/line-owner-delivery-failure-regression-20261111.test.js
       - name: Canonical outbox and LINE claim ACK crash tests
