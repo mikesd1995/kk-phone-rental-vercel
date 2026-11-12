@@ -8,7 +8,10 @@ const LineMessaging = require('./kk-line-messaging-api');
 
 const VERSION = 'KK_LINE_OWNER_OUTBOX_V1';
 const OUTBOX_ID = /^LINE_OWNER_V1_[a-f0-9]{48}$/;
-const LINE_USER = /^U[A-Za-z0-9_-]{20,}$/;
+// A canonical outbox claim is untrusted until its recipient passes the same
+// provider-issued LINE user-id contract as the owner approval boundary.
+// Do not consume a one-time claim by attempting to push to a malformed ID.
+const LINE_USER = /^U[0-9a-f]{32}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const val = v => String(v === undefined || v === null ? '' : v).trim();
 
