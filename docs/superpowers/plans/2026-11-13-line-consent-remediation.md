@@ -25,20 +25,20 @@
 
 Files: `scripts/test-customer-auth-native.mjs`, `supabase/kk_customer_auth_v1.sql`, `.github/workflows/canonical-owner-v2.yml`.
 
-- [ ] Add a disposable PGlite test against the exact migration, including real first acceptance, replay, expiry/revocation, isolation and role-denial checks.
-- [ ] Reuse the existing pinned PGlite CI installation; extend its existing trigger paths and run the probe on exact HEAD.
-- [ ] Observe a native failing acceptance before correcting implementation.
-- [ ] Resolve the ambiguous conflict target with an explicit unique constraint; run native verification again.
-- [ ] Run existing consent/API regression and full exact-HEAD CI.
+- [x] Add a disposable PGlite test against the exact migration, including real first acceptance, replay, expiry/revocation, isolation and role-denial checks.
+- [x] Reuse the existing pinned PGlite CI installation; extend its existing trigger paths and run the probe on exact HEAD.
+- [x] Observe a native failing acceptance before correcting implementation.
+- [x] Resolve the ambiguous conflict target with an explicit unique constraint; run native verification again.
+- [x] Run existing consent/API regression and full exact-HEAD CI.
 
 ## Task 2: Independent review, release evidence and handoff
 
 Files: only source/test paths justified by concrete reviewer findings, plus `docs/KK_LINE_MASTER_REMEDIATION_20261113.md`.
 
-- [ ] Triage independent review findings; reproduce material defects before minimal fixes.
-- [ ] Read back current PRs, exact checks, Production SHA, env names and database schema without secrets/customer rows.
-- [ ] Record all source changes, commands, actual results, migration/rollback steps and external blockers.
-- [ ] Update #861 and relevant PR metadata; keep independent GitHub approval and live provider acceptance explicitly BLOCKED.
+- [x] Triage independent review findings; reproduce material defects before minimal fixes.
+- [x] Read back current PRs, exact checks, Production SHA, env names and database schema without secrets/customer rows.
+- [x] Record all source changes, commands, actual results, migration/rollback steps and external blockers.
+- [x] Update #861 and relevant PR metadata; keep independent GitHub approval and live provider acceptance explicitly BLOCKED.
 
 ## Session ledger
 
@@ -50,3 +50,10 @@ Files: only source/test paths justified by concrete reviewer findings, plus `doc
 
 - Native RED proved on test-only commit e163cdfe1faac7a3f620dbe10120f4d039c16142, Actions run 43295709740, job 131453370863: 7/10 passed, first acceptance PostgreSQL 42702 column reference provider_id is ambiguous; two dependent receipt checks failed. Existing full Node regression passed.
 - Implementation: explicit kk_customer_terms_identity_version_key constraint removes the OUT-parameter conflict; the authenticated API and SQL grants are unchanged. Migration reapply and real role-denial remain required.
+
+- Task 1 complete: native original 42702 RED -> GREEN; upgrade 42704 RED -> GREEN with function-local #variable_conflict use_column and original unique index. Native 11/11 PASS.
+- Task 2 code complete: independent review P1 legacy recipient and P2 notification replay guards each RED -> GREEN, full signed owner approve/reject fixture added. Local 163/163 scoped tests PASS; source commit 1a926aeab853638698f6b2d472547e020855b4bc.
+- Final source runtime fix supersedes the named-constraint approach described in the earlier ledger; existing-schema compatibility is now tested.
+- Fresh actual LINE shop channel2011794771/provider2005383568 webhook verified Success with an empty events array. No customer/owner send, no settings changed. Same-provider Login channel absent.
+- Current Core backend metadata31 tabs, no19_Line_Decision_Outbox. Production unchanged; live acceptance and independent GitHub APPROVED review remain BLOCKED.
+- Full handoff: docs/KK_LINE_MASTER_REMEDIATION_20261113.md. Final exact-HEAD CI and branch readback are recorded in #861 after documentation commit.
