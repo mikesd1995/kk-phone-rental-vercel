@@ -17,7 +17,7 @@ function writerBody(){
 
 test('LINE intake targets dedicated pending writer, never legacy createBooking',()=>{
   const r=intake.bookingIntent(
-    {webhookEventId:'evt-v4',source:{userId:'U'+'a'.repeat(32)}},
+    {webhookEventId:'evt-v4',source:{type:'user',userId:'U'+'a'.repeat(32)}},
     {nickname:'Mint',phone:'0812345678',pickup_time:'16:00'},
     {event_id:'EVT-1',template_id:'TPL-1'}
   );

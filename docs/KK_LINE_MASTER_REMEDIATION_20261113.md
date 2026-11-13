@@ -4,6 +4,8 @@ Date: 13 November 2026, Asia/Bangkok. Incident: [#861](https://github.com/mikesd
 
 **RELEASE HOLD. Source remediation is not Production acceptance.** No merge, Production deployment, real feature activation, customer message, real Booking/Owner Lock edit or live database migration was performed. One LINE Console **empty-event webhook verification** was performed; it returned **Success**, without a booking event or outbound message.
 
+**Latest source follow-up:** [KK_LINE_REMEDIATION_FOLLOWUP_20261113.md](KK_LINE_REMEDIATION_FOLLOWUP_20261113.md) records newly reproduced private-source, canonical-recipient, capacity and network-deadline corrections, full local repository verification, fresh read-only live evidence and remaining gates. Its current #875 commit/check readback supersedes the baseline exact-HEAD CI below. Historical provider verification below was not repeated.
+
 ## Exact source and PR coordination
 
 Continue existing integrated [#875](https://github.com/mikesd1995/kk-phone-rental-vercel/pull/875), branch `feat/line-booking-release-candidate-20261112`. Do not create another integration PR or merge the overlapping donors separately.

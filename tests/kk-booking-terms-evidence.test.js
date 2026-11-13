@@ -55,7 +55,7 @@ test('only an exact customer-origin LINE statement for this terms version qualif
 });
 
 test('governed pending booking has bounded evidence marker linked to existing LINE request id, no new PII',()=>{
- const event={webhookEventId:'safely-synthetic-event',source:{userId:'U'+'c'.repeat(32)}};
+ const event={webhookEventId:'safely-synthetic-event',source:{type:'user',userId:'U'+'c'.repeat(32)}};
  const canonical={event_id:'EVT-1',template_id:'TPL-1',package_id:'PKG-1'};
  const ack=Webhook.parseBookingText(request([Evidence.ACK_LINE,Evidence.PRIVACY_LINE]));
  const yes=Intake.prepareBookingIntent(event,ack,canonical);

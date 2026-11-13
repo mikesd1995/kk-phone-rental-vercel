@@ -20,6 +20,7 @@ function bookingIntent(event,booking,resolved={}){
   const customerLineUserId=text(event&&event.source&&event.source.userId);
   if(!customerLineUserId) return {ok:false,code:'LINE_CUSTOMER_USER_ID_REQUIRED'};
   if(!LineIdentity.isUserId(customerLineUserId)) return {ok:false,code:'LINE_CUSTOMER_USER_ID_INVALID'};
+  if(event.source.type!=='user') return {ok:false,code:'LINE_CUSTOMER_PRIVATE_CHAT_REQUIRED'};
   return {ok:true,payload:{
     action:'createLineBookingPending',request_id,
     event_id:text(resolved.event_id),template_id:text(resolved.template_id),

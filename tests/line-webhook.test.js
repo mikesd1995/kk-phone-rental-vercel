@@ -176,6 +176,19 @@ function syntheticLineFetch(calls, evidence=EVIDENCE) {
   };
 }
 
+test('group and room messages never reach customer consent, Pending or owner Push in either consent mode',async()=>{
+ for(const type of ['group','room',undefined])for(const login of ['true','false']){
+  const calls=[],event=identityEvent();
+  event.source={type,userId:USER_ID};
+  const result=await mod._test.processEvent(event,{...identityEnv(),KK_CUSTOMER_LOGIN_ENABLED:login},
+   syntheticLineFetch(calls),{signatureVerified:true});
+  assert.equal(result.booking_id,'');
+  assert.equal(result.automation_status,'CUSTOMER_DETAILS_REQUIRED');
+  assert.deepEqual(calls.map(x=>x.type),['customer-reply']);
+  assert.match(calls[0].body.messages[0].text,/แชทส่วนตัว/);
+ }
+});
+
 test('verified signed LINE sender matches private current-version consent and receives Pending owner card',async()=>{
   const calls=[],env=identityEnv();
   const result=await mod._test.processEvent(identityEvent(),env,syntheticLineFetch(calls),{signatureVerified:true});

@@ -3166,18 +3166,21 @@ function kkLineOwnerOutboxSheet_() {
   const header = sh.getRange(1,1,1,11).getValues()[0].map(function(v){return String(v||'').trim();});
   if (JSON.stringify(header) !== JSON.stringify(KK_LINE_OWNER_OUTBOX_HEADERS_))
     throw new Error('LINE_OWNER_OUTBOX_SCHEMA_MISMATCH');
-  if (sh.getLastRow() > 20000) throw new Error('LINE_OWNER_OUTBOX_CAPACITY_REVIEW_REQUIRED');
   return sh;
 }
 function kkLineOwnerOutboxFind_(sh, outboxId) {
   const last = sh.getLastRow();
   if (last < 2) return null;
-  const matches = sh.getRange(2,1,last-1,1).getValues();
   let found = null;
-  for (let i=0;i<matches.length;i++) {
-    if (String(matches[i][0]||'').trim() !== outboxId) continue;
-    if (found) throw new Error('LINE_OWNER_OUTBOX_DUPLICATE_ID');
-    found = {row: i+2, cells: sh.getRange(i+2,1,1,11).getValues()[0]};
+  // Admission is capped separately; existing receipts must stay recoverable
+  // after legacy/imported rows exceed that cap. Bound each read allocation.
+  for (let start=2;start<=last;start+=1000) {
+    const matches=sh.getRange(start,1,Math.min(1000,last-start+1),1).getValues();
+    for (let i=0;i<matches.length;i++) {
+      if (String(matches[i][0]||'').trim() !== outboxId) continue;
+      if (found) throw new Error('LINE_OWNER_OUTBOX_DUPLICATE_ID');
+      found = {row:start+i,cells:sh.getRange(start+i,1,1,11).getValues()[0]};
+    }
   }
   return found;
 }
@@ -3202,6 +3205,9 @@ function kkLineOwnerOutboxWrite_(sh,row,cells) {
     throw new Error('LINE_OWNER_OUTBOX_EXACT_READBACK_FAILED');
   return {row: row,cells: after};
 }
+function kkLineOwnerOutboxIsUser_(contact) {
+  return /^U[0-9a-f]{32}$/.test(contact);
+}
 function kkLineOwnerOutboxCanonical_(bookingId) {
   const row=kkFindBookingRow_('',bookingId), sh=kkSheet_(KK.bookings);
   const current=sh.getRange(row,1,1,20).getValues()[0];
@@ -3211,7 +3217,7 @@ function kkLineOwnerOutboxCanonical_(bookingId) {
       !/^line:[a-f0-9]{48}$/.test(requestId))
     throw new Error('LINE_OWNER_OUTBOX_CANONICAL_BOOKING_UNVERIFIED');
   const contact=String(current[5]||'').trim();
-  if (!/^U[A-Za-z0-9_-]{20,}$/.test(contact)) throw new Error('LINE_OWNER_OUTBOX_CUSTOMER_CONTACT_UNVERIFIED');
+  if (!kkLineOwnerOutboxIsUser_(contact)) throw new Error('LINE_OWNER_OUTBOX_CUSTOMER_CONTACT_UNVERIFIED');
   return {row: row,sh: sh,current: current,contact: contact,requestId: requestId};
 }
 function kkLineOwnerOutboxEnvelope_(bookingId,decision,canonical,record,replay) {
@@ -3260,6 +3266,7 @@ function kkApiDecideLineBookingPendingDurable_(payload) {
     if (record && record.cells[3]!=='INTENT')
       throw new Error('LINE_OWNER_OUTBOX_PENDING_STATE_CONFLICT');
     if (!record) {
+      if (ledger.getLastRow()>=20000) throw new Error('LINE_OWNER_OUTBOX_CAPACITY_REVIEW_REQUIRED');
       const now=new Date().toISOString();
       record=kkLineOwnerOutboxWrite_(ledger,ledger.getLastRow()+1,
         [outboxId,bookingId,decision,'INTENT','','',canonical.contact,KK_LINE_OWNER_OUTBOX_MESSAGE_TYPE_,canonical.requestId,now,now]);
@@ -3312,7 +3319,7 @@ function kkApiClaimLineBookingDecisionDelivery_(payload) {
     if (record.cells[3]!=='READY')
       return {booking_id:bookingId,decision:decision,outbox_id:outboxId,
         outbox_mode:KK_LINE_OWNER_OUTBOX_VERSION_,outbox_state:String(record.cells[3]),claimed:false};
-    if (!/^U[A-Za-z0-9_-]{20,}$/.test(canonical.contact))
+    if (!kkLineOwnerOutboxIsUser_(canonical.contact))
       throw new Error('LINE_OWNER_OUTBOX_RECIPIENT_UNVERIFIED');
     const next=record.cells.slice();next[3]='CLAIMED';next[4]=retryKey;
     const claimed=kkLineOwnerOutboxWrite_(ledger,record.row,next);

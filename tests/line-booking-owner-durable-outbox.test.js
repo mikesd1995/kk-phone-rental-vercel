@@ -108,6 +108,39 @@ function appsScriptHarness({outboxEnabled=true,header=HEADERS,booking='pending'}
 }
 const decision = {booking_id:BOOKING,decision:'approve'};
 
+test('canonical outbox rejects malformed inherited recipients before intent or Booking mutation',()=>{
+ for(const contact of ['U'+'z'.repeat(32),'U'+'a'.repeat(31),'U'+'A'.repeat(32),'C'+'a'.repeat(32)]){
+  const s=appsScriptHarness();s.bookingSheet.rows[4][5]=contact;
+  assert.throws(()=>s.decide(decision),/CUSTOMER_CONTACT_UNVERIFIED/);
+  assert.equal(s.bookingSheet.rows[4][2],'pending');
+  assert.equal(s.ledger.rows.length,1);
+ }
+});
+
+test('full canonical outbox blocks new intent before Booking mutation',()=>{
+ for(const count of [20000,20001]){
+  const s=appsScriptHarness();
+  while(s.ledger.rows.length<count)s.ledger.rows.push(Array(11).fill('historical'));
+  assert.throws(()=>s.decide(decision),/CAPACITY_REVIEW_REQUIRED/);
+  assert.equal(s.bookingSheet.rows[4][2],'pending');
+  assert.equal(s.ledger.rows.length,count);
+ }
+});
+
+test('last permitted outbox slot remains claimable and settleable after capacity fills',()=>{
+ const s=appsScriptHarness();
+ while(s.ledger.rows.length<19999)s.ledger.rows.push(Array(11).fill('historical'));
+ const created=s.decide(decision);
+ assert.equal(s.ledger.rows.length,20000);
+ const request={...decision,outbox_id:created.outbox_id,retry_key:RETRY,outbox_dispatch_key:DISPATCH};
+ assert.equal(s.claim(request).claimed,true);
+ // Existing durable work must remain reconcilable if imported legacy rows
+ // already exceeded the admission limit; this never permits a new intent.
+ s.ledger.rows.push(Array(11).fill('historical'));
+ const settled=s.settle({...request,delivery_state:'SENT',provider_message_id:'synthetic-message-1'});
+ assert.equal(settled.outbox_state,'SENT');
+});
+
 test('canonical Apps Script: INTENT is durable before booking status and READY',()=>{
   const s=appsScriptHarness();
   const result=s.decide(decision);
@@ -328,7 +361,7 @@ test('server: unavailable outbox preflight blocks booking decision and provider'
 });
 test('canonical Apps Script: recipient drift after intent cannot authorize claim',()=>{
   const s=appsScriptHarness(),r=s.decide(decision);
-  s.bookingSheet.rows[4][5]='U'+'z'.repeat(32);
+  s.bookingSheet.rows[4][5]='U'+'d'.repeat(32);
   assert.throws(()=>s.claim({...decision,outbox_id:r.outbox_id,retry_key:RETRY,outbox_dispatch_key:DISPATCH}),
     /IDENTITY_OR_STATE_MISMATCH/);
   assert.equal(s.ledger.rows[1][3],'READY');

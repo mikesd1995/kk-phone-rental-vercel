@@ -5,6 +5,7 @@ const Intake=require('./line-booking-intake');
 const TermsEvidence=require('./kk-booking-terms-evidence');
 const DurableOutbox=require('./line-owner-durable-outbox');
 const LineIdentity=require('./kk-line-identity');
+const Deadline=require('./line-booking-deadline');
 
 const VERSION='KK_LINE_BOOKING_OWNER_APPROVAL_V1';
 const LINE_PUSH_URL='https://api.line.me/v2/bot/message/push';
@@ -53,12 +54,14 @@ async function appsScriptCall(payload,env=process.env,fetchImpl=fetch){
   });
   let r,raw;
   try{
-    r=await fetchImpl(text(env.KK_ADMIN_SCRIPT_URL),{
+    await Deadline.fetchWithDeadline(fetchImpl,text(env.KK_ADMIN_SCRIPT_URL),{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(body)
+    },async response=>{
+      r=response;
+      raw=await response.text();
     });
-    raw=await r.text();
   }catch(_){
     // Both transport exceptions and response-body read exceptions are untrusted.
     // Never let provider/redirect details reach webhook error logs.
@@ -175,7 +178,7 @@ function ownerApprovalMessage(ctx={},env=process.env){
 async function sendLine(url,body,token,fetchImpl=fetch){
   let r;
   try{
-    r=await fetchImpl(url,{
+    r=await Deadline.fetchWithDeadline(fetchImpl,url,{
       method:'POST',
       headers:{Authorization:'Bearer '+text(token),'Content-Type':'application/json'},
       body:JSON.stringify(body)

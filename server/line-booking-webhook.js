@@ -11,6 +11,7 @@ const OwnerApproval = require('./line-booking-owner-approval');
 const LineIdentity = require('./kk-line-identity');
 const TermsEvidence = require('./kk-booking-terms-evidence');
 const IdentityReceipt = require('./kk-line-booking-terms-receipt');
+const Deadline = require('./line-booking-deadline');
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 const PUBLIC_DATA_BASE = 'https://kk-phone-rental.vercel.app/api/kk-data';
@@ -65,9 +66,8 @@ function isBookableWebReadyEvent(row){
 }
 async function resolvePoster(booking, fetchImpl=fetch){
   const u=PUBLIC_DATA_BASE+WEB_READY_QUERY;
-  const r=await fetchImpl(u,{headers:{'User-Agent':'KK-Line-Webhook/1.0'}});
-  if(!r.ok) return '';
-  const rows=parseCsv(await r.text());
+  const rows=await Deadline.fetchWithDeadline(fetchImpl,u,{headers:{'User-Agent':'KK-Line-Webhook/1.0'}},
+    async r=>r.ok?parseCsv(await r.text()):[]);
   const exact=resolveEventRow(rows,booking);
   if(!isBookableWebReadyEvent(exact) || !safePosterSource(exact.poster_image_url)) return '';
   const eventId=String(exact.event_id||'').trim();
@@ -144,17 +144,16 @@ function formatCanonicalPrice(value){
 }
 async function resolveCanonicalPackage(booking, fetchImpl=fetch){
   const headers={'User-Agent':'KK-Line-Webhook/1.0'};
-  const eventRes=await fetchImpl(PUBLIC_DATA_BASE+WEB_READY_QUERY,{headers});
-  if(!eventRes.ok) return null;
-  const events=parseCsv(await eventRes.text());
+  const events=await Deadline.fetchWithDeadline(fetchImpl,PUBLIC_DATA_BASE+WEB_READY_QUERY,{headers},
+    async r=>r.ok?parseCsv(await r.text()):[]);
   const event=resolveEventRow(events,booking);
   if(!isBookableWebReadyEvent(event))return null;
   const eventId=String(event.event_id||'').trim();
   if(!eventId) return null;
 
-  const pkgRes=await fetchImpl(PUBLIC_DATA_BASE+WEB_PACKAGES_QUERY,{headers});
-  if(!pkgRes.ok) return null;
-  const rows=parseCsv(await pkgRes.text()).filter(x=>String(x.event_id||'').trim()===eventId);
+  const packages=await Deadline.fetchWithDeadline(fetchImpl,PUBLIC_DATA_BASE+WEB_PACKAGES_QUERY,{headers},
+    async r=>r.ok?parseCsv(await r.text()):[]);
+  const rows=packages.filter(x=>String(x.event_id||'').trim()===eventId);
   const wanted=norm(booking.package_name);
   const matches=rows.filter(x=>{
     const status=norm(x.package_status);
@@ -195,6 +194,7 @@ function safeLineReplyDiagnostic(err){
     LINE_BOOKING_UPSTREAM_FAILED:'BOOKING_UPSTREAM',
     LINE_CUSTOMER_USER_ID_REQUIRED:'BOOKING_VALIDATION',
     LINE_CUSTOMER_USER_ID_INVALID:'BOOKING_VALIDATION',
+    LINE_CUSTOMER_PRIVATE_CHAT_REQUIRED:'BOOKING_VALIDATION',
     LINE_APPROVAL_DATA_INCOMPLETE:'OWNER_APPROVAL',
     LINE_OWNER_DECISION_BOOKING_ID_MISMATCH:'OWNER_APPROVAL',
     LINE_OWNER_DECISION_READBACK_MISMATCH:'OWNER_APPROVAL',
@@ -214,7 +214,7 @@ function safeLineReplyDiagnostic(err){
 async function replyFlex(replyToken, message, token, fetchImpl=fetch){
   let r;
   try{
-    r=await fetchImpl(LINE_REPLY_URL,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({replyToken,messages:[message]})});
+    r=await Deadline.fetchWithDeadline(fetchImpl,LINE_REPLY_URL,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({replyToken,messages:[message]})});
   }catch(_){
     const err=new Error('LINE booking reply transport failed');
     err.code='LINE_BOOKING_REPLY_TRANSPORT_FAILED';
@@ -260,20 +260,21 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
   const senderUserId=event.source&&event.source.userId;
   const missingSender=!senderUserId;
   const invalidSender=readiness.ready && !LineIdentity.isUserId(senderUserId);
-  if(canonical && (!booking.nickname || invalidSender)){
+  const nonPrivateSender=readiness.ready && (!event.source || event.source.type!=='user');
+  if(canonical && (!booking.nickname || invalidSender || nonPrivateSender)){
     const missingName=!booking.nickname;
     await replyFlex(event.replyToken,{
       type:'text',
       text:missingName
         ? 'กรุณาระบุชื่อเล่นในข้อความจอง แล้วส่งใหม่อีกครั้งเพื่อให้ร้านตรวจสอบคิวค่ะ'
-        : missingSender
+        : missingSender||nonPrivateSender
           ? 'กรุณาส่งคำขอจองจากแชทส่วนตัวกับ LINE OA เพื่อให้ร้านตรวจสอบได้ค่ะ'
           : 'ยังไม่สามารถตรวจสอบบัญชี LINE สำหรับจองได้ค่ะ กรุณาส่งคำขอใหม่จากแชทส่วนตัวกับ LINE OA'
     },env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
     // A signed but malformed sender cannot reach private consent lookup,
     // Pending writer or owner Push. Acknowledge safely without provider retry.
     return {handled:true,booking_id:'',
-      automation_status:invalidSender&&!missingSender&&!missingName
+      automation_status:invalidSender&&!missingSender&&!missingName&&!nonPrivateSender
         ? 'CUSTOMER_IDENTITY_INVALID' : 'CUSTOMER_DETAILS_REQUIRED'};
   }
 

@@ -16,7 +16,7 @@ test('intake fails closed without canonical resolution or customer identity',()=
  assert.equal(I.bookingIntent({webhookEventId:'x'},{},{event_id:'EVT-1',template_id:'TPL-1'}).code,'CUSTOMER_FIELDS_REQUIRED');
 });
 test('intake can create only pending unpaid LINE booking',()=>{
- const r=I.bookingIntent({webhookEventId:'x',source:{userId:CUSTOMER}},{nickname:'Mint',phone:'081',pickup_time:'16:00'},{event_id:'EVT-1',template_id:'TPL-1'});
+ const r=I.bookingIntent({webhookEventId:'x',source:{type:'user',userId:CUSTOMER}},{nickname:'Mint',phone:'081',pickup_time:'16:00'},{event_id:'EVT-1',template_id:'TPL-1'});
  assert.equal(r.ok,true); assert.equal(r.payload.action,'createLineBookingPending'); assert.equal(r.payload.booking_status,'pending'); assert.equal(r.payload.payment_status,'unpaid'); assert.equal(r.payload.contact_channel,'LINE');
 });
 test('one provider LINE ID contract rejects malformed customer and permits explicit group targets',()=>{
@@ -44,15 +44,24 @@ test('canonical result requires booking id read back from SOT',()=>{
  assert.deepEqual(I.canonicalResult({data:{booking_id:'BK-25',row_number:25}}),{ok:true,booking_id:'BK-25',row_number:25,idempotent_replay:null});
 });
 
+test('customer intake rejects group, room and unknown source before producing a mutation',()=>{
+ for(const type of ['group','room',undefined]){
+  const result=I.prepareBookingIntent({webhookEventId:'private-source-only',source:{type,userId:CUSTOMER}},
+   {nickname:'Synthetic'},{event_id:'EVT-1',template_id:'TPL-1'});
+  assert.deepEqual(result,{ok:false,code:'LINE_CUSTOMER_PRIVATE_CHAT_REQUIRED'});
+  assert.equal('payload' in result,false);
+ }
+});
+
 
 test('E2E intake boundary rejects display-only package resolution',()=>{
- const event={webhookEventId:'evt-e2e-1',source:{userId:CUSTOMER}};
+ const event={webhookEventId:'evt-e2e-1',source:{type:'user',userId:CUSTOMER}};
  const booking={nickname:'Mint',phone:'0812345678',pickup_time:'16:00'};
  const bad=I.prepareBookingIntent(event,booking,{event_id:'EVT-1',package_id:'PKG-1'});
  assert.equal(bad.ok,false); assert.equal(bad.code,'CANONICAL_RESOLUTION_REQUIRED');
 });
 test('E2E intake boundary produces stable pending unpaid mutation only after canonical ids',()=>{
- const event={webhookEventId:'evt-e2e-2',source:{userId:CUSTOMER}};
+ const event={webhookEventId:'evt-e2e-2',source:{type:'user',userId:CUSTOMER}};
  const booking={nickname:'Mint',phone:'0812345678',pickup_time:'16:00'};
  const canonical={event_id:'EVT-1',template_id:'TPL-1',package_id:'PKG-1'};
  const a=I.prepareBookingIntent(event,booking,canonical);
@@ -65,7 +74,7 @@ test('E2E intake boundary produces stable pending unpaid mutation only after can
 
 
 test('international customer may book using verified LINE ID without phone',()=>{
- const event={webhookEventId:'evt-international-01',source:{userId:FOREIGN}};
+ const event={webhookEventId:'evt-international-01',source:{type:'user',userId:FOREIGN}};
  const booking={nickname:'Alex',phone:'',pickup_time:''};
  const canonical={event_id:'EVT-1',template_id:'TPL-1',package_id:'PKG-1'};
  const r=I.prepareBookingIntent(event,booking,canonical);

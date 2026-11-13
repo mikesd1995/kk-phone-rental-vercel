@@ -85,7 +85,7 @@ test('pending intake writes only the governed pending action and requires bookin
     return response({ok:true,booking_id:'BK-20261003-001',row_number:25,booking_status:'pending'});
   };
   const result=await Approval.createPendingBooking(
-    {webhookEventId:'evt-1',source:{userId:CUSTOMER}},
+    {webhookEventId:'evt-1',source:{type:'user',userId:CUSTOMER}},
     {nickname:'Mint',phone:'0812345678',pickup_time:'16:00'},
     {event_id:'EVT-1',template_id:'TPL-1',package_id:'PKG-1'},
     env(),fetchImpl
@@ -108,7 +108,7 @@ test('foreign customer without phone stays pending via verified LINE contact; ow
    return response({ok:true,booking_id:'BK-FOREIGN-001',row_number:26,booking_status:'pending'});
  };
  const result=await Approval.createPendingBooking(
-   {webhookEventId:'evt-international-03',source:{userId:FOREIGN}},
+   {webhookEventId:'evt-international-03',source:{type:'user',userId:FOREIGN}},
    {nickname:'Alex',phone:''},
    {event_id:'EVT-1',template_id:'TPL-1',package_id:'PKG-1'},
    env(),fetchImpl
