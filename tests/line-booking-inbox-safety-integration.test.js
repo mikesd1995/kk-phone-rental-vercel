@@ -50,7 +50,7 @@ test('signed mixed webhook archives private image while hidden event cannot writ
   if(url.includes('08_Web_Ready'))return new Response(WEB);
   if(url.includes('09_Web_Packages'))return new Response(PACKAGE);
   if(url.endsWith('/reply'))return new Response('{}');
-  if(url.startsWith('https://script.google.com/'))return new Response(JSON.stringify({ok:true,booking_id:'BK-SYNTHETIC',booking_status:'pending'}));
+  if(url.startsWith('https://script.google.com/'))return new Response(JSON.stringify({ok:true,booking_id:'BK-SYNTHETIC',booking_status:'pending',idempotent_replay:false}));
   if(url.endsWith('/push'))return new Response('{}');
   throw Error('Unexpected synthetic endpoint');
  });
@@ -84,7 +84,7 @@ test('signed visible event retains international LINE contact, canonical price a
   if(url.includes('09_Web_Packages'))return new Response(PACKAGE);
   if(url.startsWith('https://script.google.com/')){
    writes.push(JSON.parse(init.body));
-   return new Response(JSON.stringify({ok:true,booking_id:'BK-SYNTHETIC',booking_status:'pending'}));
+   return new Response(JSON.stringify({ok:true,booking_id:'BK-SYNTHETIC',booking_status:'pending',idempotent_replay:false}));
   }
   if(url.endsWith('/push')){pushes.push(JSON.parse(init.body));return new Response('{}');}
   if(url.endsWith('/reply')){replies.push(JSON.parse(init.body));return new Response('{}');}

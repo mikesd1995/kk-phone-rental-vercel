@@ -51,6 +51,7 @@ function canonicalResult(writeResult){
   const data=writeResult&&writeResult.data||writeResult||{};
   const booking_id=text(data.booking_id);
   if(!booking_id) return {ok:false,code:'BOOKING_ID_READBACK_REQUIRED'};
-  return {ok:true,booking_id,row_number:data.row_number||''};
+  return {ok:true,booking_id,row_number:data.row_number||'',
+    idempotent_replay:typeof data.idempotent_replay==='boolean'?data.idempotent_replay:null};
 }
 module.exports={requestIdFromLineEvent,bookingIntent,buildCanonicalResolution,prepareBookingIntent,canonicalResult};

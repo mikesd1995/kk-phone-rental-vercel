@@ -135,6 +135,28 @@ try {
     assert.equal(functions.rows.length, 6);
     assert.ok(functions.rows.every(row => row.prosecdef === false));
   });
+  await test('existing identity unique constraint upgrades without a named-constraint dependency', async () => {
+    const upgraded = new PGlite();
+    try {
+      await upgraded.exec('create role anon; create role authenticated; create role service_role bypassrls;');
+      await upgraded.exec(migration);
+      const constraints = await upgraded.query("select conname from pg_constraint where conrelid='public.kk_customer_terms_evidence'::regclass and contype='u' and array_length(conkey,1)=3");
+      assert.equal(constraints.rows.length,1);
+      // The original draft created an automatically named unique constraint.
+      // Its existing name must not be an application/RPC dependency.
+      const existingName=constraints.rows[0].conname.replaceAll('"','""');
+      await upgraded.exec('alter table public.kk_customer_terms_evidence rename constraint "'+existingName+'" to legacy_identity_version_key');
+      await upgraded.exec(migration);
+      await upgraded.exec('set role service_role');
+      await upgraded.query("select public.kk_customer_session_create($1,$2,$3,now()+interval '1 hour')",[hash,provider,user]);
+      const first=(await upgraded.query('select * from public.kk_customer_terms_accept($1,$2,$3)',[hash,version,evidence])).rows;
+      assert.equal(first.length,1);
+      assert.equal(first[0].evidence_reference,evidence);
+      assert.deepEqual((await upgraded.query('select * from public.kk_customer_terms_accept($1,$2,$3)',[hash,version,'web:'+'b'.repeat(43)])).rows,first);
+      await upgraded.exec('reset role');
+      assert.equal((await upgraded.query("select count(*)::int n from pg_constraint where conrelid='public.kk_customer_terms_evidence'::regclass and contype='u' and array_length(conkey,1)=3")).rows[0].n,1);
+    } finally { await upgraded.close(); }
+  });
 } finally {
   await db.close();
 }

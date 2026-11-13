@@ -41,7 +41,7 @@ test('canonical pending intake rejects malformed signed LINE customer without mu
 
 test('canonical result requires booking id read back from SOT',()=>{
  assert.equal(I.canonicalResult({data:{row_number:25}}).ok,false);
- assert.deepEqual(I.canonicalResult({data:{booking_id:'BK-25',row_number:25}}),{ok:true,booking_id:'BK-25',row_number:25});
+ assert.deepEqual(I.canonicalResult({data:{booking_id:'BK-25',row_number:25}}),{ok:true,booking_id:'BK-25',row_number:25,idempotent_replay:null});
 });
 
 

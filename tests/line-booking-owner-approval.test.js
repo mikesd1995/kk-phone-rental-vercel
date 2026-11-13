@@ -151,7 +151,7 @@ test('owner approval requires exact owner identity and performs atomic decision 
       assert.equal(body.action,'decideLineBookingPending');
       assert.equal(body.booking_id,'BK-1');
       assert.equal(body.decision,'approve');
-      return response({ok:true,booking_id:'BK-1',booking_status:'confirmed',customer_contact:'UCUSTOMER',idempotent_replay:false});
+      return response({ok:true,booking_id:'BK-1',booking_status:'confirmed',customer_contact:'Ucccccccccccccccccccccccccccccccc',idempotent_replay:false});
     }
     return response({ok:true});
   };
@@ -162,7 +162,7 @@ test('owner approval requires exact owner identity and performs atomic decision 
   assert.equal(r.status,'CONFIRMED');
   assert.equal(calls.filter(x=>x.url.startsWith('https://script.google.com/')).length,1);
   assert.equal(calls.filter(x=>x.url.includes('/reply')).length,1);
-  const customerPush=calls.find(x=>x.url.includes('/push')&&x.body.to==='UCUSTOMER');
+  const customerPush=calls.find(x=>x.url.includes('/push')&&x.body.to==='Ucccccccccccccccccccccccccccccccc');
   assert.ok(customerPush);
   assert.match(customerPush.body.messages[0].text,/ยืนยันการจองแล้ว/);
 });

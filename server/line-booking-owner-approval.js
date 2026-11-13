@@ -306,7 +306,7 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
       requires_manual_delivery_review:true};
   }
   const customerUserId=text(data.customer_contact);
-  if(!customerUserId){
+  if(!LineIdentity.isUserId(customerUserId)){
     const err=new Error('Canonical LINE customer contact missing after owner decision');
     err.code='LINE_CUSTOMER_CONTACT_READBACK_REQUIRED';
     throw err;

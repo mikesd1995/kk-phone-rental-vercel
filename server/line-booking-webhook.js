@@ -308,6 +308,20 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
       return {handled:true,booking_id:'',automation_status:automationStatus};
     }else{
       pending=await OwnerApproval.createPendingBooking(event,booking,canonical,env,fetchImpl);
+      // A canonical row replay does not prove either initial notification was
+      // delivered. Do not repeat the owner push or reuse a reply token; retain
+      // explicit delivery-review evidence until canonical receipts exist.
+      // Unknown/stringified replay metadata is never evidence of a fresh row.
+      if(pending.idempotent_replay!==false){
+        console.warn('[line-booking-automation]',JSON.stringify({
+          status:'PENDING_DELIVERY_REVIEW_REQUIRED',
+          reason:pending.idempotent_replay===true?'CANONICAL_BOOKING_REPLAY':'CANONICAL_REPLAY_UNVERIFIED',
+          requires_manual_delivery_review:true
+        }));
+        return {handled:true,booking_id:pending.booking_id,
+          automation_status:'PENDING_DELIVERY_REVIEW_REQUIRED',
+          requires_manual_delivery_review:true};
+      }
       await OwnerApproval.notifyOwner({
         booking_id:pending.booking_id,
         event_name:booking.event_name,

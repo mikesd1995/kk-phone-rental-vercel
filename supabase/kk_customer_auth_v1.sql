@@ -25,7 +25,7 @@ create table if not exists public.kk_customer_terms_evidence (
   evidence_source text not null check (evidence_source in ('AUTHENTICATED_WEB_ACTION', 'SIGNED_LINE_WEBHOOK')),
   evidence_reference text not null unique check (length(evidence_reference) between 12 and 160),
   evidence_verified boolean not null default true check (evidence_verified = true),
-  constraint kk_customer_terms_identity_version_key unique (provider_id, line_user_id, terms_version)
+  unique (provider_id, line_user_id, terms_version)
 );
 create index if not exists kk_customer_terms_identity
   on public.kk_customer_terms_evidence (provider_id, line_user_id, terms_version);
@@ -104,6 +104,8 @@ create or replace function public.kk_customer_terms_accept(
                 evidence_reference text, evidence_verified boolean)
 language plpgsql security invoker set search_path = ''
 as $$
+#variable_conflict use_column
+-- Resolve only this function's conflict target as columns; other reads use s./e.
 declare v_provider text; v_user text;
 begin
   if p_terms_version !~ '^KK-TERMS-[0-9]{4}-[0-9]{2}-[0-9]{2}$'
@@ -117,7 +119,7 @@ begin
     provider_id, line_user_id, terms_version, evidence_source, evidence_reference, evidence_verified
   ) values (
     v_provider, v_user, p_terms_version, 'AUTHENTICATED_WEB_ACTION', p_evidence_reference, true
-  ) on conflict on constraint kk_customer_terms_identity_version_key do nothing;
+  ) on conflict (provider_id, line_user_id, terms_version) do nothing;
   return query select e.provider_id, e.line_user_id, e.terms_version,
                       e.accepted_at, e.evidence_source, e.evidence_reference, e.evidence_verified
   from public.kk_customer_terms_evidence e

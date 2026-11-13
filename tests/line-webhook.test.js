@@ -165,7 +165,7 @@ function syntheticLineFetch(calls, evidence=EVIDENCE) {
       calls.push({type:'booking-write',url:u,body});
       return {ok:true,status:200,text:async()=>JSON.stringify({
         ok:true, booking_id:'BK-SYNTHETIC-CONSENT-001',
-        row_number:28,booking_status:'pending'
+        row_number:28,booking_status:'pending',idempotent_replay:false
       })};
     }
     if(u.endsWith('/push')||u.endsWith('/reply')){
@@ -198,6 +198,32 @@ test('verified signed LINE sender matches private current-version consent and re
   assert.match(JSON.stringify(calls[2].body.messages),/ยืนยัน LINE User ID จากหลักฐานหลังบ้าน/);
   assert.doesNotMatch(JSON.stringify(calls[3].body.messages),/KK-TERMS-2026-11-06/);
   assert.equal(calls[3].body.messages.length,1);
+});
+
+test('canonical pending replay or unverified replay evidence never resends initial owner/customer notifications',async()=>{
+ for(const flag of [true,undefined,null,'true','false',0,1]){
+  const calls=[],warnings=[];
+  const originalWarn=console.warn;
+  const baseFetch=syntheticLineFetch(calls);
+  console.warn=(...args)=>warnings.push(args.join(' '));
+  try{
+   const result=await mod._test.processEvent(identityEvent(),identityEnv(),async(url,options)=>{
+    if(String(url).startsWith('https://script.google.com/')){
+     calls.push({type:'booking-write'});
+     return {ok:true,status:200,text:async()=>JSON.stringify({ok:true,
+      booking_id:'BK-SYNTHETIC-CONSENT-001',row_number:28,
+      booking_status:'pending',idempotent_replay:flag})};
+    }
+    return baseFetch(url,options);
+   },{signatureVerified:true});
+   assert.equal(result.automation_status,'PENDING_DELIVERY_REVIEW_REQUIRED');
+   assert.equal(result.requires_manual_delivery_review,true);
+   assert.deepEqual(calls.map(x=>x.type),['private-receipt','booking-write']);
+   assert.equal(warnings.length,1,'uncertain notification requires an explicit operational warning');
+   assert.match(warnings[0],/PENDING_DELIVERY_REVIEW_REQUIRED/);
+   assert.doesNotMatch(warnings[0],/BK-SYNTHETIC|SYNTHETIC_REPLY_TOKEN|U[a-f0-9]{32}|Synthetic Customer/);
+  }finally{console.warn=originalWarn;}
+ }
 });
 
 test('malformed signed LINE customer is acknowledged without Consent DB, Pending or owner Push',async()=>{
