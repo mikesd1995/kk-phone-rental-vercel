@@ -13,18 +13,25 @@ function request(messageLines=[]){
  return ['สนใจเช่ามือถือ','🎫 งาน: DEMO EVENT','📅 วันที่: 06/11/2026','📍 สถานที่: DEMO VENUE','📱 รุ่น: vivo X300 Pro','💰 ราคา: 590 บาท','👤 ชื่อเล่น: Demo',...messageLines].join('\n');
 }
 
-test('booking and waitlist LINE drafts include exact current customer attestation and privacy acknowledgement',()=>{
+test('web-originated booking drafts are compact and do not inject legal attestation text into LINE',()=>{
  const source=fs.readFileSync(path.join(root,'script.js'),'utf8');
  const terms=fs.readFileSync(path.join(root,'terms/index.html'),'utf8');
  const privacy=fs.readFileSync(path.join(root,'privacy/index.html'),'utf8');
  assert.equal(Evidence.VERSION,'KK-TERMS-2026-11-06');
  assert.match(terms,/<meta name="kk-terms-version" content="KK-TERMS-2026-11-06">/);
- assert.match(terms,/<time datetime="2026-11-06">6 พฤศจิกายน 2569<\/time>/);
- assert.match(privacy,/ข้อความยืนยันการยอมรับเงื่อนไขการเช่าและรหัสฉบับ/);
- assert.equal(source.split(Evidence.ACK_LINE).length-1,2,'booking and waitlist must both contain the same statement');
- assert.equal(source.split(Evidence.PRIVACY_LINE).length-1,2,'booking and waitlist must acknowledge Privacy distinctly');
- assert.ok(source.indexOf(Evidence.ACK_LINE,source.indexOf('function buildBookingMsg'))<source.indexOf('function getBookingUrl'));
- assert.ok(source.indexOf(Evidence.ACK_LINE,source.indexOf('function buildWaitlistMsg'))<source.indexOf('function getWaitlistUrl'));
+ assert.ok(terms.includes('<time datetime="2026-11-06">6 พฤศจิกายน 2569</time>'));
+ assert.match(privacy,/เว็บไซต์ไม่แนบข้อความยืนยันนี้อัตโนมัติ/);
+ const booking=source.slice(source.indexOf('function buildBookingMsg'),source.indexOf('function getBookingUrl'));
+ const waitlist=source.slice(source.indexOf('function buildWaitlistMsg'),source.indexOf('function getWaitlistUrl'));
+ for(const text of [booking,waitlist]){
+   assert.equal(text.includes(Evidence.ACK_LINE),false);
+   assert.equal(text.includes(Evidence.PRIVACY_LINE),false);
+ }
+ // Existing legacy/direct LINE acknowledgements may still be verified, but a
+ // browser-only checkbox must never turn into a forged customer-sent statement.
+ const pending=Webhook.parseBookingText(request());
+ assert.equal(pending.terms_acknowledged,false);
+ assert.equal(pending.terms_version,'');
 });
 
 test('only an exact customer-origin LINE statement for this terms version qualifies as message evidence',()=>{
@@ -48,7 +55,7 @@ test('only an exact customer-origin LINE statement for this terms version qualif
 });
 
 test('governed pending booking has bounded evidence marker linked to existing LINE request id, no new PII',()=>{
- const event={webhookEventId:'safely-synthetic-event',source:{userId:'UCUSTOMER001'}};
+ const event={webhookEventId:'safely-synthetic-event',source:{type:'user',userId:'U'+'c'.repeat(32)}};
  const canonical={event_id:'EVT-1',template_id:'TPL-1',package_id:'PKG-1'};
  const ack=Webhook.parseBookingText(request([Evidence.ACK_LINE,Evidence.PRIVACY_LINE]));
  const yes=Intake.prepareBookingIntent(event,ack,canonical);
@@ -61,8 +68,8 @@ test('governed pending booking has bounded evidence marker linked to existing LI
  assert.equal(yes.payload.booking_status,'pending');
  assert.equal(yes.payload.payment_status,'unpaid');
  assert.equal(yes.payload.amount_received,0);
- assert.equal(yes.payload.customer_contact,'UCUSTOMER001');
- assert.doesNotMatch(yes.payload.booking_note,/Demo|UCUSTOMER001|590/);
+ assert.equal(yes.payload.customer_contact,'U'+'c'.repeat(32));
+ assert.doesNotMatch(yes.payload.booking_note,/Demo|U[0-9a-f]{32}|590/);
  assert.equal(yes.payload.terms_evidence,undefined,'no new unapproved canonical column');
 });
 

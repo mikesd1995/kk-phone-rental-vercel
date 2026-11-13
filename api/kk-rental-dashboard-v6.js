@@ -7,7 +7,7 @@
 const v5Handler=require('../server/legacy/kk-rental-dashboard-v5');
 const legacyHandler=require('../server/rental-dashboard-core.js');
 const privateSheets=require('./lib/private-google-sheets');
-const crmFreshness=require('./lib/crm-freshness');
+const crmFreshness=require('../server/crm-freshness');
 const crmReconciliation=require('./lib/crm-reconciliation');
 const CorePrivacy=require('../server/core-sheet-private-reader.js');
 const AdminSecurity=require('../server/admin-session.js');

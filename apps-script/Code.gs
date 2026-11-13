@@ -92,7 +92,7 @@ function kkSafeStringify_(value, maxLen) {
   const limit = maxLen || 1500;
   try {
     const clean = JSON.parse(JSON.stringify(value || {}, function(key, val) {
-      if (key === 'apiKey' || key === 'readKey' || key === 'KK_CORE_PRIVATE_READ_KEY') return '[redacted]';
+      if (key === 'apiKey' || key === 'readKey' || key === 'KK_CORE_PRIVATE_READ_KEY' || key === 'outbox_dispatch_key') return '[redacted]';
       if (key === 'base64') return '[base64 omitted]';
       if (typeof val === 'string' && val.length > 300) return val.slice(0, 300) + '…';
       return val;
@@ -889,23 +889,336 @@ function kkFormulaWebReadyAction_(rowNumber) {
   const lockedById = `COUNTIFS('18_Event_Visibility_Locks'!$B$2:$B,A${r},'18_Event_Visibility_Locks'!$G$2:$G,"LOCKED")>0`;
   const lockedByIdentity = `COUNTIFS('18_Event_Visibility_Locks'!$C$2:$C,B${r},'18_Event_Visibility_Locks'!$D$2:$D,IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,3,FALSE),""),'18_Event_Visibility_Locks'!$E$2:$E,D${r},'18_Event_Visibility_Locks'!$G$2:$G,"LOCKED")>0`;
   const historicalDifferentId = `COUNTIFS('18_Event_Visibility_Locks'!$C$2:$C,B${r},'18_Event_Visibility_Locks'!$D$2:$D,IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,3,FALSE),""),'18_Event_Visibility_Locks'!$E$2:$E,D${r},'18_Event_Visibility_Locks'!$B$2:$B,"<>"&A${r})>0`;
-  return `=IF(A${r}="","",IF(OR(${lockedById},${lockedByIdentity},${historicalDifferentId},IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,9,FALSE),"")<>"OK",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,6,FALSE),"")<>"open",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,7,FALSE),FALSE)<>TRUE),"hide",IF(MAX(G${r},H${r})>0,"show","show_full")))`;
+  return `=IF(A${r}="","",IF(OR(${lockedById},${lockedByIdentity},${historicalDifferentId},IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,9,FALSE),"")<>"OK",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,6,FALSE),"")<>"open",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,7,FALSE),FALSE)<>TRUE),"hide",IF(G${r}>0,"show","show_full")))`;
 }
 
-function kkRepairOwnerVisibilityLockFormulas_() {
-  const startRow = 5;
-  const endRow = 1000;
-  const rowCount = endRow - startRow + 1;
-  const webReadyAction = [];
-  const webPackageStatus = [];
-  for (let row = startRow; row <= endRow; row++) {
-    webReadyAction.push([kkFormulaWebReadyAction_(row)]);
-    webPackageStatus.push([kkFormulaWebPackageStatus_(row)]);
+function kkFormulaWebReadyBookingStatus_(rowNumber) {
+  const r = rowNumber;
+  // H is lens-only or bundle add-on stock; it must not reopen a sold-out phone rental.
+  // A hidden event remains hidden, and a full phone date stays visible for waitlist.
+  return `=IF(A${r}="","",IF(J${r}="hide","ซ่อนจากเว็บ",IF(AND(J${r}="show",G${r}>0),"เปิดจอง","เต็มแล้ว")))`;
+}
+
+// READ-ONLY owner preflight. Never overwrite a manual status or a drifted formula.
+// Live evidence on 2026-11-01: 09_Web_Packages!J144 is a deliberate literal "hidden"
+// on an existing-renter lens-only package. Package J is OUT OF SCOPE here.
+function kkPreflightOwnerVisibilityLockFormulas_() {
+  const startRow = 5, rowCount = 996;
+  const web = kkSheet_(KK.webReady);
+  const values = web.getRange(startRow, 1, rowCount, 10).getDisplayValues();
+  const formulas = web.getRange(startRow, 9, rowCount, 2).getFormulas();
+  const issues = [];
+  let populatedRows = 0, legacyRows = 0, alreadySafeRows = 0, blankRows = 0;
+  // Count the ACTUAL write blast radius, including the blank-event fill-down
+  // formulas. legacy_rows alone counts only populated event IDs and therefore
+  // substantially understates how many formula pairs Apply would replace.
+  let blankFormulaRows = 0, blankEmptyRows = 0,
+    plannedChangeRows = 0, safeFormulaPairsAll = 0,
+    phoneZeroMarkedOpen = 0, phoneZeroLensPositiveMarkedOpen = 0;
+  for (let i = 0; i < rowCount; i++) {
+    const r = startRow + i;
+    const v = values[i] || [];
+    const f = formulas[i] || [];
+    const id = String(v[0] || '').trim();
+    const status = String(f[0] || '').trim();
+    const action = String(f[1] || '').trim();
+    // Owner-gated cutover MUST compare complete A1 expressions. Checking only
+    // substrings lets an altered formula piggyback on known stock/lock fragments.
+    const safeStatus = kkFormulaWebReadyBookingStatus_(r);
+    const safeAction = kkFormulaWebReadyAction_(r);
+    const legacyStatus = '=IF(A' + r + '="","",IF(J' + r +
+      '="hide","ซ่อนจากเว็บ",IF(MAX(G' + r + ',H' + r +
+      ')>0,"เปิดจอง","เต็มแล้ว")))';
+    const legacyAction = safeAction.replace(
+      'IF(G' + r + '>0,"show","show_full")',
+      'IF(MAX(G' + r + ',H' + r + ')>0,"show","show_full")'
+    );
+    const recognized = (status === legacyStatus || status === safeStatus) &&
+      (action === legacyAction || action === safeAction);
+    if (!id) {
+      blankRows++;
+      // A blank event ID with other A:H data is an orphan, not a safe empty
+      // fill-down slot. Block BEFORE formula writes or owner approval.
+      if (v.slice(1, 8).some(value =>
+          String(value == null ? '' : value).trim())) issues.push(r);
+      // Empty event rows may still contain legitimate fill-down formulas.
+      // Count them as planned writes; a truly blank cell pair stays untouched.
+      if (status || action) {
+        if (!recognized) issues.push(r);
+        else {
+          blankFormulaRows++;
+          if (status === safeStatus && action === safeAction) safeFormulaPairsAll++;
+          else plannedChangeRows++;
+        }
+      } else if (String(v[8] || '').trim() || String(v[9] || '').trim()) {
+        issues.push(r);
+      } else blankEmptyRows++;
+      continue;
+    }
+    populatedRows++;
+    if (!recognized) issues.push(r);
+    else if (status !== safeStatus || action !== safeAction) {
+      legacyRows++;
+      plannedChangeRows++;
+    } else {
+      alreadySafeRows++;
+      safeFormulaPairsAll++;
+    }
+    // Aggregate anomaly counts only: never log event IDs or customer data.
+    // These are actual rendered I/J values, not proof of a valid booking.
+    const phoneCount = Number(String(v[6] == null ? '' : v[6]).replace(/,/g, ''));
+    const lensCount = Number(String(v[7] == null ? '' : v[7]).replace(/,/g, ''));
+    if (String(v[6] == null ? '' : v[6]).trim() &&
+        Number.isFinite(phoneCount) && phoneCount === 0 &&
+        String(v[9] || '').trim() === 'show' &&
+        String(v[8] || '').trim() === 'เปิดจอง') {
+      phoneZeroMarkedOpen++;
+      if (Number.isFinite(lensCount) && lensCount > 0)
+        phoneZeroLensPositiveMarkedOpen++;
+    }
   }
-  kkSheet_(KK.webReady).getRange(startRow, 10, rowCount, 1).setFormulas(webReadyAction);
-  kkSheet_(KK.webPackages).getRange(startRow, 10, rowCount, 1).setFormulas(webPackageStatus);
-  SpreadsheetApp.flush();
-  return rowCount;
+  return {
+    status: issues.length || populatedRows === 0 ? 'BLOCKED' : 'READY_FOR_OWNER_APPROVAL',
+    pass: issues.length === 0 && populatedRows > 0,
+    checked_rows: rowCount,
+    populated_rows: populatedRows,
+    blank_rows: blankRows,
+    // A no-write preflight receipt. Expected live baseline at 8 Nov:
+    // 996 scanned, 438 populated, 557 blank-event formula pairs, 1 truly
+    // empty pair, 995 planned writes (1990 formula cells), 2 phone-zero OPEN.
+    blank_formula_rows: blankFormulaRows,
+    blank_without_formula_rows: blankEmptyRows,
+    legacy_rows: legacyRows,
+    already_safe_rows: alreadySafeRows,
+    planned_change_rows: plannedChangeRows,
+    planned_change_cells: plannedChangeRows * 2,
+    safe_formula_pairs_all: safeFormulaPairsAll,
+    phone_zero_marked_open: phoneZeroMarkedOpen,
+    phone_zero_lens_positive_marked_open: phoneZeroLensPositiveMarkedOpen,
+    unexpected_rows: issues.slice(0, 25),
+    unexpected_count: issues.length,
+    production_writes: 0
+  };
+}
+
+// Explicit owner repair only, never executed by public snapshot/API routes.
+// A successful dry run is NOT release approval. Owner must retain a rollback copy.
+// Plan only exact-known legacy formula rows. An already-safe or deliberately
+// blank owner row is never overwritten by a bulk Stock repair.
+function kkWebReadyOwnerRepairSpans_(previous, ids, generated, startRow) {
+  if (!Array.isArray(previous) || !Array.isArray(ids) ||
+      !Array.isArray(generated) || previous.length !== generated.length ||
+      ids.length !== generated.length) {
+    throw new Error('WEB_READY_FORMULA_ROLLBACK_SNAPSHOT_INVALID');
+  }
+  const spans = [];
+  let first = -1, next = [], before = [];
+  function flush() {
+    if (first >= 0) spans.push({startRow: startRow + first,
+      formulas: next, before: before});
+    first = -1;
+    next = [];
+    before = [];
+  }
+  for (let i = 0; i < generated.length; i++) {
+    const row = startRow + i;
+    const pair = previous[i], expected = generated[i], id = ids[i];
+    if (!Array.isArray(pair) || pair.length !== 2 ||
+        typeof pair[0] !== 'string' || typeof pair[1] !== 'string' ||
+        !Array.isArray(expected) || expected.length !== 2 ||
+        !Array.isArray(id) || typeof id[0] === 'undefined') {
+      throw new Error('WEB_READY_FORMULA_ROLLBACK_SNAPSHOT_INVALID');
+    }
+    const status = pair[0], action = pair[1];
+    if (status === expected[0] && action === expected[1]) {
+      flush();
+      continue;
+    }
+    if (status === '' && action === '' && !String(id[0] || '').trim()) {
+      flush();
+      continue;
+    }
+    const legacyStatus = '=IF(A' + row + '="","",IF(J' + row +
+      '="hide","ซ่อนจากเว็บ",IF(MAX(G' + row + ',H' + row +
+      ')>0,"เปิดจอง","เต็มแล้ว")))';
+    const legacyAction = expected[1].replace(
+      'IF(G' + row + '>0,"show","show_full")',
+      'IF(MAX(G' + row + ',H' + row + ')>0,"show","show_full")'
+    );
+    if (!((status === legacyStatus || status === expected[0]) &&
+          (action === legacyAction || action === expected[1]))) {
+      throw new Error('WEB_READY_FORMULA_SNAPSHOT_DRIFT');
+    }
+    if (first < 0) first = i;
+    next.push(expected);
+    before.push(pair);
+  }
+  flush();
+  // A strangely fragmented workbook is an owner conflict, not permission to
+  // issue unbounded provider writes. Inspect it before rerunning a repair.
+  if (spans.length > 25) throw new Error('WEB_READY_FORMULA_REPAIR_FRAGMENTED');
+  return spans;
+}
+
+// Inspect recalculated DISPLAY values after owner-only formula replacement.
+// Formula-text readback alone can report a false success if Google Sheets still
+// renders an OPEN phone slot with G=0. This function is pure/read-only; no PII,
+// identifiers or raw cell contents appear in its returned diagnostic receipt.
+function kkValidateOwnerWebReadyPhoneResults_(rows, startRow) {
+  const offset = Number(startRow == null ? 5 : startRow);
+  if (!Array.isArray(rows) || rows.length !== 996 || offset !== 5)
+    throw new Error('WEB_READY_OWNER_RESULTS_SHAPE_INVALID');
+  let populated = 0, open = 0, full = 0, hidden = 0, blank = 0;
+  const issues = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i], at = offset + i;
+    if (!Array.isArray(row) || row.length < 10)
+      throw new Error('WEB_READY_OWNER_RESULTS_SHAPE_INVALID');
+    const id = String(row[0] == null ? '' : row[0]).trim();
+    if (!id) {
+      // An orphan row can hide a real formula/data issue behind blank event ID.
+      if (row.some(v => String(v == null ? '' : v).trim())) issues.push(at);
+      else blank++;
+      continue;
+    }
+    populated++;
+    const rawPhone = String(row[6] == null ? '' : row[6]).replace(/,/g, '').trim();
+    const count = Number(rawPhone);
+    const status = String(row[8] == null ? '' : row[8]).trim();
+    const action = String(row[9] == null ? '' : row[9]).trim();
+    if (!rawPhone || !Number.isSafeInteger(count) || count < 0) {
+      issues.push(at);
+      continue;
+    }
+    if (action === 'hide' && status === 'ซ่อนจากเว็บ') hidden++;
+    else if (action === 'show' && count > 0 && status === 'เปิดจอง') open++;
+    else if (action === 'show_full' && count === 0 && status === 'เต็มแล้ว') full++;
+    else issues.push(at);
+  }
+  return {
+    pass: issues.length === 0 && populated > 0,
+    verified_event_rows: populated,
+    verified_open: open,
+    verified_full: full,
+    verified_hidden: hidden,
+    empty_rows: blank,
+    invalid_count: issues.length,
+    invalid_rows: issues.slice(0, 25),
+    owner_production_writes: 0
+  };
+}
+
+// Assert upstream A:H is unchanged across the provider write boundary. This
+// includes event, date, poster, phone/lens availability and owner-controlled
+// details but returns only a count; it never exposes identifiers.
+function kkOwnerWebReadyUpstreamChanged_(before, after) {
+  if (!Array.isArray(before) || !Array.isArray(after) ||
+      before.length !== 996 || after.length !== 996)
+    throw new Error('WEB_READY_OWNER_UPSTREAM_SHAPE_INVALID');
+  let changed = 0;
+  for (let i = 0; i < before.length; i++) {
+    if (!Array.isArray(before[i]) || !Array.isArray(after[i]) ||
+        before[i].length < 10 || after[i].length < 10)
+      throw new Error('WEB_READY_OWNER_UPSTREAM_SHAPE_INVALID');
+    for (let j = 0; j < 8; j++) {
+      if (String(before[i][j] == null ? '' : before[i][j]) !==
+          String(after[i][j] == null ? '' : after[i][j])) {
+        changed++;
+        break;
+      }
+    }
+  }
+  return changed;
+}
+
+// Explicit owner repair only, never executed by public snapshot/API routes.
+// Preserve existing source and owner locks. External backup still required
+// before any authorized owner invocation.
+function kkRepairOwnerVisibilityLockFormulas_() {
+  const lock = kkAcquireDocumentLock_('owner Web Ready I:J formula repair', 12000);
+  try {
+    const preflight = kkPreflightOwnerVisibilityLockFormulas_();
+    if (!preflight.pass) throw new Error(
+      'WEB_READY_FORMULA_PREFLIGHT_BLOCKED: unexpected rows=' +
+      preflight.unexpected_rows.join(',')
+    );
+    const startRow = 5, rowCount = 996, endRow = startRow + rowCount - 1;
+    const safe = [];
+    for (let row = startRow; row <= endRow; row++) {
+      safe.push([
+        kkFormulaWebReadyBookingStatus_(row),
+        kkFormulaWebReadyAction_(row)
+      ]);
+    }
+    const web = kkSheet_(KK.webReady);
+    const beforeValues = web.getRange(startRow, 1, rowCount, 10).getDisplayValues();
+    const previous = web.getRange(startRow, 9, rowCount, 2).getFormulas();
+    const ids = web.getRange(startRow, 1, rowCount, 1).getDisplayValues();
+    // Fail closed on drift after preflight and before any write. A blank row
+    // without formulas is kept blank; a safe row is kept unchanged.
+    const spans = kkWebReadyOwnerRepairSpans_(previous, ids, safe, startRow);
+    if (!spans.length) {
+      // Idempotence is safe only when the displayed customer outcome is also
+      // correct. A no-op must not certify stale OPEN phones or invalid rows.
+      const verified = kkValidateOwnerWebReadyPhoneResults_(beforeValues, startRow);
+      if (!verified.pass || verified.verified_event_rows !== preflight.populated_rows)
+        throw new Error('WEB_READY_OWNER_ALREADY_SAFE_FORMULAS_BAD_VALUES');
+      return 0;
+    }
+    let attempted = 0;
+    try {
+      for (const span of spans) {
+        attempted++;
+        web.getRange(span.startRow, 9, span.formulas.length, 2)
+          .setFormulas(span.formulas);
+      }
+      SpreadsheetApp.flush();
+      for (const span of spans) {
+        const got = web.getRange(span.startRow, 9, span.formulas.length, 2)
+          .getFormulas();
+        if (got.length !== span.formulas.length ||
+            span.formulas.some((pair, i) => !got[i] ||
+              got[i][0] !== pair[0] || got[i][1] !== pair[1])) {
+          throw new Error('WEB_READY_FORMULA_READBACK_MISMATCH');
+        }
+      }
+      // Validate actual recalculated outcomes rather than treating exact
+      // formula text as proof that customers see the correct booking status.
+      const afterValues = web.getRange(startRow, 1, rowCount, 10).getDisplayValues();
+      if (kkOwnerWebReadyUpstreamChanged_(beforeValues, afterValues) > 0)
+        throw new Error('WEB_READY_OWNER_UPSTREAM_CHANGED');
+      const verified = kkValidateOwnerWebReadyPhoneResults_(afterValues, startRow);
+      if (!verified.pass || verified.verified_event_rows !== preflight.populated_rows)
+        throw new Error('WEB_READY_OWNER_RECALCULATION_NOT_SAFE');
+    } catch (writeError) {
+      // Restore only spans that may have been touched, in reverse order.
+      // Provider error messages and private owner formulas never leave this API.
+      try {
+        for (let i = attempted - 1; i >= 0; i--) {
+          const span = spans[i];
+          web.getRange(span.startRow, 9, span.before.length, 2)
+            .setFormulas(span.before);
+        }
+        SpreadsheetApp.flush();
+        for (let i = attempted - 1; i >= 0; i--) {
+          const span = spans[i];
+          const got = web.getRange(span.startRow, 9, span.before.length, 2)
+            .getFormulas();
+          if (got.length !== span.before.length ||
+              span.before.some((pair, j) => !got[j] ||
+                got[j][0] !== pair[0] || got[j][1] !== pair[1])) {
+            throw new Error('WEB_READY_ROLLBACK_READBACK_MISMATCH');
+          }
+        }
+      } catch (rollbackError) {
+        throw new Error('WEB_READY_FORMULA_REPAIR_ROLLBACK_FAILED');
+      }
+      throw new Error('WEB_READY_FORMULA_REPAIR_ROLLED_BACK');
+    }
+    return spans.reduce((n, span) => n + span.formulas.length, 0);
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // Storefront policy: standalone lens rental is hidden by default.
@@ -1452,14 +1765,27 @@ function doPost(e) {
       case 'createBooking': result = kkApiCreateBooking_(payload); break;
       case 'createLineBookingPending': result = kkApiCreateLineBookingPending_(payload); break;
       case 'decideLineBookingPending': result = kkApiDecideLineBookingPending_(payload); break;
+      case 'lineOwnerOutboxReadiness': result = kkApiLineOwnerOutboxReadiness_(payload); break;
+      case 'claimLineBookingDecisionDelivery': result = kkApiClaimLineBookingDecisionDelivery_(payload); break;
+      case 'settleLineBookingDecisionDelivery': result = kkApiSettleLineBookingDecisionDelivery_(payload); break;
       case 'updateBooking': result = kkApiUpdateBooking_(payload); break;
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
     }
-    if (action && action !== 'snapshot' && action !== 'phase1Health' && action !== 'privateCoreRead') kkAuditLog_(action, payload, result, startedAt);
+    if (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery' ||
+        (action === 'decideLineBookingPending' && result && result.outbox_mode === KK_LINE_OWNER_OUTBOX_VERSION_)) {
+      // This ledger contains LINE recipient IDs and credentials; the admin audit
+      // stores only transition metadata, never the customer contact or secret.
+      kkAuditLog_(action, { booking_id: payload.booking_id }, {
+        booking_id: result.booking_id, outbox_id: result.outbox_id, outbox_state: result.outbox_state
+      }, startedAt);
+    } else if (action && action !== 'snapshot' && action !== 'phase1Health' && action !== 'privateCoreRead') kkAuditLog_(action, payload, result, startedAt);
     return kkApiJson_(kkApiOk_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, result || {})));
   } catch (err) {
-    if (keyOk && action !== 'privateCoreRead') kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
+    if (keyOk && (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery')) {
+      kkErrorLog_(action, {booking_id: String(payload.booking_id || '').trim()}, 
+        new Error('LINE_OWNER_OUTBOX_ACTION_FAILED'), startedAt);
+    } else if (keyOk && action !== 'privateCoreRead') kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
     if(action==='privateCoreRead') return kkApiJson_({ok:false,admin_api_version:KK_ADMIN_VERSION,error_code:'PRIVATE_CORE_READ_UNAVAILABLE',error:'Private Core read unavailable'});
     return kkApiJson_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, kkApiFail_(err)));
   }
@@ -2794,7 +3120,254 @@ function kkApiCreateLineBookingPending_(payload) {
 }
 
 
+
+// LINE owner-decision outbox is bound to this SAME spreadsheet's DocumentLock.
+// It is deliberately disabled until the owner provisions a private tab with the
+// exact schema and separately approves BOTH producer and consumer rollouts.
+// Never auto-create a tab, overwrite owner locks, or auto-retry uncertain sends.
+const KK_LINE_OWNER_OUTBOX_VERSION_ = 'KK_LINE_OWNER_OUTBOX_V1';
+const KK_LINE_OWNER_OUTBOX_SHEET_ = '19_Line_Decision_Outbox';
+const KK_LINE_OWNER_OUTBOX_MESSAGE_TYPE_ = 'CUSTOMER_DECISION';
+const KK_LINE_OWNER_OUTBOX_HEADERS_ =
+  ['outbox_id','booking_id','decision','state','retry_key','provider_message_id','recipient','message_type','request_id','updated_at','created_at'];
+
+function kkLineOwnerOutboxEnabled_() {
+  return String(PropertiesService.getScriptProperties()
+    .getProperty('KK_LINE_OWNER_OUTBOX_V1_ENABLED') || '') === 'true';
+}
+function kkLineOwnerOutboxRequireEnabled_() {
+  if (!kkLineOwnerOutboxEnabled_()) throw new Error('LINE_OWNER_OUTBOX_DISABLED');
+}
+function kkLineOwnerOutboxDispatchReady_() {
+  const props=PropertiesService.getScriptProperties();
+  const secret=String(props.getProperty('KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET')||'');
+  const admin=String(props.getProperty('KK_ADMIN_API_KEY')||'');
+  return /^[A-Za-z0-9_-]{32,128}$/.test(secret) && secret!==admin;
+}
+function kkLineOwnerOutboxRequireDispatch_(payload) {
+  kkLineOwnerOutboxRequireEnabled_();
+  if (!kkLineOwnerOutboxDispatchReady_()) throw new Error('LINE_OWNER_OUTBOX_DISPATCH_NOT_READY');
+  const expected=String(PropertiesService.getScriptProperties()
+    .getProperty('KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET')||'');
+  const supplied=String(payload&&payload.outbox_dispatch_key||'');
+  let difference=expected.length^supplied.length;
+  for(let i=0;i<expected.length;i++)difference|=expected.charCodeAt(i)^(supplied.charCodeAt(i)||0);
+  if(difference!==0)throw new Error('LINE_OWNER_OUTBOX_DISPATCH_UNAUTHORIZED');
+}
+function kkLineOwnerOutboxId_(bookingId) {
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,
+    'KK_LINE_OWNER_OUTBOX_V1:' + String(bookingId), Utilities.Charset.UTF_8);
+  return 'LINE_OWNER_V1_' + digest.map(function(byte){
+    return ('0' + ((byte + 256) % 256).toString(16)).slice(-2);
+  }).join('').slice(0,48);
+}
+function kkLineOwnerOutboxSheet_() {
+  const sh = kkSheet_(KK_LINE_OWNER_OUTBOX_SHEET_);
+  const header = sh.getRange(1,1,1,11).getValues()[0].map(function(v){return String(v||'').trim();});
+  if (JSON.stringify(header) !== JSON.stringify(KK_LINE_OWNER_OUTBOX_HEADERS_))
+    throw new Error('LINE_OWNER_OUTBOX_SCHEMA_MISMATCH');
+  return sh;
+}
+function kkLineOwnerOutboxFind_(sh, outboxId) {
+  const last = sh.getLastRow();
+  if (last < 2) return null;
+  let found = null;
+  // Admission is capped separately; existing receipts must stay recoverable
+  // after legacy/imported rows exceed that cap. Bound each read allocation.
+  for (let start=2;start<=last;start+=1000) {
+    const matches=sh.getRange(start,1,Math.min(1000,last-start+1),1).getValues();
+    for (let i=0;i<matches.length;i++) {
+      if (String(matches[i][0]||'').trim() !== outboxId) continue;
+      if (found) throw new Error('LINE_OWNER_OUTBOX_DUPLICATE_ID');
+      found = {row:start+i,cells:sh.getRange(start+i,1,1,11).getValues()[0]};
+    }
+  }
+  return found;
+}
+function kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId,recipient,requestId) {
+  if (!record || String(record.cells[0]||'') !== outboxId ||
+      String(record.cells[1]||'') !== bookingId ||
+      String(record.cells[2]||'') !== decision ||
+      String(record.cells[7]||'') !== KK_LINE_OWNER_OUTBOX_MESSAGE_TYPE_ ||
+      (requestId && String(record.cells[8]||'') !== requestId) ||
+      (recipient && String(record.cells[6]||'') !== recipient) ||
+      !['INTENT','READY','CLAIMED','SENT','UNCERTAIN'].includes(String(record.cells[3]||'')))
+    throw new Error('LINE_OWNER_OUTBOX_IDENTITY_OR_STATE_MISMATCH');
+  return record;
+}
+function kkLineOwnerOutboxWrite_(sh,row,cells) {
+  const values = cells.slice(0,11).map(function(v){return String(v==null?'':v);});
+  values[9] = new Date().toISOString();
+  sh.getRange(row,1,1,11).setValues([values]);
+  SpreadsheetApp.flush();
+  const after = sh.getRange(row,1,1,11).getValues()[0].map(function(v){return String(v==null?'':v);});
+  if (JSON.stringify(after) !== JSON.stringify(values))
+    throw new Error('LINE_OWNER_OUTBOX_EXACT_READBACK_FAILED');
+  return {row: row,cells: after};
+}
+function kkLineOwnerOutboxIsUser_(contact) {
+  return /^U[0-9a-f]{32}$/.test(contact);
+}
+function kkLineOwnerOutboxCanonical_(bookingId) {
+  const row=kkFindBookingRow_('',bookingId), sh=kkSheet_(KK.bookings);
+  const current=sh.getRange(row,1,1,20).getValues()[0];
+  const requestId=String(kkBookingRequestIdFromNote_(current[19])||'');
+  if (String(current[0]||'').trim()!==bookingId ||
+      String(current[7]||'').toUpperCase().trim()!=='LINE' ||
+      !/^line:[a-f0-9]{48}$/.test(requestId))
+    throw new Error('LINE_OWNER_OUTBOX_CANONICAL_BOOKING_UNVERIFIED');
+  const contact=String(current[5]||'').trim();
+  if (!kkLineOwnerOutboxIsUser_(contact)) throw new Error('LINE_OWNER_OUTBOX_CUSTOMER_CONTACT_UNVERIFIED');
+  return {row: row,sh: sh,current: current,contact: contact,requestId: requestId};
+}
+function kkLineOwnerOutboxEnvelope_(bookingId,decision,canonical,record,replay) {
+  const target=decision==='approve'?'confirmed':'cancelled';
+  return {
+    row_number:canonical.row,booking_id:bookingId,decision:decision,
+    booking_status:target,payment_status:String(canonical.current[13]||'').toLowerCase().trim(),
+    customer_contact:canonical.contact,phone_asset_id:String(canonical.current[9]||'').trim(),
+    lens_asset_id:String(canonical.current[10]||'').trim(),
+    outbox_mode:KK_LINE_OWNER_OUTBOX_VERSION_,
+    outbox_id:kkLineOwnerOutboxId_(bookingId),
+    outbox_state:record?String(record.cells[3]):'MISSING',
+    // Existing server versions must NEVER push without an outbox claim.
+    idempotent_replay:true,
+    delivery_review_required: !record || !['READY','SENT'].includes(String(record.cells[3]))
+  };
+}
+function kkApiDecideLineBookingPendingDurable_(payload) {
+  // A generic Admin API key is insufficient to approve a governed LINE booking.
+  // Only the signed owner webhook's designated private dispatcher can decide.
+  kkLineOwnerOutboxRequireDispatch_(payload);
+  const lock=kkAcquireDocumentLock_('LINE owner booking decision and outbox',12000);
+  try {
+    const bookingId=String(payload.booking_id||'').trim();
+    const decision=String(payload.decision||'').toLowerCase().trim();
+    if (!bookingId || !['approve','reject'].includes(decision))
+      throw new Error('LINE_OWNER_OUTBOX_DECISION_INVALID');
+    // Fail before mutating Booking if the private outbox schema is absent/drifted.
+    const ledger=kkLineOwnerOutboxSheet_();
+    const canonical=kkLineOwnerOutboxCanonical_(bookingId);
+    const status=String(canonical.current[2]||'').toLowerCase().trim();
+    const target=decision==='approve'?'confirmed':'cancelled';
+    const outboxId=kkLineOwnerOutboxId_(bookingId);
+    let record=kkLineOwnerOutboxFind_(ledger,outboxId);
+    if (record) kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId,canonical.contact,canonical.requestId);
+    if (status===target) {
+      // Crash after Booking commit but before READY write: recover the durable
+      // intent. Old bookings without an intent are NOT retroactively sent.
+      if (record && record.cells[3]==='INTENT') {
+        const next=record.cells.slice();next[3]='READY';
+        record=kkLineOwnerOutboxWrite_(ledger,record.row,next);
+      }
+      return kkLineOwnerOutboxEnvelope_(bookingId,decision,canonical,record,true);
+    }
+    if (status!=='pending') throw new Error('LINE_OWNER_OUTBOX_BOOKING_ALREADY_DECIDED');
+    if (record && record.cells[3]!=='INTENT')
+      throw new Error('LINE_OWNER_OUTBOX_PENDING_STATE_CONFLICT');
+    if (!record) {
+      if (ledger.getLastRow()>=20000) throw new Error('LINE_OWNER_OUTBOX_CAPACITY_REVIEW_REQUIRED');
+      const now=new Date().toISOString();
+      record=kkLineOwnerOutboxWrite_(ledger,ledger.getLastRow()+1,
+        [outboxId,bookingId,decision,'INTENT','','',canonical.contact,KK_LINE_OWNER_OUTBOX_MESSAGE_TYPE_,canonical.requestId,now,now]);
+    }
+    kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId,canonical.contact,canonical.requestId);
+    // The INTENT was durably written and read back BEFORE the booking changes.
+    const next=canonical.current.slice();next[2]=target;
+    canonical.sh.getRange(canonical.row,1,1,20).setValues([next]);
+    SpreadsheetApp.flush();
+    const persisted=kkLineOwnerOutboxCanonical_(bookingId);
+    if (String(persisted.current[2]||'').toLowerCase().trim()!==target ||
+        persisted.contact!==canonical.contact ||
+        kkBookingRequestIdFromNote_(persisted.current[19])!==
+        kkBookingRequestIdFromNote_(canonical.current[19]))
+      throw new Error('LINE_OWNER_OUTBOX_DECISION_READBACK_FAILED');
+    const ready=record.cells.slice();ready[3]='READY';
+    record=kkLineOwnerOutboxWrite_(ledger,record.row,ready);
+    return kkLineOwnerOutboxEnvelope_(bookingId,decision,persisted,record,false);
+  } finally {lock.releaseLock();}
+}
+function kkApiLineOwnerOutboxReadiness_(payload) {
+  // Verify the *same* private dispatcher credential that claim/settle use.
+  // Without this preflight, a mismatched deploy could commit a Booking decision
+  // and only then discover that it cannot authorize the customer notification.
+  kkLineOwnerOutboxRequireDispatch_(payload);
+  // Pure read-only schema preflight: this must succeed before changing Booking.
+  kkLineOwnerOutboxSheet_();
+  if(!kkLineOwnerOutboxDispatchReady_())throw new Error('LINE_OWNER_OUTBOX_DISPATCH_NOT_READY');
+  return {outbox_mode:KK_LINE_OWNER_OUTBOX_VERSION_,ready:true,columns:11};
+}
+function kkApiClaimLineBookingDecisionDelivery_(payload) {
+  kkLineOwnerOutboxRequireDispatch_(payload);
+  const lock=kkAcquireDocumentLock_('LINE owner notification claim',12000);
+  try {
+    const bookingId=String(payload.booking_id||'').trim();
+    const decision=String(payload.decision||'').trim();
+    const retryKey=String(payload.retry_key||'').trim();
+    const outboxId=String(payload.outbox_id||'').trim();
+    if (!bookingId || !['approve','reject'].includes(decision) ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(retryKey) ||
+        outboxId!==kkLineOwnerOutboxId_(bookingId))
+      throw new Error('LINE_OWNER_OUTBOX_CLAIM_INVALID');
+    const ledger=kkLineOwnerOutboxSheet_();
+    const record=kkLineOwnerOutboxAssert_(kkLineOwnerOutboxFind_(ledger,outboxId),bookingId,decision,outboxId);
+    const canonical=kkLineOwnerOutboxCanonical_(bookingId);
+    kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId,canonical.contact,canonical.requestId);
+    const target=decision==='approve'?'confirmed':'cancelled';
+    if (String(canonical.current[2]||'').toLowerCase().trim()!==target)
+      throw new Error('LINE_OWNER_OUTBOX_BOOKING_NOT_COMMITTED');
+    if (record.cells[3]!=='READY')
+      return {booking_id:bookingId,decision:decision,outbox_id:outboxId,
+        outbox_mode:KK_LINE_OWNER_OUTBOX_VERSION_,outbox_state:String(record.cells[3]),claimed:false};
+    if (!kkLineOwnerOutboxIsUser_(canonical.contact))
+      throw new Error('LINE_OWNER_OUTBOX_RECIPIENT_UNVERIFIED');
+    const next=record.cells.slice();next[3]='CLAIMED';next[4]=retryKey;
+    const claimed=kkLineOwnerOutboxWrite_(ledger,record.row,next);
+    return {booking_id:bookingId,decision:decision,outbox_id:outboxId,
+      outbox_mode:KK_LINE_OWNER_OUTBOX_VERSION_,outbox_state:String(claimed.cells[3]),
+      claimed:true,retry_key:retryKey,customer_contact:canonical.contact};
+  } finally {lock.releaseLock();}
+}
+function kkApiSettleLineBookingDecisionDelivery_(payload) {
+  kkLineOwnerOutboxRequireDispatch_(payload);
+  const lock=kkAcquireDocumentLock_('LINE owner notification settlement',12000);
+  try {
+    const bookingId=String(payload.booking_id||'').trim();
+    const decision=String(payload.decision||'').trim();
+    const retryKey=String(payload.retry_key||'').trim();
+    const outboxId=String(payload.outbox_id||'').trim();
+    const state=String(payload.delivery_state||'').trim();
+    const providerId=String(payload.provider_message_id||'').trim();
+    if (!bookingId || !['approve','reject'].includes(decision) ||
+        outboxId!==kkLineOwnerOutboxId_(bookingId) ||
+        !['SENT','UNCERTAIN'].includes(state) ||
+        (state==='SENT' && (!providerId || providerId.length>200)) ||
+        (state==='UNCERTAIN' && providerId))
+      throw new Error('LINE_OWNER_OUTBOX_SETTLEMENT_INVALID');
+    const ledger=kkLineOwnerOutboxSheet_();
+    const record=kkLineOwnerOutboxAssert_(kkLineOwnerOutboxFind_(ledger,outboxId),bookingId,decision,outboxId);
+    if (!retryKey || String(record.cells[4])!==retryKey)
+      throw new Error('LINE_OWNER_OUTBOX_RETRY_KEY_MISMATCH');
+    if (record.cells[3]==='SENT' && state==='SENT' && String(record.cells[5])===providerId)
+      return {booking_id:bookingId,decision:decision,outbox_id:outboxId,
+        outbox_mode:KK_LINE_OWNER_OUTBOX_VERSION_,outbox_state:'SENT',provider_message_id:providerId};
+    if (record.cells[3]!=='CLAIMED') throw new Error('LINE_OWNER_OUTBOX_ALREADY_SETTLED');
+    // A second canonical booking readback before acknowledging provider receipt.
+    const canonical=kkLineOwnerOutboxCanonical_(bookingId);
+    kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId,canonical.contact,canonical.requestId);
+    if (String(canonical.current[2]||'').toLowerCase().trim()!==
+        (decision==='approve'?'confirmed':'cancelled'))
+      throw new Error('LINE_OWNER_OUTBOX_STATUS_DRIFT');
+    const next=record.cells.slice();next[3]=state;next[5]=providerId;
+    const done=kkLineOwnerOutboxWrite_(ledger,record.row,next);
+    return {booking_id:bookingId,decision:decision,outbox_id:outboxId,
+      outbox_mode:KK_LINE_OWNER_OUTBOX_VERSION_,outbox_state:String(done.cells[3]),
+      provider_message_id:String(done.cells[5]||'')};
+  } finally {lock.releaseLock();}
+}
+
 function kkApiDecideLineBookingPending_(payload) {
+  if (kkLineOwnerOutboxEnabled_()) return kkApiDecideLineBookingPendingDurable_(payload);
   const lock = kkAcquireDocumentLock_('LINE owner booking decision', 12000);
   try {
     const bookingId = String(payload.booking_id || '').trim();

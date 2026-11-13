@@ -8,7 +8,7 @@ const ENV={
  KK_ADMIN_API_KEY:'synthetic-api-key',
  LINE_CHANNEL_ACCESS_TOKEN:'synthetic-line-token',
  LINE_CHANNEL_SECRET:'synthetic-line-secret',
- KK_OWNER_LINE_USER_ID:'UOWNER',KK_OWNER_LINE_TARGET_ID:'UOWNER'
+ KK_OWNER_LINE_USER_ID:'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',KK_OWNER_LINE_TARGET_ID:'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 };
 const SECRET_MARKER='SYNTHETIC_PRIVATE_CONTACT_0001234567';
 function response(body,status=200){
@@ -16,12 +16,12 @@ function response(body,status=200){
   text:async()=>typeof body==='string'?body:JSON.stringify(body)};
 }
 function event(decision,id='BK-SYNTHETIC'){
- return {type:'postback',replyToken:'synthetic-owner-reply',source:{type:'user',userId:'UOWNER'},
+ return {type:'postback',replyToken:'synthetic-owner-reply',source:{type:'user',userId:'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'},
   postback:{data:Approval.decisionData(decision,id,ENV)}};
 }
 function canonical(decision,id){
  return {ok:true,booking_id:id,booking_status:decision==='approve'?'confirmed':'cancelled',
-         customer_contact:'UCUSTOMER',idempotent_replay:false,decision};
+         customer_contact:'Ucccccccccccccccccccccccccccccccc',idempotent_replay:false,decision};
 }
 test('Apps Script HTTP failure never exposes untrusted response body or error_code',async()=>{
  let calls=0;
@@ -55,7 +55,7 @@ test('Apps Script invalid JSON never echoes raw payload or sends LINE',async()=>
 });
 test('LINE provider rejected push has stable diagnostic and status only',async()=>{
  let calls=0;
- await assert.rejects(()=>Approval.pushMessage('UCUSTOMER',{type:'text',text:'synthetic'},ENV,async()=>{
+ await assert.rejects(()=>Approval.pushMessage('Ucccccccccccccccccccccccccccccccc',{type:'text',text:'synthetic'},ENV,async()=>{
   calls++;return response(SECRET_MARKER,429);
  }),err=>{
   assert.equal(err.code,'LINE_SEND_FAILED');
@@ -123,7 +123,7 @@ test('compatible Apps Script response with absent optional decision still blocks
  const r=await Approval.processOwnerPostback(event('approve','BK-LEGACY'),ENV,async url=>{
   calls.push(url);
   if(url.startsWith('https://script.google.com/'))return response({
-   ok:true,booking_id:'BK-LEGACY',booking_status:'confirmed',customer_contact:'UCUSTOMER',idempotent_replay:false});
+   ok:true,booking_id:'BK-LEGACY',booking_status:'confirmed',customer_contact:'Ucccccccccccccccccccccccccccccccc',idempotent_replay:false});
   return response({ok:true});
  });
  assert.equal(r.status,'CONFIRMED');
@@ -150,7 +150,7 @@ test('Apps Script response-body read rejection is sanitized, retaining only HTTP
  });
 });
 test('LINE provider thrown transport error cannot leak payload to logs',async()=>{
- await assert.rejects(()=>Approval.pushMessage('UCUSTOMER',{type:'text',text:'synthetic'},ENV,async()=>{
+ await assert.rejects(()=>Approval.pushMessage('Ucccccccccccccccccccccccccccccccc',{type:'text',text:'synthetic'},ENV,async()=>{
   throw Error('TLS fail '+SECRET_MARKER);
  }),err=>{
   assert.equal(err.code,'LINE_SEND_TRANSPORT_FAILED');

@@ -2,6 +2,7 @@
 
 const crypto=require('node:crypto');
 const TermsEvidence=require('./kk-booking-terms-evidence');
+const LineIdentity=require('./kk-line-identity');
 
 function text(v){return String(v===undefined||v===null?'':v).trim();}
 function requestIdFromLineEvent(event){
@@ -16,18 +17,23 @@ function bookingIntent(event,booking,resolved={}){
   // must never be rejected solely because they do not have a Thai phone number.
   if(!booking||!text(booking.nickname)) return {ok:false,code:'CUSTOMER_FIELDS_REQUIRED'};
   if(!text(resolved.event_id)||!text(resolved.template_id)) return {ok:false,code:'CANONICAL_RESOLUTION_REQUIRED'};
-  if(!text(event&&event.source&&event.source.userId)) return {ok:false,code:'LINE_CUSTOMER_USER_ID_REQUIRED'};
+  const customerLineUserId=text(event&&event.source&&event.source.userId);
+  if(!customerLineUserId) return {ok:false,code:'LINE_CUSTOMER_USER_ID_REQUIRED'};
+  if(!LineIdentity.isUserId(customerLineUserId)) return {ok:false,code:'LINE_CUSTOMER_USER_ID_INVALID'};
+  if(event.source.type!=='user') return {ok:false,code:'LINE_CUSTOMER_PRIVATE_CHAT_REQUIRED'};
   return {ok:true,payload:{
     action:'createLineBookingPending',request_id,
     event_id:text(resolved.event_id),template_id:text(resolved.template_id),
-    customer_name:text(booking.nickname),customer_contact:text(event&&event.source&&event.source.userId),
+    customer_name:text(booking.nickname),customer_contact:customerLineUserId,
     customer_phone:text(booking.phone),contact_channel:'LINE',
     booking_status:'pending',pickup_time:text(booking.pickup_time),
     payment_status:'unpaid',amount_received:0,
     booking_note:'LINE webhook intake '+request_id+
-      (booking.terms_acknowledged===true && booking.terms_version===TermsEvidence.VERSION
-        ? ' | TERMS_ACK:'+TermsEvidence.VERSION
-        : ' | TERMS_NOT_CONFIRMED')
+      (booking.terms_identity_verified===true && booking.terms_version===TermsEvidence.VERSION
+        ? ' | TERMS_ACK_BACKEND:'+TermsEvidence.VERSION
+        : booking.terms_acknowledged===true && booking.terms_version===TermsEvidence.VERSION
+          ? ' | TERMS_ACK:'+TermsEvidence.VERSION
+          : ' | TERMS_NOT_CONFIRMED')
   }};
 }
 function buildCanonicalResolution(canonical={}){
@@ -46,6 +52,7 @@ function canonicalResult(writeResult){
   const data=writeResult&&writeResult.data||writeResult||{};
   const booking_id=text(data.booking_id);
   if(!booking_id) return {ok:false,code:'BOOKING_ID_READBACK_REQUIRED'};
-  return {ok:true,booking_id,row_number:data.row_number||''};
+  return {ok:true,booking_id,row_number:data.row_number||'',
+    idempotent_replay:typeof data.idempotent_replay==='boolean'?data.idempotent_replay:null};
 }
 module.exports={requestIdFromLineEvent,bookingIntent,buildCanonicalResolution,prepareBookingIntent,canonicalResult};

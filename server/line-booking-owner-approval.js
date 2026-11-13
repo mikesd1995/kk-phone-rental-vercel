@@ -2,10 +2,18 @@
 
 const crypto=require('node:crypto');
 const Intake=require('./line-booking-intake');
+const TermsEvidence=require('./kk-booking-terms-evidence');
+const DurableOutbox=require('./line-owner-durable-outbox');
+const LineIdentity=require('./kk-line-identity');
+const Deadline=require('./line-booking-deadline');
 
 const VERSION='KK_LINE_BOOKING_OWNER_APPROVAL_V1';
 const LINE_PUSH_URL='https://api.line.me/v2/bot/message/push';
 const LINE_REPLY_URL='https://api.line.me/v2/bot/message/reply';
+// LINE-issued IDs are provider-scoped: user U + 32 lowercase hex;
+// a configured push destination may also be a group C or room R.
+// Reject malformed environment bindings BEFORE a canonical pending write.
+// Shared by pending customer intake and durable delivery to prevent regex drift.
 
 function text(v){return String(v===undefined||v===null?'':v).trim();}
 function enabled(v){return /^(1|true|yes|on)$/i.test(text(v));}
@@ -26,7 +34,9 @@ function automationReadiness(env=process.env){
   if(!text(env.LINE_CHANNEL_ACCESS_TOKEN)) reasons.push('LINE_ACCESS_TOKEN_MISSING');
   if(!approvalSecret(env)) reasons.push('APPROVAL_SECRET_MISSING');
   if(!ownerUserId(env)) reasons.push('OWNER_USER_ID_MISSING');
+  else if(!LineIdentity.isUserId(ownerUserId(env))) reasons.push('OWNER_USER_ID_INVALID');
   if(!ownerTargetId(env)) reasons.push('OWNER_TARGET_ID_MISSING');
+  else if(!LineIdentity.isPushTarget(ownerTargetId(env))) reasons.push('OWNER_TARGET_ID_INVALID');
   return {version:VERSION,ready:reasons.length===0,reasons};
 }
 async function appsScriptCall(payload,env=process.env,fetchImpl=fetch){
@@ -44,12 +54,14 @@ async function appsScriptCall(payload,env=process.env,fetchImpl=fetch){
   });
   let r,raw;
   try{
-    r=await fetchImpl(text(env.KK_ADMIN_SCRIPT_URL),{
+    await Deadline.fetchWithDeadline(fetchImpl,text(env.KK_ADMIN_SCRIPT_URL),{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(body)
+    },async response=>{
+      r=response;
+      raw=await response.text();
     });
-    raw=await r.text();
   }catch(_){
     // Both transport exceptions and response-body read exceptions are untrusted.
     // Never let provider/redirect details reach webhook error logs.
@@ -132,8 +144,12 @@ function ownerApprovalMessage(ctx={},env=process.env){
   const phone=text(ctx.phone);
   const contactLabel=phone?'โทร  '+phone:'ติดต่อทาง LINE · ไม่ระบุเบอร์โทรศัพท์';
   const pickup=text(ctx.pickup_time)||'-';
-  const accepted=text(ctx.terms_status)==='LINE_MESSAGE_CONFIRMED' && text(ctx.terms_version)==='KK-TERMS-2026-11-06';
-  const termsLabel=accepted?'✅ พบข้อความยอมรับเงื่อนไขใน LINE (KK-TERMS-2026-11-06)':'⚠️ ยังไม่พบข้อความยอมรับเงื่อนไข — ขอคำยืนยันทาง LINE ก่อนอนุมัติ';
+  const version=TermsEvidence.VERSION;
+  const lineAck=text(ctx.terms_status)==='LINE_MESSAGE_CONFIRMED' && text(ctx.terms_version)===version;
+  const identityAck=text(ctx.terms_status)==='VERIFIED_LINE_IDENTITY_TERMS_ACCEPTED' && text(ctx.terms_version)===version;
+  const termsLabel=identityAck?'✅ ยอมรับเงื่อนไขแล้ว (ยืนยัน LINE User ID จากหลักฐานหลังบ้าน · '+version+')':
+    lineAck?'✅ พบข้อความยอมรับเงื่อนไขใน LINE ('+version+')':
+    '⚠️ ยังไม่พบข้อความยอมรับเงื่อนไข — ขอคำยืนยันทาง LINE ก่อนอนุมัติ';
   return {
     type:'flex',
     altText:('Booking รออนุมัติ • '+eventName).slice(0,400),
@@ -150,7 +166,7 @@ function ownerApprovalMessage(ctx={},env=process.env){
         {type:'text',text:'ลูกค้า  '+customer,size:'sm',wrap:true,margin:'md'},
         {type:'text',text:contactLabel,size:'sm',wrap:true},
         {type:'text',text:'เวลารับ  '+pickup,size:'sm',wrap:true},
-        {type:'text',text:termsLabel,size:'xs',wrap:true,color:accepted?'#18794E':'#B45309'}
+        {type:'text',text:termsLabel,size:'xs',wrap:true,color:(lineAck||identityAck)?'#18794E':'#B45309'}
       ]},
       footer:{type:'box',layout:'horizontal',spacing:'sm',contents:[
         {type:'button',style:'primary',action:{type:'postback',label:'Confirm',data:approve,displayText:'Confirm '+bookingId}},
@@ -162,7 +178,7 @@ function ownerApprovalMessage(ctx={},env=process.env){
 async function sendLine(url,body,token,fetchImpl=fetch){
   let r;
   try{
-    r=await fetchImpl(url,{
+    r=await Deadline.fetchWithDeadline(fetchImpl,url,{
       method:'POST',
       headers:{Authorization:'Bearer '+text(token),'Content-Type':'application/json'},
       body:JSON.stringify(body)
@@ -211,10 +227,33 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     return {handled:true,status:'UNAUTHORIZED_OWNER',booking_id:parsed.booking_id};
   }
   const decision=parsed.decision;
+  // Verify the canonical writer's feature flag and private outbox schema
+  // BEFORE deciding a booking. A half-deployed migration must never commit
+  // the decision and then discover that notification durability is absent.
+  if(enabled(env.KK_LINE_OWNER_OUTBOX_V1_ENABLED)){
+    if(!/^[A-Za-z0-9_-]{32,128}$/.test(text(env.KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET))){
+      const err=new Error('Owner outbox dispatch credential unavailable');
+      err.code='LINE_OWNER_OUTBOX_DISPATCH_NOT_READY';
+      throw err;
+    }
+    const readiness=await appsScriptCall({
+      action:'lineOwnerOutboxReadiness',
+      outbox_dispatch_key:text(env.KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET)
+    },env,fetchImpl);
+    const proof=readiness&&readiness.data||readiness||{};
+    if(proof.ready!==true||proof.outbox_mode!==DurableOutbox.VERSION||proof.columns!==11){
+      const err=new Error('Canonical LINE owner outbox readiness not verified');
+      err.code='LINE_OWNER_OUTBOX_PREFLIGHT_FAILED';
+      throw err;
+    }
+  }
   const result=await appsScriptCall({
     action:'decideLineBookingPending',
     booking_id:parsed.booking_id,
-    decision
+    decision,
+    ...(enabled(env.KK_LINE_OWNER_OUTBOX_V1_ENABLED) ? {
+      outbox_dispatch_key:text(env.KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET)
+    } : {})
   },env,fetchImpl);
   const data=result&&result.data||result||{};
   // The canonical writer must confirm the same booking we authorized.
@@ -244,6 +283,24 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     err.code='LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED';
     throw err;
   }
+  // Feature-gated migration: when the canonical writer has an outbox,
+  // only its one-time durable claim can authorize LINE provider traffic.
+  // If the server is enabled before the writer, missing evidence fails closed.
+  // If the writer is enabled first, its idempotent_replay=true prevents this
+  // legacy branch from sending without an outbox claim.
+  if(enabled(env.KK_LINE_OWNER_OUTBOX_V1_ENABLED)){
+    return DurableOutbox.deliverDecision({
+      data, bookingId:parsed.booking_id, decision,
+      customerMessage:customerDecisionMessage(decision,parsed.booking_id)
+    },{
+      appsScriptCall:p=>appsScriptCall(p,env,fetchImpl),
+      lineToken:env.LINE_CHANNEL_ACCESS_TOKEN,
+      dispatchSecret:text(env.KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET),
+      fetchImpl,
+      replyOwner:event.replyToken?()=>
+        replyMessage(event.replyToken,ownerDecisionMessage(decision,parsed.booking_id),env,fetchImpl):null
+    });
+  }
   // Canonical decision replay is not a receipt for customer LINE delivery.
   if(data.idempotent_replay===true){
     return {handled:true,status:'ALREADY_APPLIED',booking_id:parsed.booking_id,
@@ -252,7 +309,7 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
       requires_manual_delivery_review:true};
   }
   const customerUserId=text(data.customer_contact);
-  if(!customerUserId){
+  if(!LineIdentity.isUserId(customerUserId)){
     const err=new Error('Canonical LINE customer contact missing after owner decision');
     err.code='LINE_CUSTOMER_CONTACT_READBACK_REQUIRED';
     throw err;

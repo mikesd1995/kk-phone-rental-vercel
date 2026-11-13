@@ -1,5 +1,7 @@
 'use strict';
 
+const Deadline=require('./line-booking-deadline');
+
 const PROFILE_URL='https://api.line.me/v2/bot/profile/';
 const PUSH_URL='https://api.line.me/v2/bot/message/push';
 const VERSION='KK_LINE_MESSAGING_API_V2_EXPLICIT_RETRY_KEY';
@@ -17,12 +19,22 @@ function safeText(value,max){
 async function getProfile(userId,token,fetchImpl=fetch){
   const id=required(userId,'LINE userId');
   const auth=required(token,'LINE channel access token');
-  const r=await fetchImpl(PROFILE_URL+encodeURIComponent(id),{
-    method:'GET',
-    headers:{Authorization:'Bearer '+auth,'User-Agent':'KK-Admin-Inbox/1.0'}
-  });
+  let r,body;
+  try{
+    await Deadline.fetchWithDeadline(fetchImpl,PROFILE_URL+encodeURIComponent(id),{
+      method:'GET',
+      headers:{Authorization:'Bearer '+auth,'User-Agent':'KK-Admin-Inbox/1.0'}
+    },async response=>{
+      r=response;
+      if(r.status!==400&&r.status!==404)body=await r.text();
+    });
+  }catch(_){
+    const error=new Error('LINE profile transport failed');
+    error.code='LINE_PROFILE_FAILED';
+    if(r&&Number.isInteger(r.status))error.status=r.status;
+    throw error;
+  }
   if(r.status===400||r.status===404) return null;
-  const body=await r.text();
   if(!r.ok) throw Object.assign(new Error('LINE profile failed '+r.status),{code:'LINE_PROFILE_FAILED',status:r.status,provider_body:body.slice(0,200)});
   let parsed={};
   try{parsed=body?JSON.parse(body):{};}catch(_){}
@@ -39,17 +51,28 @@ async function pushText(input={},options={}){
   // A caller must supply an already durable retry key; never mint one here.
   const retryKey=safeText(options.retryKey,80);
   if(!UUID.test(retryKey))throw Object.assign(new Error('Pre-reserved LINE retry key required'),{code:'LINE_RETRY_KEY_REQUIRED'});
-  const r=await fetchImpl(PUSH_URL,{
-    method:'POST',
-    headers:{
-      Authorization:'Bearer '+token,
-      'Content-Type':'application/json',
-      'X-Line-Retry-Key':retryKey,
-      'User-Agent':'KK-Admin-Inbox/1.0'
-    },
-    body:JSON.stringify({to,messages:[{type:'text',text}]})
-  });
-  const raw=await r.text();
+  let r,raw;
+  try{
+    await Deadline.fetchWithDeadline(fetchImpl,PUSH_URL,{
+      method:'POST',
+      headers:{
+        Authorization:'Bearer '+token,
+        'Content-Type':'application/json',
+        'X-Line-Retry-Key':retryKey,
+        'User-Agent':'KK-Admin-Inbox/1.0'
+      },
+      body:JSON.stringify({to,messages:[{type:'text',text}]})
+    },async response=>{
+      r=response;
+      raw=await r.text();
+    });
+  }catch(_){
+    const error=new Error('LINE push transport failed');
+    error.code='LINE_PUSH_FAILED';
+    error.retry_key=retryKey;
+    if(r&&Number.isInteger(r.status))error.status=r.status;
+    throw error;
+  }
   let parsed={};
   try{parsed=raw?JSON.parse(raw):{};}catch(_){}
   if(!r.ok){

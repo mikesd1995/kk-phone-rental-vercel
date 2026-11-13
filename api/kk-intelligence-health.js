@@ -1,7 +1,7 @@
 'use strict';
 
 const privateSheets = require('./lib/private-google-sheets');
-const crmFreshness = require('./lib/crm-freshness');
+const crmFreshness = require('../server/crm-freshness');
 const crmReconciliation = require('./lib/crm-reconciliation');
 const CorePrivacy = require('../server/core-sheet-private-reader.js');
 const AdminSecurity = require('../server/admin-session.js');
