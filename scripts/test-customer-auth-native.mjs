@@ -157,6 +157,34 @@ try {
       assert.equal((await upgraded.query("select count(*)::int n from pg_constraint where conrelid='public.kk_customer_terms_evidence'::regclass and contype='u' and array_length(conkey,1)=3")).rows[0].n,1);
     } finally { await upgraded.close(); }
   });
+  await test('permissive default and existing service-role grants cannot rewrite consent evidence', async () => {
+    const hardened = new PGlite();
+    try {
+      await hardened.exec('create role anon; create role authenticated; create role service_role bypassrls;');
+      await hardened.exec('alter default privileges in schema public grant all on tables to service_role; alter default privileges in schema public grant all on sequences to service_role;');
+      await hardened.exec(migration);
+      // Simulate a previously installed target whose explicit grants drifted.
+      await hardened.exec('grant all on public.kk_customer_line_sessions, public.kk_customer_terms_evidence to service_role; grant all on sequence public.kk_customer_terms_evidence_id_seq to service_role;');
+      await hardened.exec(migration);
+      const privileges = (await hardened.query("select has_table_privilege('service_role','public.kk_customer_terms_evidence','UPDATE') as can_update, has_table_privilege('service_role','public.kk_customer_terms_evidence','DELETE') as can_delete, has_table_privilege('service_role','public.kk_customer_terms_evidence','TRUNCATE') as can_truncate, has_table_privilege('service_role','public.kk_customer_line_sessions','TRUNCATE') as can_truncate_sessions, has_sequence_privilege('service_role','public.kk_customer_terms_evidence_id_seq','UPDATE') as can_sequence_update")).rows[0];
+      assert.deepEqual(privileges,{can_update:false,can_delete:false,can_truncate:false,can_truncate_sessions:false,can_sequence_update:false});
+      await hardened.exec('set role service_role');
+      await hardened.query("select public.kk_customer_session_create($1,$2,$3,now()+interval '1 hour')",[hash,provider,user]);
+      const receipt=(await hardened.query('select * from public.kk_customer_terms_accept($1,$2,$3)',[hash,version,evidence])).rows;
+      assert.equal(receipt.length,1);
+      assert.deepEqual((await hardened.query('select * from public.kk_customer_terms_accept($1,$2,$3)',[hash,version,'web:'+'b'.repeat(43)])).rows,receipt);
+      for (const query of [
+        "update public.kk_customer_terms_evidence set evidence_source='SIGNED_LINE_WEBHOOK'",
+        'delete from public.kk_customer_terms_evidence',
+        'truncate public.kk_customer_terms_evidence',
+        "select setval('public.kk_customer_terms_evidence_id_seq',999)"
+      ]) await assert.rejects(()=>hardened.query(query),{code:'42501'});
+      assert.deepEqual((await hardened.query('select * from public.kk_customer_terms_lookup($1,$2)',[hash,version])).rows,receipt);
+      await hardened.query('select public.kk_customer_session_revoke($1)',[hash]);
+      assert.deepEqual((await hardened.query('select * from public.kk_customer_session_lookup($1)',[hash])).rows,[]);
+      await hardened.exec('reset role');
+    } finally { await hardened.close(); }
+  });
 } finally {
   await db.close();
 }
