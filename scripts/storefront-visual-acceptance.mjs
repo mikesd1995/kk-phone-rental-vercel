@@ -14,6 +14,7 @@ const DesignCouncil=require('../server/kk-storefront-design-council.js');
 const OpenAiAgents=require('../server/kk-openai-agent-adapters.js');
 const OpenAiPlatform=require('../server/kk-openai-platform.js');
 const Evidence=require('./storefront-evidence.cjs');
+const {createReadOnlyTransport}=require('./storefront-visual-transport.cjs');
 
 const DEFAULT_HEIGHTS=Object.freeze({
   320:568,
@@ -149,25 +150,23 @@ async function main(){
   const browserChannel=String(process.env.BROWSER_CHANNEL||'').trim();
   const launchOptions={headless:true};
   if(browserChannel) launchOptions.channel=browserChannel;
+  const imageCache=Evidence.imageResponseCache();
+  const transport=createReadOnlyTransport({mode,targetUrl:target.href,imageCache,
+    readBypassSecret:()=>process.env.VERCEL_AUTOMATION_BYPASS_SECRET});
   const browser=await chromium.launch(launchOptions);
   const results=[];
   const runtimeErrors=[];
   let openAiProviderRequests=0;
-  const imageCache=Evidence.imageResponseCache();
 
   try{
     for(const width of widths){
       const height=DEFAULT_HEIGHTS[width]||Math.max(768,Math.round(width*1.8));
-      const bypassSecret=String(process.env.VERCEL_AUTOMATION_BYPASS_SECRET||'').trim();
       const context=await browser.newContext({
         viewport:{width,height},
         deviceScaleFactor:1,
         locale:'th-TH',
         reducedMotion:'reduce',
-        extraHTTPHeaders:bypassSecret ? {
-          'x-vercel-protection-bypass':bypassSecret,
-          'x-vercel-set-bypass-cookie':'true'
-        } : {}
+        serviceWorkers:'block'
       });
       const page=await context.newPage();
       const pageErrors=[];
@@ -177,11 +176,7 @@ async function main(){
           if(response.request().resourceType()==='image')imageCache.remember(response.url(),response.status(),response.headers(),await response.body());
         }catch(_){} // A failed response is never cached or exempted from readiness checks.
       });
-      await page.route('**/*',route=>{
-        if(!['GET','HEAD'].includes(route.request().method()))return route.abort('blockedbyclient');
-        const cached=route.request().resourceType()==='image'?imageCache.get(route.request().url()):null;
-        return cached?route.fulfill({status:200,contentType:cached.contentType,body:cached.body}):route.continue();
-      });
+      await page.route('**/*',route=>transport.forward(route));
 
       if(fixtures){
         // The checked-out config installs an API-only fetch guard before app code runs.
@@ -189,6 +184,7 @@ async function main(){
         // already-fetched canonical read-only fixture so QA never falls through to
         // a missing local /api implementation or direct Google fallback.
         await page.route(url=>url.pathname==='/api/kk-data',async route=>{
+          if(!['GET','HEAD'].includes(route.request().method()))return route.abort('blockedbyclient');
           const requestUrl=new URL(route.request().url());
           const sheet=requestUrl.searchParams.get('sheet');
           const body=sheet==='08_Web_Ready'
@@ -608,7 +604,7 @@ async function main(){
     openai_provider_requests:openAiProviderRequests,
     invoked_agents:[...new Set(results.flatMap(item=>item.design_council?.invoked_agents||[]))],
     interaction_pass:results.length===widths.length && results.every(item=>(item.interaction_checks||[]).every(check=>check.pass===true)),
-    protection_bypass_used:Boolean(String(process.env.VERCEL_AUTOMATION_BYPASS_SECRET||'').trim()),
+    protection_bypass_used:transport.bypassUsed(),
     paid_external_service_calls:openAiProviderRequests,
     zero_cost_path:mode==='local_zero_cost' && openAiProviderRequests===0
   };

@@ -28,8 +28,10 @@ on:
       - 'config/kk-storefront-v5-screenshot-review.json'
       - 'config/kk-storefront-ux-policy.json'
       - 'scripts/storefront-visual-acceptance.mjs'
+      - 'scripts/storefront-visual-transport.cjs'
       - '.github/workflows/storefront-visual-qa.yml'
       - 'tests/storefront-visual-qa-automation.test.js'
+      - 'tests/storefront-visual-transport.test.js'
       - 'tests/kk-storefront-art-director.test.js'
       - 'tests/kk-storefront-design-council.test.js'
       - 'tests/kk-storefront-visual-critic-v5.test.js'
@@ -85,7 +87,6 @@ jobs:
       DATA_SOURCE_URL: https://kk-phone-rental.vercel.app/
       OUTPUT_DIR: artifacts/storefront-visual-qa
       BROWSER_CHANNEL: chrome
-      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
 
     steps:
       - name: Require explicit authorization for manual runs
@@ -119,7 +120,7 @@ jobs:
         run: node --test tests/public-legal-documents.test.js tests/storefront-booking-agreement.test.js tests/storefront-booking-agreement-remember.test.js tests/kk-booking-terms-evidence.test.js tests/line-booking-intake.test.js tests/line-webhook.test.js
 
       - name: Validate remote deployment identity
-        if: ${{ env.TARGET_MODE != 'local_zero_cost' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && env.TARGET_MODE != 'local_zero_cost' }}
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -178,10 +179,11 @@ jobs:
           NODE
 
       - name: Fail closed on protected Preview without automation bypass
-        if: ${{ env.TARGET_MODE == 'preview' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && env.TARGET_MODE != 'local_zero_cost' && env.TARGET_MODE == 'preview' }}
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           set -euo pipefail
           if [ -n "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
@@ -190,7 +192,7 @@ jobs:
           fi
 
           mkdir -p "$OUTPUT_DIR"
-          npm install --no-save --package-lock=false vercel@60.1.3 >/tmp/vercel-cli-install.log 2>&1
+          npm install --ignore-scripts --no-save --package-lock=false vercel@60.1.3 >/tmp/vercel-cli-install.log 2>&1
           npx vercel curl / --deployment "$TARGET_URL" --token="$VERCEL_TOKEN" > "$OUTPUT_DIR/protected-preview-source.html"
 
           if [ -n "${EXPECTED_CSS_MARKER:-}" ]; then
@@ -218,7 +220,7 @@ jobs:
         run: |
           set -euo pipefail
           google-chrome --version
-          npm install --no-save --package-lock=false playwright@1.55.0 >/tmp/playwright-install.log 2>&1
+          npm install --ignore-scripts --no-save --package-lock=false playwright@1.55.0 >/tmp/playwright-install.log 2>&1
 
       - name: Start zero-cost localhost storefront
         if: ${{ env.TARGET_MODE == 'local_zero_cost' }}
@@ -261,7 +263,17 @@ jobs:
           node scripts/qa/storefront-all-visible-modals.cjs
 
       - name: Capture screenshots, metrics and reviewer acceptance
+        if: ${{ env.TARGET_MODE == 'local_zero_cost' }}
         shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/storefront-visual-acceptance.mjs
+
+      - name: Capture remote screenshots, metrics and reviewer acceptance
+        if: ${{ github.event_name == 'workflow_dispatch' && env.TARGET_MODE != 'local_zero_cost' }}
+        shell: bash
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           set -euo pipefail
           node scripts/storefront-visual-acceptance.mjs

@@ -32,6 +32,54 @@ test('visual QA workflow reuses runner Chrome with ephemeral Playwright and uplo
   assert.match(workflow,/retention-days: 3/);
 });
 
+test('visual QA exposes the protection bypass only to explicitly guarded manual remote steps',()=>{
+  const jobEnvironment=workflow.match(/^    env:\r?\n([\s\S]*?)^    steps:/m)?.[1];
+  assert.ok(jobEnvironment,'visual QA job environment must be inspectable');
+  assert.doesNotMatch(jobEnvironment,/VERCEL_AUTOMATION_BYPASS_SECRET/);
+  const steps=workflow.split(/^      - name: /m).slice(1);
+  const secretSteps=steps.filter(step=>/VERCEL_AUTOMATION_BYPASS_SECRET:\s*\$\{\{ secrets\.VERCEL_AUTOMATION_BYPASS_SECRET \}\}/.test(step));
+  assert.equal(secretSteps.length,2,'only protected Preview validation and manual remote capture receive bypass credentials');
+  for(const step of secretSteps){
+    const guard=step.match(/^        if: (.+)\r?$/m)?.[1]?.trim();
+    assert.match(guard||'',/^\$\{\{ github\.event_name == 'workflow_dispatch' && env\.TARGET_MODE != 'local_zero_cost'(?: && env\.TARGET_MODE == 'preview')? \}\}$/);
+    assert.match(step,/^(?:Fail closed on protected Preview without automation bypass|Capture remote screenshots, metrics and reviewer acceptance)\r?\n/);
+  }
+  const localCapture=steps.find(step=>step.startsWith('Capture screenshots, metrics and reviewer acceptance\n')||step.startsWith('Capture screenshots, metrics and reviewer acceptance\r\n'));
+  assert.ok(localCapture,'local screenshot coverage must remain present');
+  assert.match(localCapture,/if: \$\{\{ env\.TARGET_MODE == 'local_zero_cost' \}\}/);
+  assert.match(localCapture,/node scripts\/storefront-visual-acceptance\.mjs/);
+  assert.doesNotMatch(localCapture,/secrets\.|VERCEL_AUTOMATION_BYPASS_SECRET/);
+});
+
+test('ephemeral Playwright installation cannot run dependency lifecycle scripts',()=>{
+  const install=workflow.match(/^      - name: Reuse runner Chrome with ephemeral Playwright library\r?\n([\s\S]*?)(?=^      - name: )/m)?.[1];
+  assert.ok(install,'existing ephemeral Playwright installation must remain present');
+  assert.match(install,/npm install (?=[^\r\n]*--ignore-scripts\b)(?=[^\r\n]*--no-save\b)(?=[^\r\n]*--package-lock=false\b)[^\r\n]*playwright@1\.55\.0(?:\s|$)/);
+});
+
+test('visual QA path coverage includes the transport isolation helper',()=>{
+  const pullRequestPaths=workflow.split('  workflow_dispatch:')[0];
+  assert.match(pullRequestPaths,/- 'scripts\/storefront-visual-transport\.cjs'/);
+});
+
+test('remote deployment identity credentials are restricted to manual remote verification',()=>{
+  const identity=workflow.match(/^      - name: Validate remote deployment identity\r?\n([\s\S]*?)(?=^      - name: )/m)?.[1];
+  assert.ok(identity,'existing exact deployment identity lookup must remain present');
+  assert.match(identity,/if: \$\{\{ github\.event_name == 'workflow_dispatch' && env\.TARGET_MODE != 'local_zero_cost' \}\}/);
+  assert.match(identity,/VERCEL_TOKEN: \$\{\{ secrets\.VERCEL_TOKEN \}\}/);
+});
+
+test('protected Preview fallback installation cannot run dependency lifecycle scripts',()=>{
+  const preview=workflow.match(/^      - name: Fail closed on protected Preview without automation bypass\r?\n([\s\S]*?)(?=^      - name: )/m)?.[1];
+  assert.ok(preview,'existing protected Preview fail-closed step must remain present');
+  assert.match(preview,/npm install (?=[^\r\n]*--ignore-scripts\b)(?=[^\r\n]*--no-save\b)(?=[^\r\n]*--package-lock=false\b)[^\r\n]*vercel@60\.1\.3(?:\s|$)/);
+});
+
+test('visual QA path coverage includes the transport runtime regression tests',()=>{
+  const pullRequestPaths=workflow.split('  workflow_dispatch:')[0];
+  assert.match(pullRequestPaths,/- 'tests\/storefront-visual-transport\.test\.js'/);
+});
+
 test('visual QA runner covers all storefront policy acceptance widths',()=>{
   assert.match(runner,/Reviewer\.loadPolicy\(\)/);
   assert.match(runner,/const widths=\[\.\.\.policy\.acceptance_viewports\]/);
@@ -88,9 +136,14 @@ test('visual QA runner fails closed on wrong host, missing cards and wrong CSS m
 
 
 test('protected Preview automation uses Vercel documented bypass headers without disabling protection',()=>{
+  const transport=fs.readFileSync('scripts/storefront-visual-transport.cjs','utf8');
   assert.match(workflow,/VERCEL_AUTOMATION_BYPASS_SECRET/);
-  assert.match(runner,/x-vercel-protection-bypass/);
-  assert.match(runner,/x-vercel-set-bypass-cookie/);
+  assert.match(transport,/x-vercel-protection-bypass/);
+  assert.match(transport,/x-vercel-set-bypass-cookie/);
+  assert.match(runner,/const \{createReadOnlyTransport\}=require\('\.\/storefront-visual-transport\.cjs'\)/);
+  assert.match(runner,/route=>transport\.forward\(route\)/);
+  assert.doesNotMatch(runner,/extraHTTPHeaders/);
+  assert.deepEqual([...transport.matchAll(/headers\[['"](x-vercel-[^'"]+)['"]\]\s*=/g)].map(match=>match[1]),['x-vercel-protection-bypass'],'only the per-request bypass header may be injected; the bypass-cookie header is stripped only');
   assert.match(workflow,/BLOCKED_PREVIEW_AUTOMATION_BYPASS_UNAVAILABLE/);
   assert.match(workflow,/vercel curl \/ --deployment "\$TARGET_URL"/);
   assert.doesNotMatch(workflow,/project protection disable/i);
