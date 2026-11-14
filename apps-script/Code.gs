@@ -80,7 +80,7 @@ function kkRedactSecretText_(value) {
   let safe=String(value==null?'':value);
   try{
     const props=PropertiesService.getScriptProperties();
-    for(const key of ['KK_ADMIN_API_KEY','KK_CORE_PRIVATE_READ_KEY']){
+    for(const key of ['KK_ADMIN_API_KEY','KK_CORE_PRIVATE_READ_KEY','KK_LINE_INITIAL_OUTBOX_DISPATCH_SECRET']){
       const secret=String(props.getProperty(key)||'');
       if(secret.length>=16)safe=safe.split(secret).join('[redacted]');
     }
@@ -92,7 +92,7 @@ function kkSafeStringify_(value, maxLen) {
   const limit = maxLen || 1500;
   try {
     const clean = JSON.parse(JSON.stringify(value || {}, function(key, val) {
-      if (key === 'apiKey' || key === 'readKey' || key === 'KK_CORE_PRIVATE_READ_KEY' || key === 'outbox_dispatch_key') return '[redacted]';
+      if (key === 'apiKey' || key === 'readKey' || key === 'KK_CORE_PRIVATE_READ_KEY' || key === 'outbox_dispatch_key' || key === 'initial_dispatch_key' || key === 'context_json' || key === 'initial_notification') return '[redacted]';
       if (key === 'base64') return '[base64 omitted]';
       if (typeof val === 'string' && val.length > 300) return val.slice(0, 300) + '…';
       return val;
@@ -1740,6 +1740,13 @@ function doPost(e) {
   let payload = {};
   let action = '';
   let keyOk = false;
+  // Keep dispatch classification local so the private-read-only route remains
+  // independently executable without initial-notification helper dependencies.
+  const isInitialAction=function(){
+    return ['lineInitialOutboxReadiness','claimLineBookingInitialDelivery','settleLineBookingInitialDelivery'].includes(action) ||
+      (action==='createLineBookingPending' && payload && (payload.initial_notification || payload.initial_dispatch_key ||
+        (typeof kkLineInitialOutboxEnabled_==='function' && kkLineInitialOutboxEnabled_())));
+  };
   try {
     payload = e && e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
     action = String(payload.action || '').trim();
@@ -1768,11 +1775,20 @@ function doPost(e) {
       case 'lineOwnerOutboxReadiness': result = kkApiLineOwnerOutboxReadiness_(payload); break;
       case 'claimLineBookingDecisionDelivery': result = kkApiClaimLineBookingDecisionDelivery_(payload); break;
       case 'settleLineBookingDecisionDelivery': result = kkApiSettleLineBookingDecisionDelivery_(payload); break;
+      case 'lineInitialOutboxReadiness': result = kkApiLineInitialOutboxReadiness_(payload); break;
+      case 'claimLineBookingInitialDelivery': result = kkApiClaimLineBookingInitialDelivery_(payload); break;
+      case 'settleLineBookingInitialDelivery': result = kkApiSettleLineBookingInitialDelivery_(payload); break;
       case 'updateBooking': result = kkApiUpdateBooking_(payload); break;
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
     }
-    if (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery' ||
+    if (isInitialAction()) {
+      // Initial context contains private customer details. Persist transition
+      // metadata only, including for the create-Pending producer action.
+      kkAuditLog_(action, {booking_id:payload.booking_id}, {
+        booking_id:result.booking_id,outbox_id:result.outbox_id,state:result.state
+      },startedAt);
+    } else if (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery' ||
         (action === 'decideLineBookingPending' && result && result.outbox_mode === KK_LINE_OWNER_OUTBOX_VERSION_)) {
       // This ledger contains LINE recipient IDs and credentials; the admin audit
       // stores only transition metadata, never the customer contact or secret.
@@ -1782,6 +1798,11 @@ function doPost(e) {
     } else if (action && action !== 'snapshot' && action !== 'phase1Health' && action !== 'privateCoreRead') kkAuditLog_(action, payload, result, startedAt);
     return kkApiJson_(kkApiOk_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, result || {})));
   } catch (err) {
+    if (isInitialAction()) {
+      const safeError=new Error('LINE_INITIAL_OUTBOX_ACTION_FAILED');
+      if(keyOk)kkErrorLog_(action,{booking_id:String(payload.booking_id||'').trim()},safeError,startedAt);
+      return kkApiJson_(Object.assign({admin_api_version:KK_ADMIN_VERSION},kkApiFail_(safeError)));
+    }
     if (keyOk && (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery')) {
       kkErrorLog_(action, {booking_id: String(payload.booking_id || '').trim()}, 
         new Error('LINE_OWNER_OUTBOX_ACTION_FAILED'), startedAt);
@@ -2973,6 +2994,13 @@ function kkLineBookingClaimReadback_(claim) {
 function kkApiCreateLineBookingPending_(payload) {
   const lock = kkAcquireDocumentLock_('LINE pending booking intake', 12000);
   try {
+    // This feature is independently OFF until its private schema and both
+    // producer/consumer bindings are explicitly provisioned. Existing harnesses
+    // extracting only the legacy writer retain their unchanged disabled path.
+    const initial = typeof kkLineInitialOutboxEnabled_ === 'function' && kkLineInitialOutboxEnabled_()
+      ? kkLineInitialOutboxPrepare_(payload) : null;
+    if(!initial && (payload.initial_notification || payload.initial_dispatch_key))throw new Error('LINE_INITIAL_OUTBOX_DISABLED');
+    const serializeClaim=initial?kkLineInitialOutboxClaimJson_:JSON.stringify;
     const requestId = String(payload.request_id || '').trim();
     const requestKey = kkLineBookingRequestKey_(requestId);
     const props = PropertiesService.getScriptProperties();
@@ -2981,6 +3009,7 @@ function kkApiCreateLineBookingPending_(payload) {
       let existing = null;
       try { existing = JSON.parse(existingRaw); } catch (_) {}
       if (existing && existing.status === 'OK' && existing.booking_id) {
+        if(initial)return kkLineInitialOutboxReplay_(payload,existing,initial);
         return {
           row_number: Number(existing.row_number || 0),
           booking_id: String(existing.booking_id),
@@ -2993,6 +3022,7 @@ function kkApiCreateLineBookingPending_(payload) {
         };
       }
       if (existing && existing.status === 'PENDING') {
+        if(initial)return kkLineInitialOutboxReplay_(payload,existing,initial);
         const reconciled = kkLineBookingClaimReadback_(existing);
         if (reconciled) {
           props.setProperty(requestKey, JSON.stringify({
@@ -3035,6 +3065,10 @@ function kkApiCreateLineBookingPending_(payload) {
     if (payload.phone_asset_id || payload.lens_asset_id) {
       throw new Error('Pending LINE intake must not assign physical assets');
     }
+    if(initial){
+      kkLineInitialOutboxMatchCustomer_(initial.context,customerName,customerPhone,pickupTime,customerContact);
+      if(initial.ledger.getLastRow()+2>1001)throw new Error('LINE_INITIAL_OUTBOX_CAPACITY_REVIEW_REQUIRED');
+    }
 
     templateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
     const event = kkGetEventById_(eventId);
@@ -3044,9 +3078,18 @@ function kkApiCreateLineBookingPending_(payload) {
     if (!event.active) throw new Error('Event is not active_on_web: ' + eventId);
     if (!pkg.active) throw new Error('Package is inactive: ' + templateId);
     kkAssertWebPackageBookable_(eventId, templateId);
+    const pkgType = String(pkg.package_type || '').toLowerCase().trim();
+    if(initial && (!pkgType || pkgType.length>100))throw new Error('LINE_INITIAL_OUTBOX_PACKAGE_TYPE_UNVERIFIED');
+
+    const initialPin=initial?{
+      initial_mode:KK_LINE_INITIAL_OUTBOX_VERSION_,initial_context_json:initial.contextJson,
+      initial_context_hash:initial.contextHash,initial_owner_target:initial.ownerTarget,
+      initial_customer_name:customerName,initial_customer_contact:customerContact,
+      initial_customer_phone:customerPhone,initial_package_type:pkgType
+    }:{};
 
     // First claim blocks duplicate redelivery before any Booking mutation.
-    props.setProperty(requestKey, JSON.stringify({
+    props.setProperty(requestKey, serializeClaim(Object.assign({
       status: 'PENDING',
       request_id: requestId,
       event_id: eventId,
@@ -3055,14 +3098,13 @@ function kkApiCreateLineBookingPending_(payload) {
       customer_contact: customerContact,
       customer_phone: customerPhone,
       claimed_at: new Date().toISOString()
-    }));
+    },initialPin)));
 
-    const pkgType = String(pkg.package_type || '').toLowerCase().trim();
     const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
     const bookingId = kkGenerateUniqueBookingId_(event.event_date);
     // Current 9.5.13 schema owns canonical IDs in column A directly. Persist the exact
     // row + canonical ID before setValues so an uncertain write can be reconciled.
-    props.setProperty(requestKey, JSON.stringify({
+    props.setProperty(requestKey, serializeClaim(Object.assign({
       status: 'PENDING',
       request_id: requestId,
       event_id: eventId,
@@ -3073,7 +3115,11 @@ function kkApiCreateLineBookingPending_(payload) {
       row_number: row,
       booking_id: bookingId,
       claimed_at: new Date().toISOString()
-    }));
+    },initialPin)));
+
+    // Both independent initial deliveries are durable before the Booking row.
+    // A partial intent or uncertain Booking write never allocates a replacement.
+    if(initial)kkLineInitialOutboxCreateIntents_(initial,bookingId,requestId,customerContact);
 
     const bookingNote = kkBookingNoteWithRequest_(payload.booking_note || 'LINE webhook intake', requestId);
     const sh = kkSheet_(KK.bookings);
@@ -3094,7 +3140,7 @@ function kkApiCreateLineBookingPending_(payload) {
     });
     if (!persisted) throw new Error('LINE pending booking exact A:T readback failed');
 
-    props.setProperty(requestKey, JSON.stringify({
+    props.setProperty(requestKey, serializeClaim(Object.assign({
       status: 'OK',
       request_id: requestId,
       booking_id: bookingId,
@@ -3102,7 +3148,9 @@ function kkApiCreateLineBookingPending_(payload) {
       event_id: eventId,
       template_id: templateId,
       completed_at: new Date().toISOString()
-    }));
+    },initialPin)));
+
+    if(initial)return kkLineInitialOutboxReplay_(payload,JSON.parse(props.getProperty(requestKey)),initial);
 
     return {
       row_number: row,
@@ -3120,6 +3168,252 @@ function kkApiCreateLineBookingPending_(payload) {
 }
 
 
+
+// Initial notifications have a separate default-OFF private contract. The tab is
+// owner-provisioned; this code never creates a tab or schedules a sender.
+const KK_LINE_INITIAL_OUTBOX_VERSION_ = 'KK_LINE_INITIAL_OUTBOX_V1';
+const KK_LINE_INITIAL_OUTBOX_SHEET_ = '20_Line_Initial_Outbox';
+const KK_LINE_INITIAL_OUTBOX_KINDS_ = ['OWNER_APPROVAL_PUSH','CUSTOMER_PENDING_REPLY'];
+const KK_LINE_INITIAL_OUTBOX_HEADERS_ = ['outbox_id','booking_id','kind','state','claim_key',
+  'provider_message_id','provider_request_id','recipient','request_id','context_json','context_hash','message_hash','updated_at','created_at'];
+
+function kkLineInitialOutboxEnabled_() {
+  return String(PropertiesService.getScriptProperties().getProperty('KK_LINE_INITIAL_OUTBOX_V1_ENABLED')||'')==='true';
+}
+function kkLineInitialOutboxRequireDispatch_(payload) {
+  if(!kkLineInitialOutboxEnabled_())throw new Error('LINE_INITIAL_OUTBOX_DISABLED');
+  const props=PropertiesService.getScriptProperties();
+  const secret=String(props.getProperty('KK_LINE_INITIAL_OUTBOX_DISPATCH_SECRET')||'');
+  if(!/^[A-Za-z0-9_-]{32,128}$/.test(secret) || secret===String(props.getProperty('KK_ADMIN_API_KEY')||'') ||
+      secret===String(props.getProperty('KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET')||''))
+    throw new Error('LINE_INITIAL_OUTBOX_DISPATCH_NOT_READY');
+  const supplied=String(payload&&payload.initial_dispatch_key||'');
+  let difference=secret.length^supplied.length;
+  for(let i=0;i<secret.length;i++)difference|=secret.charCodeAt(i)^(supplied.charCodeAt(i)||0);
+  if(difference!==0)throw new Error('LINE_INITIAL_OUTBOX_DISPATCH_UNAUTHORIZED');
+}
+function kkLineInitialOutboxOwner_() {
+  const owner=String(PropertiesService.getScriptProperties().getProperty('KK_LINE_INITIAL_OUTBOX_OWNER_TARGET')||'');
+  if(!/^[UCR][0-9a-f]{32}$/.test(owner))throw new Error('LINE_INITIAL_OUTBOX_OWNER_NOT_READY');
+  return owner;
+}
+function kkLineInitialOutboxSha_(value) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,value,Utilities.Charset.UTF_8)
+    .map(function(b){return ('0'+((b+256)%256).toString(16)).slice(-2);}).join('');
+}
+function kkLineInitialOutboxUtf8Bytes_(value) {
+  try{return encodeURIComponent(value).replace(/%[0-9a-f]{2}/gi,'x').length;}
+  catch(_){throw new Error('LINE_INITIAL_OUTBOX_CONTEXT_INVALID');}
+}
+function kkLineInitialOutboxClaimJson_(claim) {
+  const json=JSON.stringify(claim);
+  if(kkLineInitialOutboxUtf8Bytes_(json)>8500)throw new Error('LINE_INITIAL_OUTBOX_CLAIM_SIZE_INVALID');
+  return json;
+}
+function kkLineInitialOutboxId_(kind,bookingId) {
+  return 'LINE_INITIAL_V1_'+kkLineInitialOutboxSha_(kind+':'+bookingId).slice(0,48);
+}
+function kkLineInitialOutboxSheet_() {
+  const sh=kkSheet_(KK_LINE_INITIAL_OUTBOX_SHEET_);
+  const header=sh.getRange(1,1,1,14).getValues()[0].map(function(v){return String(v||'').trim();});
+  if(JSON.stringify(header)!==JSON.stringify(KK_LINE_INITIAL_OUTBOX_HEADERS_))throw new Error('LINE_INITIAL_OUTBOX_SCHEMA_MISMATCH');
+  return sh;
+}
+function kkLineInitialOutboxContext_(raw,hash) {
+  const fields=['version','event_name','event_date','venue','poster_image_url','package_name',
+    'price_display','nickname','phone','pickup_time','terms_status','terms_version'];
+  if(typeof raw!=='string' || raw.length>8192 || kkLineInitialOutboxUtf8Bytes_(raw)>6000 || !/^[a-f0-9]{64}$/.test(String(hash||'')) || kkLineInitialOutboxSha_(raw)!==hash)
+    throw new Error('LINE_INITIAL_OUTBOX_CONTEXT_INVALID');
+  let context;try{context=JSON.parse(raw);}catch(_){throw new Error('LINE_INITIAL_OUTBOX_CONTEXT_INVALID');}
+  if(!context || Array.isArray(context) || Object.keys(context).sort().join('|')!==fields.slice().sort().join('|') ||
+      fields.some(function(k){return typeof context[k]!=='string' || context[k].length>512;}) ||
+      context.version!==KK_LINE_INITIAL_OUTBOX_VERSION_ || !context.event_name.trim() || !context.event_date.trim() ||
+      !context.package_name.trim() || !context.price_display.trim() || !context.nickname.trim() ||
+      !['NOT_CONFIRMED','LINE_MESSAGE_CONFIRMED','VERIFIED_LINE_IDENTITY_TERMS_ACCEPTED'].includes(context.terms_status))
+    throw new Error('LINE_INITIAL_OUTBOX_CONTEXT_INVALID');
+  return context;
+}
+function kkLineInitialOutboxPrepare_(payload) {
+  kkLineInitialOutboxRequireDispatch_(payload);
+  const ledger=kkLineInitialOutboxSheet_(),owner=kkLineInitialOutboxOwner_();
+  const note=payload.initial_notification;
+  if(!note || note.mode!==KK_LINE_INITIAL_OUTBOX_VERSION_ || note.owner_target!==owner)
+    throw new Error('LINE_INITIAL_OUTBOX_MODE_OR_OWNER_MISMATCH');
+  const context=kkLineInitialOutboxContext_(note.context_json,note.context_hash);
+  return {ledger:ledger,ownerTarget:owner,contextJson:note.context_json,contextHash:note.context_hash,context:context};
+}
+function kkLineInitialOutboxMatchCustomer_(context,name,phone,pickup,contact) {
+  if(context.nickname!==name || context.phone!==phone || context.pickup_time!==pickup || !/^U[0-9a-f]{32}$/.test(contact))
+    throw new Error('LINE_INITIAL_OUTBOX_CUSTOMER_MISMATCH');
+}
+function kkLineInitialOutboxFind_(sh,outboxId) {
+  let found=null;
+  // Capacity bounds new admission only. Historical work remains reconcilable.
+  for(let start=2,last=sh.getLastRow();start<=last;start+=500){
+    const ids=sh.getRange(start,1,Math.min(500,last-start+1),1).getValues();
+    for(let i=0;i<ids.length;i++)if(String(ids[i][0]||'')===outboxId){
+      if(found)throw new Error('LINE_INITIAL_OUTBOX_DUPLICATE_ID');
+      found={row:start+i,cells:sh.getRange(start+i,1,1,14).getValues()[0].map(function(v){return String(v==null?'':v);})};
+    }
+  }
+  return found;
+}
+function kkLineInitialOutboxWrite_(sh,row,cells) {
+  const next=cells.slice(0,14).map(function(v){return String(v==null?'':v);});
+  next[12]=new Date().toISOString();
+  sh.getRange(row,1,1,14).setValues([next]);SpreadsheetApp.flush();
+  const after=sh.getRange(row,1,1,14).getValues()[0].map(function(v){return String(v==null?'':v);});
+  if(JSON.stringify(next)!==JSON.stringify(after))throw new Error('LINE_INITIAL_OUTBOX_EXACT_READBACK_FAILED');
+  return {row:row,cells:after};
+}
+function kkLineInitialOutboxCreateIntents_(initial,bookingId,requestId,contact) {
+  const sh=initial.ledger;
+  if(KK_LINE_INITIAL_OUTBOX_KINDS_.some(function(kind){return !!kkLineInitialOutboxFind_(sh,kkLineInitialOutboxId_(kind,bookingId));}))
+    throw new Error('LINE_INITIAL_OUTBOX_EXISTING_INTENT_CONFLICT');
+  const now=new Date().toISOString();
+  KK_LINE_INITIAL_OUTBOX_KINDS_.forEach(function(kind){
+    kkLineInitialOutboxWrite_(sh,sh.getLastRow()+1,[kkLineInitialOutboxId_(kind,bookingId),bookingId,kind,'INTENT','','','',
+      kind==='OWNER_APPROVAL_PUSH'?initial.ownerTarget:contact,requestId,initial.contextJson,initial.contextHash,'',now,now]);
+  });
+}
+function kkLineInitialOutboxCanonical_(claim,requestId,context,contact,settlement) {
+  if(!claim || !['OK','PENDING'].includes(claim.status) || claim.request_id!==requestId || !/^line:[a-f0-9]{48}$/.test(requestId))
+    throw new Error('LINE_INITIAL_OUTBOX_REQUEST_UNVERIFIED');
+  const expected=Object.assign({},claim,{customer_name:context.nickname,customer_phone:context.phone,customer_contact:contact});
+  let canonical=kkLineBookingClaimReadback_(expected);
+  if(!canonical && settlement){
+    // Receipt settlement grants no send authority. A fast owner decision may
+    // legitimately update status/assets/payment before its earlier Push receipt
+    // is acknowledged. Keep the original Booking/request/customer binding exact.
+    const row=Number(claim.row_number||0);
+    if(Number.isInteger(row) && row>=5){
+      const current=kkSheet_(KK.bookings).getRange(row,1,1,20).getValues()[0];
+      if(String(current[0]||'')===claim.booking_id && ['confirmed','cancelled'].includes(String(current[2]||'').toLowerCase().trim()) &&
+          String(current[3]||'').trim()===claim.event_id && String(current[4]||'').trim()===context.nickname &&
+          String(current[5]||'').trim()===contact && String(current[6]||'').trim()===context.phone &&
+          String(current[7]||'').toUpperCase().trim()==='LINE' && kkBookingRequestIdFromNote_(current[19])===requestId)
+        canonical={row_number:row,row:current};
+    }
+  }
+  if(!canonical || String(canonical.row[11]||'').trim()!==context.pickup_time || !/^U[0-9a-f]{32}$/.test(String(canonical.row[5]||'')))
+    throw new Error('LINE_INITIAL_OUTBOX_CANONICAL_BOOKING_UNVERIFIED');
+  if(claim.initial_mode===KK_LINE_INITIAL_OUTBOX_VERSION_ && (!claim.initial_package_type ||
+      String(canonical.row[8]||'').toLowerCase().trim()!==claim.initial_package_type))
+    throw new Error('LINE_INITIAL_OUTBOX_CANONICAL_PACKAGE_TYPE_MISMATCH');
+  return canonical;
+}
+function kkLineInitialOutboxRecords_(initial,bookingId,requestId,contact,marked) {
+  const records=KK_LINE_INITIAL_OUTBOX_KINDS_.map(function(kind){return kkLineInitialOutboxFind_(initial.ledger,kkLineInitialOutboxId_(kind,bookingId));});
+  if(!marked || records.some(function(r){return !r;}))return null;
+  records.forEach(function(record,i){
+    const c=record.cells,kind=KK_LINE_INITIAL_OUTBOX_KINDS_[i];
+    if(c[0]!==kkLineInitialOutboxId_(kind,bookingId) || c[1]!==bookingId || c[2]!==kind ||
+       !['INTENT','READY','CLAIMED','SENT','UNCERTAIN'].includes(c[3]) ||
+       c[7]!== (i===0?initial.ownerTarget:contact) || c[8]!==requestId || c[9]!==initial.contextJson || c[10]!==initial.contextHash ||
+       (['INTENT','READY'].includes(c[3]) && (c[4] || c[5] || c[6] || c[11])) ||
+       (['CLAIMED','SENT','UNCERTAIN'].includes(c[3]) && (!kkLineInitialOutboxClaimKey_(c[4]) || !/^[a-f0-9]{64}$/.test(c[11]))) ||
+       (c[3]==='SENT' && (!kkLineInitialOutboxReceipt_(c[5]) || (c[6]&&!kkLineInitialOutboxReceipt_(c[6])))))
+      throw new Error('LINE_INITIAL_OUTBOX_IDENTITY_OR_STATE_MISMATCH');
+  });
+  return records;
+}
+function kkLineInitialOutboxDelivery_(bookingId,requestId,kind,initial,contact,record) {
+  const c=record?record.cells:null;
+  return {outbox_id:kkLineInitialOutboxId_(kind,bookingId),booking_id:bookingId,request_id:requestId,kind:kind,
+    recipient:kind==='OWNER_APPROVAL_PUSH'?initial.ownerTarget:contact,state:c?c[3]:'MISSING',claim_key:c?c[4]:'',
+    provider_message_id:c?c[5]:'',provider_request_id:c?c[6]:'',message_hash:c?c[11]:''};
+}
+function kkLineInitialOutboxReplay_(payload,claim,initial) {
+  const marked=claim.initial_mode===KK_LINE_INITIAL_OUTBOX_VERSION_;
+  if(marked && (claim.initial_context_json!==initial.contextJson || claim.initial_context_hash!==initial.contextHash || claim.initial_owner_target!==initial.ownerTarget ||
+      claim.initial_customer_name!==initial.context.nickname || claim.initial_customer_phone!==initial.context.phone ||
+      claim.initial_customer_contact!==String(payload.customer_contact||'').trim() ||
+      claim.event_id!==String(payload.event_id||'').trim() || claim.template_id!==kkNormalizeTemplateIdForEvent_(claim.event_id,String(payload.template_id||'').trim())))
+    throw new Error('LINE_INITIAL_OUTBOX_REQUEST_CONTEXT_MISMATCH');
+  const contact=marked?claim.initial_customer_contact:String(payload.customer_contact||'').trim();
+  const requestId=String(payload.request_id||'').trim(),bookingId=String(claim.booking_id||'');
+  kkLineInitialOutboxMatchCustomer_(initial.context,String(payload.customer_name||'').trim(),String(payload.customer_phone||'').trim(),String(payload.pickup_time||'').trim(),contact);
+  const canonical=kkLineInitialOutboxCanonical_(claim,requestId,initial.context,contact);
+  let records=kkLineInitialOutboxRecords_(initial,bookingId,requestId,contact,marked);
+  if(records){
+    records=records.map(function(record){
+      if(record.cells[3]!=='INTENT')return record;
+      const next=record.cells.slice();next[3]='READY';return kkLineInitialOutboxWrite_(initial.ledger,record.row,next);
+    });
+    if(claim.status==='PENDING')PropertiesService.getScriptProperties().setProperty(kkLineBookingRequestKey_(requestId),
+      kkLineInitialOutboxClaimJson_(Object.assign({},claim,{status:'OK',completed_at:new Date().toISOString(),reconciled:true})));
+  }
+  return {row_number:canonical.row_number,booking_id:bookingId,booking_status:'pending',payment_status:'unpaid',phone_asset_id:'',lens_asset_id:'',
+    request_id:requestId,idempotent_replay:true,delivery_review_required:!records,
+    initial_outbox:{mode:KK_LINE_INITIAL_OUTBOX_VERSION_,booking_id:bookingId,request_id:requestId,
+      context_json:initial.contextJson,context_hash:initial.contextHash,owner_target:initial.ownerTarget,
+      deliveries:KK_LINE_INITIAL_OUTBOX_KINDS_.map(function(kind,i){return kkLineInitialOutboxDelivery_(bookingId,requestId,kind,initial,contact,records?records[i]:null);})}};
+}
+function kkLineInitialOutboxClaimKey_(key) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(key||''));
+}
+function kkLineInitialOutboxReceipt_(id) {
+  return typeof id==='string' && id.length>0 && id.length<=200 && id.trim()===id && !/[\u0000-\u0020\u007f]/.test(id);
+}
+function kkLineInitialOutboxLoad_(payload,settlement) {
+  const bookingId=String(payload.booking_id||''),requestId=String(payload.request_id||''),kind=String(payload.kind||'');
+  if(!bookingId || bookingId.length>128 || !/^line:[a-f0-9]{48}$/.test(requestId) || !KK_LINE_INITIAL_OUTBOX_KINDS_.includes(kind) ||
+      payload.outbox_id!==kkLineInitialOutboxId_(kind,bookingId) || !kkLineInitialOutboxClaimKey_(payload.claim_key) ||
+      !/^[a-f0-9]{64}$/.test(String(payload.context_hash||'')) || !/^[a-f0-9]{64}$/.test(String(payload.message_hash||'')))
+    throw new Error('LINE_INITIAL_OUTBOX_CLAIM_INVALID');
+  let claim;try{claim=JSON.parse(PropertiesService.getScriptProperties().getProperty(kkLineBookingRequestKey_(requestId))||'null');}catch(_){}
+  if(!claim || claim.initial_mode!==KK_LINE_INITIAL_OUTBOX_VERSION_ || claim.booking_id!==bookingId || claim.initial_context_hash!==payload.context_hash)
+    throw new Error('LINE_INITIAL_OUTBOX_REQUEST_CONTEXT_MISMATCH');
+  const initial={ledger:kkLineInitialOutboxSheet_(),ownerTarget:kkLineInitialOutboxOwner_(),contextJson:claim.initial_context_json,contextHash:claim.initial_context_hash};
+  initial.context=kkLineInitialOutboxContext_(initial.contextJson,initial.contextHash);
+  if(initial.ownerTarget!==claim.initial_owner_target || initial.context.nickname!==claim.initial_customer_name || initial.context.phone!==claim.initial_customer_phone)
+    throw new Error('LINE_INITIAL_OUTBOX_REQUEST_CONTEXT_MISMATCH');
+  kkLineInitialOutboxCanonical_(claim,requestId,initial.context,claim.initial_customer_contact,settlement);
+  const records=kkLineInitialOutboxRecords_(initial,bookingId,requestId,claim.initial_customer_contact,true);
+  if(!records)throw new Error('LINE_INITIAL_OUTBOX_INTENT_MISSING');
+  const record=records[KK_LINE_INITIAL_OUTBOX_KINDS_.indexOf(kind)];
+  if(record.cells[11] && record.cells[11]!==payload.message_hash)throw new Error('LINE_INITIAL_OUTBOX_MESSAGE_HASH_MISMATCH');
+  return {initial:initial,records:records,record:record,contact:claim.initial_customer_contact};
+}
+function kkApiLineInitialOutboxReadiness_(payload) {
+  kkLineInitialOutboxRequireDispatch_(payload);kkLineInitialOutboxSheet_();
+  return {initial_outbox_mode:KK_LINE_INITIAL_OUTBOX_VERSION_,ready:true,columns:14,owner_target:kkLineInitialOutboxOwner_()};
+}
+function kkApiClaimLineBookingInitialDelivery_(payload) {
+  kkLineInitialOutboxRequireDispatch_(payload);
+  const lock=kkAcquireDocumentLock_('LINE initial notification claim',12000);
+  try{
+    const loaded=kkLineInitialOutboxLoad_(payload),record=loaded.record;
+    let claimed=false,after=record;
+    if(record.cells[3]==='READY' && (payload.kind!=='CUSTOMER_PENDING_REPLY' || loaded.records[0].cells[3]==='SENT')){
+      const next=record.cells.slice();next[3]='CLAIMED';next[4]=payload.claim_key;next[11]=payload.message_hash;
+      after=kkLineInitialOutboxWrite_(loaded.initial.ledger,record.row,next);claimed=true;
+    }
+    return Object.assign({mode:KK_LINE_INITIAL_OUTBOX_VERSION_,context_hash:loaded.initial.contextHash,claimed:claimed},
+      kkLineInitialOutboxDelivery_(payload.booking_id,payload.request_id,payload.kind,loaded.initial,loaded.contact,after));
+  }finally{lock.releaseLock();}
+}
+function kkApiSettleLineBookingInitialDelivery_(payload) {
+  kkLineInitialOutboxRequireDispatch_(payload);
+  const lock=kkAcquireDocumentLock_('LINE initial notification settlement',12000);
+  try{
+    const state=String(payload.delivery_state||''),provider=payload.provider_message_id||'',request=payload.provider_request_id||'';
+    if(!['SENT','UNCERTAIN'].includes(state) || (state==='SENT' && (!kkLineInitialOutboxReceipt_(provider) || (request&&!kkLineInitialOutboxReceipt_(request)))) ||
+       (state==='UNCERTAIN' && (provider || request)))throw new Error('LINE_INITIAL_OUTBOX_SETTLEMENT_INVALID');
+    const loaded=kkLineInitialOutboxLoad_(payload,true),record=loaded.record;
+    if(record.cells[4]!==payload.claim_key || record.cells[11]!==payload.message_hash)throw new Error('LINE_INITIAL_OUTBOX_CLAIM_MISMATCH');
+    let after=record;
+    if(record.cells[3]==='SENT'){
+      if(state!=='SENT' || record.cells[5]!==provider || record.cells[6]!==request)throw new Error('LINE_INITIAL_OUTBOX_ALREADY_SETTLED');
+    }else{
+      if(!['CLAIMED','UNCERTAIN'].includes(record.cells[3]))throw new Error('LINE_INITIAL_OUTBOX_ALREADY_SETTLED');
+      const next=record.cells.slice();next[3]=state;next[5]=provider;next[6]=request;
+      after=kkLineInitialOutboxWrite_(loaded.initial.ledger,record.row,next);
+    }
+    return Object.assign({mode:KK_LINE_INITIAL_OUTBOX_VERSION_,context_hash:loaded.initial.contextHash},
+      kkLineInitialOutboxDelivery_(payload.booking_id,payload.request_id,payload.kind,loaded.initial,loaded.contact,after));
+  }finally{lock.releaseLock();}
+}
 
 // LINE owner-decision outbox is bound to this SAME spreadsheet's DocumentLock.
 // It is deliberately disabled until the owner provisions a private tab with the

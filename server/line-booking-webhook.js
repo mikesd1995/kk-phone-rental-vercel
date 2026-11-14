@@ -12,6 +12,7 @@ const LineIdentity = require('./kk-line-identity');
 const TermsEvidence = require('./kk-booking-terms-evidence');
 const IdentityReceipt = require('./kk-line-booking-terms-receipt');
 const Deadline = require('./line-booking-deadline');
+const InitialOutbox = require('./line-initial-durable-outbox');
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 const PUBLIC_DATA_BASE = 'https://kk-phone-rental.vercel.app/api/kk-data';
@@ -252,6 +253,20 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
   booking.poster_image_url=poster;
 
   const readiness=OwnerApproval.automationReadiness(env);
+  if(InitialOutbox.enabled(env)&&options.signatureVerified!==true){
+    throw Object.assign(new Error('Verified initial notification event required'),
+      {code:'LINE_INITIAL_OUTBOX_VERIFIED_EVENT_REQUIRED'});
+  }
+  if(InitialOutbox.enabled(env)&&!readiness.ready){
+    throw Object.assign(new Error('Initial notification automation unavailable'),
+      {code:'LINE_INITIAL_OUTBOX_DISPATCH_NOT_READY'});
+  }
+  if(InitialOutbox.enabled(env)&&!canonical){
+    // Redelivery may already have a SENT or uncertain initial leg. A changed
+    // public snapshot must not escape the ledger through the legacy reply.
+    return {handled:true,booking_id:'',automation_status:'CANONICAL_REVIEW_REQUIRED',
+      requires_manual_delivery_review:true,owner_notifications:0,customer_notifications:0};
+  }
   // Validate canonical bookability FIRST. A hidden/invalid event retains the
   // existing fail-closed warning even if the customer also omitted a field.
   // For admitted events, always require a nickname, even in REPLY_ONLY mode:
@@ -296,6 +311,12 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
     }
     if(env.KK_CUSTOMER_LOGIN_ENABLED==='true' &&
        termsStatus!=='VERIFIED_LINE_IDENTITY_TERMS_ACCEPTED'){
+      if(InitialOutbox.enabled(env)){
+        // Receipt availability may have changed after this same event created
+        // Pending. Do not assert absence or escape the initial ledger via Reply.
+        return {handled:true,booking_id:'',automation_status:'TERMS_EVIDENCE_REVIEW_REQUIRED',
+          requires_manual_delivery_review:true,owner_notifications:0,customer_notifications:0};
+      }
       // Do not create Pending or send an owner approval card for a LINE user
       // without a current authenticated receipt. Still acknowledge safely.
       automationStatus='TERMS_EVIDENCE_REQUIRED';
@@ -308,7 +329,21 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
       },env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
       return {handled:true,booking_id:'',automation_status:automationStatus};
     }else{
-      pending=await OwnerApproval.createPendingBooking(event,booking,canonical,env,fetchImpl);
+      const initialContext=InitialOutbox.enabled(env)?InitialOutbox.contextJson(booking,canonical,termsStatus):undefined;
+      pending=await OwnerApproval.createPendingBooking(event,booking,canonical,env,fetchImpl,{initialContext});
+      if(InitialOutbox.enabled(env)){
+        const frozen=InitialOutbox.parseContext(pending.initial_outbox.context_json,pending.initial_outbox.context_hash);
+        return InitialOutbox.deliver({envelope:pending.initial_outbox,replyToken:event.replyToken,
+          expected:{bookingId:pending.booking_id,requestId:pending.request_id,
+            contextHash:InitialOutbox.hash(initialContext),ownerTarget:OwnerApproval.ownerTargetId(env),customer:senderUserId},
+          messages:{
+            OWNER_APPROVAL_PUSH:OwnerApproval.ownerApprovalMessage({...frozen,booking_id:pending.booking_id},env),
+            CUSTOMER_PENDING_REPLY:buildBookingFlex({event:frozen,package:frozen,
+              customer:frozen,booking:{booking_id:pending.booking_id}})
+          }
+        },{appsScriptCall:p=>OwnerApproval.appsScriptCall(p,env,fetchImpl),
+          lineToken:env.LINE_CHANNEL_ACCESS_TOKEN,dispatchSecret:InitialOutbox.configuration(env),fetchImpl});
+      }
       // A canonical row replay does not prove either initial notification was
       // delivered. Do not repeat the owner push or reuse a reply token; retain
       // explicit delivery-review evidence until canonical receipts exist.

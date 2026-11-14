@@ -6,6 +6,7 @@ const TermsEvidence=require('./kk-booking-terms-evidence');
 const DurableOutbox=require('./line-owner-durable-outbox');
 const LineIdentity=require('./kk-line-identity');
 const Deadline=require('./line-booking-deadline');
+const InitialOutbox=require('./line-initial-durable-outbox');
 
 const VERSION='KK_LINE_BOOKING_OWNER_APPROVAL_V1';
 const LINE_PUSH_URL='https://api.line.me/v2/bot/message/push';
@@ -87,7 +88,7 @@ async function appsScriptCall(payload,env=process.env,fetchImpl=fetch){
   }
   return parsed;
 }
-async function createPendingBooking(event,booking,canonical,env=process.env,fetchImpl=fetch){
+async function createPendingBooking(event,booking,canonical,env=process.env,fetchImpl=fetch,options={}){
   if(!text(event&&event.source&&event.source.userId)){
     const err=new Error('LINE customer userId is required for governed owner approval');
     err.code='LINE_CUSTOMER_USER_ID_REQUIRED';
@@ -99,12 +100,36 @@ async function createPendingBooking(event,booking,canonical,env=process.env,fetc
     err.code=intent.code;
     throw err;
   }
+  let initialExpected;
+  if(InitialOutbox.enabled(env)){
+    const secret=InitialOutbox.configuration(env);
+    const raw=options.initialContext;
+    const digest=typeof raw==='string'?InitialOutbox.hash(raw):'';
+    InitialOutbox.parseContext(raw,digest);
+    const readiness=await appsScriptCall({action:'lineInitialOutboxReadiness',initial_dispatch_key:secret},env,fetchImpl);
+    const proof=readiness&&readiness.data||readiness||{};
+    if(proof.ready!==true||proof.initial_outbox_mode!==InitialOutbox.VERSION||proof.columns!==14
+      ||proof.owner_target!==ownerTargetId(env)){
+      throw Object.assign(new Error('Initial outbox preflight not verified'),{code:'LINE_INITIAL_OUTBOX_PREFLIGHT_FAILED'});
+    }
+    intent.payload.initial_dispatch_key=secret;
+    intent.payload.initial_notification={mode:InitialOutbox.VERSION,owner_target:ownerTargetId(env),context_json:raw,context_hash:digest};
+    initialExpected={requestId:intent.payload.request_id,contextHash:digest,
+      ownerTarget:ownerTargetId(env),customer:intent.payload.customer_contact};
+  }
   const result=await appsScriptCall(intent.payload,env,fetchImpl);
   const canonicalResult=Intake.canonicalResult(result);
   if(!canonicalResult.ok){
     const err=new Error(canonicalResult.code);
     err.code=canonicalResult.code;
     throw err;
+  }
+  if(initialExpected){
+    const data=result&&result.data||result||{};
+    if(canonicalResult.idempotent_replay!==true)
+      throw Object.assign(new Error('Initial outbox replay fence missing'),{code:'LINE_INITIAL_OUTBOX_READBACK_REQUIRED'});
+    InitialOutbox.validateEnvelope(data.initial_outbox,{...initialExpected,bookingId:canonicalResult.booking_id});
+    canonicalResult.initial_outbox=data.initial_outbox;
   }
   return Object.assign({status:'PENDING_CREATED',request_id:intent.payload.request_id},canonicalResult);
 }
