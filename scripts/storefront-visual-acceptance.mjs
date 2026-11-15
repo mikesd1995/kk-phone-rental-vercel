@@ -240,6 +240,21 @@ async function main(){
         fail('STOREFRONT_DATA_NOT_READY',`Real event catalogue was not ready at ${width}px before interaction QA: ${JSON.stringify(readiness)}`);
       }
 
+      // First-visit Terms is mandatory for a new browser context. Model the actual
+      // customer action before testing the unlocked catalogue, rather than using
+      // force-click, DOM removal or an artificial localStorage flag.
+      const firstVisitGate=page.locator('#kk-booking-agreement');
+      if(await firstVisitGate.isVisible().catch(()=>false)){
+        const agreementCheckbox=page.locator('#kk-booking-terms-check');
+        const agreementContinue=page.locator('#kk-booking-terms-continue');
+        if(await agreementCheckbox.isChecked() || !(await agreementContinue.isDisabled())){
+          fail('FIRST_VISIT_TERMS_UNSAFE_DEFAULT','First-visit terms must be unchecked and confirmation disabled until explicit action');
+        }
+        await agreementCheckbox.check();
+        await agreementContinue.click();
+        if(await firstVisitGate.isVisible()) fail('FIRST_VISIT_TERMS_NOT_DISMISSED','Explicit first-visit confirmation failed to unlock browsing');
+      }
+
       const cards=page.locator('#content .concert-card:not(.skeleton-card)');
       const cardCount=await cards.count();
       if(cardCount<1) fail('EVENT_CARDS_NOT_RENDERED',`No real event cards rendered at ${width}px`);

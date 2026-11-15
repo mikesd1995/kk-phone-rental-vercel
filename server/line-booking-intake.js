@@ -25,9 +25,11 @@ function bookingIntent(event,booking,resolved={}){
     booking_status:'pending',pickup_time:text(booking.pickup_time),
     payment_status:'unpaid',amount_received:0,
     booking_note:'LINE webhook intake '+request_id+
-      (booking.terms_acknowledged===true && booking.terms_version===TermsEvidence.VERSION
-        ? ' | TERMS_ACK:'+TermsEvidence.VERSION
-        : ' | TERMS_NOT_CONFIRMED')
+      (booking.terms_identity_verified===true && booking.terms_version===TermsEvidence.VERSION
+        ? ' | TERMS_ACK_BACKEND:'+TermsEvidence.VERSION
+        : booking.terms_acknowledged===true && booking.terms_version===TermsEvidence.VERSION
+          ? ' | TERMS_ACK:'+TermsEvidence.VERSION
+          : ' | TERMS_NOT_CONFIRMED')
   }};
 }
 function buildCanonicalResolution(canonical={}){

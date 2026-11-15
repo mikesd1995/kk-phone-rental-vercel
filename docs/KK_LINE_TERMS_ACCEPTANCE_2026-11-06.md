@@ -1,3 +1,9 @@
+# Historical LINE Terms evidence flow (before 2026-11-11 first-visit UX)
+
+**Superseded for new website booking/waitlist drafts by** [KK_FIRST_VISIT_TERMS_NO_LINE_BOILERPLATE_2026-11-11.md](KK_FIRST_VISIT_TERMS_NO_LINE_BOILERPLATE_2026-11-11.md). The two legal lines below are no longer auto-appended to new web-generated LINE drafts; the signed webhook matcher remains strict for legacy/customer-typed LINE messages. New web-originated requests are NOT automatically `TERMS_ACK`; the owner must handle the consent evidence gap before approving. The original notes below remain for historical audits.
+
+---
+
 # KK Phone Rental — LINE Terms Acceptance Evidence V1
 
 Effective public Terms revision: `KK-TERMS-2026-11-06` (6 Nov 2026).
