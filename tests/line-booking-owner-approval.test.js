@@ -173,3 +173,129 @@ test('Apps Script owner decision is a separate atomic pending-only action',()=>{
   assert.match(body,/customerContact = String\(current\[5\]/);
   assert.match(body,/String\(persisted\[5\]/);
 });
+
+
+// 20261111 full-path: source-level E2E through the actual webhook and owner
+// handlers. Synthetic data + injected fetch only: zero LIVE provider/Sheet writes.
+async function syntheticBookingFullPath(decision) {
+  const Webhook=require('../server/line-booking-webhook');
+  const e=env();
+  const bookingId=decision==='approve'?'BK-SYNTHETIC-APPROVE':'BK-SYNTHETIC-REJECT';
+  const eventId='EVT-SYNTHETIC-20261117';
+  const eventName='Synthetic Fan Event';
+  const venue='Synthetic Hall';
+  const ready=[
+    'event_id,event_name,event_date_text,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count',
+    eventId+','+eventName+',17/11/2026,'+venue+',,show,เปิดจอง,1'
+  ].join('\n');
+  const packages=[
+    'package_id,event_id,package_type,model_display,lens_display,price,available_count,package_status',
+    eventId+'-TPL-BUNDLE,'+eventId+',phone_lens_bundle,Vivo X300 Pro,Lens Vivo,690,1,available'
+  ].join('\n');
+  const calls=[];
+  let state='';
+  const fakeFetch=async(url,opts={})=>{
+    const u=String(url);
+    if(u.includes('08_Web_Ready')) { calls.push({kind:'web-ready'}); return response(ready); }
+    if(u.includes('09_Web_Packages')) { calls.push({kind:'web-packages'}); return response(packages); }
+    if(u.startsWith('https://script.google.com/')){
+      const body=JSON.parse(opts.body);
+      if(body.action==='createLineBookingPending'){
+        calls.push({kind:'create',body});
+        assert.equal(state,'','test must allocate only one canonical row');
+        assert.equal(body.request_id.startsWith('line:'),true);
+        assert.equal(body.event_id,eventId);
+        assert.equal(body.template_id,'TPL-BUNDLE');
+        assert.equal(body.booking_status,'pending');
+        assert.equal(body.payment_status,'unpaid');
+        assert.equal(body.amount_received,0);
+        assert.equal(body.customer_contact,'UCUSTOMER');
+        assert.equal(body.phone_asset_id,undefined);
+        state='pending';
+        return response({ok:true,data:{booking_id:bookingId,row_number:50,booking_status:'pending'}});
+      }
+      if(body.action==='decideLineBookingPending'){
+        calls.push({kind:'decide',body});
+        assert.equal(state,'pending','only pending may transition');
+        assert.equal(body.booking_id,bookingId,'same canonical booking ID');
+        assert.equal(body.decision,decision);
+        state=decision==='approve'?'confirmed':'cancelled';
+        return response({ok:true,data:{
+          booking_id:bookingId,booking_status:state,decision,
+          idempotent_replay:false,customer_contact:'UCUSTOMER'
+        }});
+      }
+      throw new Error('synthetic writer: unexpected action');
+    }
+    if(u.endsWith('/push')){
+      const body=JSON.parse(opts.body);
+      calls.push({kind:body.to==='UOWNER'?'owner-card':'customer-decision',body});
+      assert.equal(body.messages.length,1);
+      return response({ok:true});
+    }
+    if(u.endsWith('/reply')){
+      calls.push({kind:'reply',body:JSON.parse(opts.body)});
+      return response({ok:true});
+    }
+    throw new Error('synthetic fetch: unexpected URL');
+  };
+  const inbound={
+    type:'message',webhookEventId:'SYNTHETIC-EVENT-20261111-'+decision,
+    replyToken:'SYNTHETIC-CUSTOMER-REPLY',source:{type:'user',userId:'UCUSTOMER'},
+    message:{type:'text',text:[
+      '🎫 งาน: '+eventName,
+      '📅 วันที่: 17/11/2026',
+      '📍 สถานที่: '+venue,
+      '📱 รุ่น/แพ็กเกจ: Vivo X300 Pro + Lens',
+      '💰 ราคา: 590 บาท',
+      '👤 ชื่อเล่น: Synthetic Customer'
+    ].join('\n')}
+  };
+  const inboundResult=await Webhook._test.processEvent(inbound,e,fakeFetch);
+  assert.equal(inboundResult.handled,true);
+  assert.equal(inboundResult.booking_id,bookingId);
+  assert.equal(inboundResult.automation_status,'PENDING_OWNER_APPROVAL');
+  assert.equal(state,'pending');
+  assert.equal(calls.filter(x=>x.kind==='create').length,1);
+  const ownerCard=calls.find(x=>x.kind==='owner-card');
+  assert.ok(ownerCard,'owner must receive card on actual pending');
+  assert.equal(ownerCard.body.to,'UOWNER');
+  const message=ownerCard.body.messages[0];
+  assert.equal(message.type,'flex');
+  const buttons=message.contents.footer.contents;
+  assert.equal(buttons.length,2);
+  for(const [button,wanted] of [[buttons[0],'approve'],[buttons[1],'reject']]){
+    assert.deepEqual(Approval.parseDecisionData(button.action.data,e),{
+      decision:wanted,booking_id:bookingId
+    },'each button binds signed action to canonical booking');
+  }
+  const replies=calls.filter(x=>x.kind==='reply');
+  assert.equal(replies.length,1);
+  assert.equal(replies[0].body.messages[0].type,'flex');
+  assert.match(JSON.stringify(replies[0].body.messages[0]),/690 บาท/);
+  assert.doesNotMatch(JSON.stringify(replies[0].body.messages[0]),/ราคา  590 บาท/);
+  const result=await Approval.processOwnerPostback({
+    type:'postback',replyToken:'SYNTHETIC-OWNER-REPLY',
+    source:{type:'user',userId:'UOWNER'},
+    postback:{data:buttons[decision==='approve'?0:1].action.data}
+  },e,fakeFetch);
+  assert.equal(result.handled,true);
+  assert.equal(result.status,state.toUpperCase());
+  const customerPush=calls.find(x=>x.kind==='customer-decision');
+  assert.ok(customerPush);
+  assert.equal(customerPush.body.to,'UCUSTOMER');
+  assert.match(customerPush.body.messages[0].text,new RegExp(bookingId));
+  assert.equal(calls.filter(x=>x.kind==='decide').length,1);
+  assert.equal(calls.filter(x=>x.kind==='reply').length,2);
+  const seq=calls.map(x=>x.kind);
+  assert.ok(seq.indexOf('create')<seq.indexOf('owner-card'));
+  assert.ok(seq.indexOf('owner-card')<seq.indexOf('reply'));
+  assert.ok(seq.indexOf('decide')<seq.indexOf('customer-decision'));
+  assert.ok(seq.indexOf('customer-decision')<seq.lastIndexOf('reply'));
+}
+test('synthetic full-path inbound -> Pending -> owner Confirm -> customer notification',async()=>{
+  await syntheticBookingFullPath('approve');
+});
+test('synthetic full-path inbound -> Pending -> owner Reject -> customer notification',async()=>{
+  await syntheticBookingFullPath('reject');
+});
