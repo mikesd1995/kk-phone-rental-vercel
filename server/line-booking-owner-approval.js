@@ -7,6 +7,7 @@ const DurableOutbox=require('./line-owner-durable-outbox');
 const LineIdentity=require('./kk-line-identity');
 const Deadline=require('./line-booking-deadline');
 const InitialOutbox=require('./line-initial-durable-outbox');
+const TestAdmission=require('./kk-line-booking-test-admission');
 
 const VERSION='KK_LINE_BOOKING_OWNER_APPROVAL_V1';
 const LINE_PUSH_URL='https://api.line.me/v2/bot/message/push';
@@ -244,6 +245,9 @@ function ownerDecisionMessage(decision,bookingId){
   return {type:'text',text:(decision==='approve'?'✅ Confirmed ':'❌ Rejected ')+bookingId};
 }
 async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
+  const admission=TestAdmission.configuration(env);
+  TestAdmission.assertOwnerAllowed(env,admission);
+  if(!TestAdmission.isEventAllowed(event,admission)) return {handled:false};
   if(!event||event.type!=='postback'||!event.postback) return {handled:false};
   const parsed=parseDecisionData(event.postback.data,env);
   if(!parsed) return {handled:false};

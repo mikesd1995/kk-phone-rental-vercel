@@ -13,6 +13,7 @@ const TermsEvidence = require('./kk-booking-terms-evidence');
 const IdentityReceipt = require('./kk-line-booking-terms-receipt');
 const Deadline = require('./line-booking-deadline');
 const InitialOutbox = require('./line-initial-durable-outbox');
+const TestAdmission = require('./kk-line-booking-test-admission');
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 const PUBLIC_DATA_BASE = 'https://kk-phone-rental.vercel.app/api/kk-data';
@@ -230,6 +231,9 @@ async function replyFlex(replyToken, message, token, fetchImpl=fetch){
   }
 }
 async function processEvent(event, env=process.env, fetchImpl=fetch, options={}){
+  const admission=TestAdmission.configuration(env);
+  TestAdmission.assertOwnerAllowed(env,admission);
+  if(!TestAdmission.isEventAllowed(event,admission)) return {handled:false};
   if(!event || event.type!=='message' || !event.replyToken || !event.message || event.message.type!=='text') return {handled:false};
   const booking=parseBookingText(event.message.text);
   if(!booking) return {handled:false};
@@ -400,7 +404,13 @@ module.exports=async function handler(req,res){
   const sig=req.headers && (req.headers['x-line-signature']||req.headers['X-Line-Signature']);
   if(!validSignature(body,sig,secret)){res.statusCode=401; return res.end('Invalid signature');}
   let payload; try{payload=JSON.parse(body);}catch(_){res.statusCode=400;return res.end('Invalid JSON');}
-  const events=Array.isArray(payload.events)?payload.events:[];
+  let admission;
+  try{
+    admission=TestAdmission.configuration(process.env);
+    TestAdmission.assertOwnerAllowed(process.env,admission);
+  }catch(_){res.statusCode=503;return res.end('LINE booking test configuration unavailable');}
+  const events=(Array.isArray(payload.events)?payload.events:[])
+    .filter(event=>TestAdmission.isEventAllowed(event,admission));
   // Persist only verified events; Inbox failure remains isolated from the existing booking reply path.
   const inboxPromise=InboxTee.persistVerifiedEvents(events,inboxPersistFn(process.env,fetch),{
     profileFn:async userId=>LineMessaging.getProfile(userId,token,fetch),

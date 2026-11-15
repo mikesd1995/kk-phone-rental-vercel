@@ -6,10 +6,12 @@ const { createStore } = require('../server/kk-customer-auth-store');
 const AcceptOnce = require('../server/kk-customer-accept-once-policy');
 const Terms = require('../server/kk-booking-terms-evidence');
 const crypto = require('node:crypto');
+const TestAdmission = require('../server/kk-line-booking-test-admission');
 
 const MAX_BODY_BYTES = 512;
 
 function runtime(env = process.env) {
+  const admission = TestAdmission.configuration(env);
   if (env.KK_CUSTOMER_LOGIN_ENABLED !== 'true') return null;
   const required = [
     'KK_LINE_LOGIN_CHANNEL_ID', 'KK_LINE_LOGIN_CHANNEL_SECRET',
@@ -29,6 +31,7 @@ function runtime(env = process.env) {
     throw new Error('CUSTOMER_AUTH_CONFIG_INVALID');
   }
   return {
+    admission,
     channelId: env.KK_LINE_LOGIN_CHANNEL_ID,
     channelSecret: env.KK_LINE_LOGIN_CHANNEL_SECRET,
     providerId: env.KK_LINE_LOGIN_PROVIDER_ID,
@@ -138,6 +141,10 @@ async function handler(req, res) {
         channelId: config.channelId, channelSecret: config.channelSecret,
         callbackUrl: config.callbackUrl
       });
+      if (!TestAdmission.isUserAllowed(identity.line_user_id, config.admission)) {
+        res.setHeader('Set-Cookie', [clearCookie(OAuth.FLOW_COOKIE), clearCookie(OAuth.SESSION_COOKIE)]);
+        return send(res, 403, {status:'CUSTOMER_TEST_ADMISSION_DENIED'});
+      }
       const newToken = OAuth.randomToken(32);
       await config.store.createSession(OAuth.tokenHash(newToken), config.providerId,
         identity.line_user_id, new Date(Date.now() + OAuth.SESSION_TTL_MS).toISOString());
@@ -154,7 +161,8 @@ async function handler(req, res) {
         authenticated: false, terms_version: Terms.VERSION, skip_agreement: false
       });
       const session = await config.store.readSession(sessionHash);
-      if (!session || session.provider_id !== config.providerId) {
+      if (!session || session.provider_id !== config.providerId ||
+          !TestAdmission.isUserAllowed(session.line_user_id, config.admission)) {
         res.setHeader('Set-Cookie', clearCookie(OAuth.SESSION_COOKIE));
         return send(res, 200, {
           authenticated: false, terms_version: Terms.VERSION, skip_agreement: false
@@ -174,6 +182,10 @@ async function handler(req, res) {
       await readAffirmation(req);
       const session = await config.store.readSession(sessionHash);
       if (!session || session.provider_id !== config.providerId) return send(res, 401, {status: 'LOGIN_REQUIRED'});
+      if (!TestAdmission.isUserAllowed(session.line_user_id, config.admission)) {
+        res.setHeader('Set-Cookie', clearCookie(OAuth.SESSION_COOKIE));
+        return send(res, 403, {status:'CUSTOMER_TEST_ADMISSION_DENIED'});
+      }
       const record = await config.store.acceptTerms(sessionHash, Terms.VERSION, 'web:' + OAuth.randomToken(32));
       const decision = AcceptOnce.decideAcceptOnce({session, receipt: record});
       if (!decision.skip_agreement) return send(res, 503, {status: 'ACCEPTANCE_NOT_VERIFIED'});
@@ -185,6 +197,14 @@ async function handler(req, res) {
         return send(res, 200, {status: 'LOGGED_OUT'});
       }
       if (!csrfValid(req, sessionToken, config)) return send(res, 403, {status: 'CSRF_REJECTED'});
+      if (config.admission.enabled) {
+        const session = await config.store.readSession(sessionHash);
+        if (!session || session.provider_id !== config.providerId ||
+            !TestAdmission.isUserAllowed(session.line_user_id, config.admission)) {
+          res.setHeader('Set-Cookie', clearCookie(OAuth.SESSION_COOKIE));
+          return send(res, 403, {status:'CUSTOMER_TEST_ADMISSION_DENIED'});
+        }
+      }
       const revoked = await config.store.revokeSession(sessionHash);
       if (!revoked) return send(res, 503, {status: 'LOGOUT_NOT_VERIFIED'});
       res.setHeader('Set-Cookie', clearCookie(OAuth.SESSION_COOKIE));
