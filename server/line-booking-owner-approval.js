@@ -8,6 +8,7 @@ const LineIdentity=require('./kk-line-identity');
 const Deadline=require('./line-booking-deadline');
 const InitialOutbox=require('./line-initial-durable-outbox');
 const TestAdmission=require('./kk-line-booking-test-admission');
+const TestTarget=require('./kk-line-booking-test-target');
 
 const VERSION='KK_LINE_BOOKING_OWNER_APPROVAL_V1';
 const LINE_PUSH_URL='https://api.line.me/v2/bot/message/push';
@@ -42,6 +43,9 @@ function automationReadiness(env=process.env){
   return {version:VERSION,ready:reasons.length===0,reasons};
 }
 async function appsScriptCall(payload,env=process.env,fetchImpl=fetch){
+  const target=TestTarget.configuration(env);
+  TestTarget.assertNow(target);TestTarget.assertDurable(env,target);
+  fetchImpl=TestTarget.guardFetch(fetchImpl,target);
   const ready=automationReadiness(env);
   if(!ready.ready){
     const err=new Error('LINE booking automation is not ready: '+ready.reasons.join(','));
@@ -90,12 +94,18 @@ async function appsScriptCall(payload,env=process.env,fetchImpl=fetch){
   return parsed;
 }
 async function createPendingBooking(event,booking,canonical,env=process.env,fetchImpl=fetch,options={}){
+  const target=TestTarget.configuration(env);
+  if(target.enabled){
+    if(!TestTarget.isEventAllowed(event,target)||!TestTarget.isCanonicalAllowed(canonical,target))
+      throw Object.assign(new Error('Test event denied'),{code:'LINE_BOOKING_TEST_EVENT_DENIED'});
+    TestTarget.assertDurable(env,target);
+  }
   if(!text(event&&event.source&&event.source.userId)){
     const err=new Error('LINE customer userId is required for governed owner approval');
     err.code='LINE_CUSTOMER_USER_ID_REQUIRED';
     throw err;
   }
-  const intent=Intake.prepareBookingIntent(event,booking,canonical);
+  const intent=Intake.prepareBookingIntent(TestTarget.scopedEvent(event,target),booking,canonical);
   if(!intent.ok){
     const err=new Error(intent.code);
     err.code=intent.code;
@@ -140,14 +150,30 @@ function sigFor(decision,bookingId,secret){
     .digest('base64url')
     .slice(0,24);
 }
-function decisionData(decision,bookingId,env=process.env){
+function decisionData(decision,bookingId,env=process.env,requestId=''){
   const d=decision==='approve'?'approve':decision==='reject'?'reject':'';
   const bid=text(bookingId), secret=approvalSecret(env);
   if(!d||!bid||!secret) throw Object.assign(new Error('approval data incomplete'),{code:'LINE_APPROVAL_DATA_INCOMPLETE'});
+  const target=TestTarget.configuration(env);
+  if(target.enabled){
+    if(!/^line:[a-f0-9]{48}$/.test(requestId)||bid.length>128||/[|\r\n]/.test(bid))
+      throw Object.assign(new Error('Test approval provenance required'),{code:'LINE_APPROVAL_TEST_PROVENANCE_REQUIRED'});
+    return ['kkt1',d,bid,requestId,TestTarget.signature(['postback',d,bid,requestId],target)].join('|');
+  }
   return ['kkb1',d,bid,sigFor(d,bid,secret)].join('|');
 }
 function parseDecisionData(value,env=process.env){
   const parts=text(value).split('|');
+  const target=TestTarget.configuration(env);
+  if(target.enabled){
+    if(parts.length!==5||parts[0]!=='kkt1')return null;
+    const [,decision,bookingId,requestId,sig]=parts;
+    if(!['approve','reject'].includes(decision)||!bookingId||bookingId.length>128
+      ||!/^line:[a-f0-9]{48}$/.test(requestId)||!/^[A-Za-z0-9_-]{24}$/.test(sig))return null;
+    const expected=TestTarget.signature(['postback',decision,bookingId,requestId],target);
+    if(!crypto.timingSafeEqual(Buffer.from(expected),Buffer.from(sig)))return null;
+    return {decision,booking_id:bookingId,request_id:requestId};
+  }
   if(parts.length!==4||parts[0]!=='kkb1') return null;
   const [,decision,bookingId,sig]=parts;
   if(!['approve','reject'].includes(decision)||!bookingId||!sig) return null;
@@ -160,8 +186,8 @@ function parseDecisionData(value,env=process.env){
 }
 function ownerApprovalMessage(ctx={},env=process.env){
   const bookingId=text(ctx.booking_id);
-  const approve=decisionData('approve',bookingId,env);
-  const reject=decisionData('reject',bookingId,env);
+  const approve=decisionData('approve',bookingId,env,text(ctx.request_id));
+  const reject=decisionData('reject',bookingId,env,text(ctx.request_id));
   const eventName=text(ctx.event_name)||'-';
   const date=text(ctx.event_date)||'-';
   const packageName=text(ctx.package_name)||'-';
@@ -232,6 +258,8 @@ function replyMessage(replyToken,message,env=process.env,fetchImpl=fetch){
   return sendLine(LINE_REPLY_URL,{replyToken,messages:[message]},env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
 }
 async function notifyOwner(context,env=process.env,fetchImpl=fetch){
+  if(TestTarget.configuration(env).enabled)
+    throw Object.assign(new Error('Test initial durable delivery required'),{code:'LINE_BOOKING_TEST_DURABLE_REQUIRED'});
   const ready=automationReadiness(env);
   if(!ready.ready) return {status:'DISABLED',reasons:ready.reasons};
   await pushMessage(ownerTargetId(env),ownerApprovalMessage(context,env),env,fetchImpl);
@@ -248,9 +276,13 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
   const admission=TestAdmission.configuration(env);
   TestAdmission.assertOwnerAllowed(env,admission);
   if(!TestAdmission.isEventAllowed(event,admission)) return {handled:false};
+  const target=TestTarget.configuration(env);
+  if(!TestTarget.isEventAllowed(event,target))return {handled:false};
+  fetchImpl=TestTarget.guardFetch(fetchImpl,target);
   if(!event||event.type!=='postback'||!event.postback) return {handled:false};
+  TestTarget.assertDurable(env,target);
   const parsed=parseDecisionData(event.postback.data,env);
-  if(!parsed) return {handled:false};
+  if(!parsed) return target.enabled?{handled:true,status:'TEST_POSTBACK_DENIED'}:{handled:false};
   const actor=text(event.source&&event.source.userId);
   if(!ownerUserId(env)||actor!==ownerUserId(env)){
     return {handled:true,status:'UNAUTHORIZED_OWNER',booking_id:parsed.booking_id};

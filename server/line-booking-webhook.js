@@ -14,6 +14,7 @@ const IdentityReceipt = require('./kk-line-booking-terms-receipt');
 const Deadline = require('./line-booking-deadline');
 const InitialOutbox = require('./line-initial-durable-outbox');
 const TestAdmission = require('./kk-line-booking-test-admission');
+const TestTarget = require('./kk-line-booking-test-target');
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 const PUBLIC_DATA_BASE = 'https://kk-phone-rental.vercel.app/api/kk-data';
@@ -66,14 +67,17 @@ function isBookableWebReadyEvent(row){
   const n=Number(String(row.available_phone_count===undefined?'':row.available_phone_count).replace(/,/g,'').trim());
   return Number.isInteger(n)&&n>0;
 }
-async function resolvePoster(booking, fetchImpl=fetch){
-  const u=PUBLIC_DATA_BASE+WEB_READY_QUERY;
-  const rows=await Deadline.fetchWithDeadline(fetchImpl,u,{headers:{'User-Agent':'KK-Line-Webhook/1.0'}},
-    async r=>r.ok?parseCsv(await r.text()):[]);
+async function resolvePoster(booking, fetchImpl=fetch,env={}){
+  const target=TestTarget.configuration(env);TestTarget.assertNow(target);
+  fetchImpl=TestTarget.guardFetch(fetchImpl,target);
+  const base=target.enabled?target.origin+'/api/kk-data':PUBLIC_DATA_BASE;
+  const u=base+WEB_READY_QUERY;
+  const rows=await Deadline.fetchWithDeadline(fetchImpl,u,TestTarget.readOptions({headers:{'User-Agent':'KK-Line-Webhook/1.0'}},target),
+    async r=>r.ok&&TestTarget.validReadResponse(r,target)?parseCsv(await r.text()):[]);
   const exact=resolveEventRow(rows,booking);
-  if(!isBookableWebReadyEvent(exact) || !safePosterSource(exact.poster_image_url)) return '';
+  if(!isBookableWebReadyEvent(exact)||!TestTarget.isCanonicalAllowed(exact,target)||!safePosterSource(exact.poster_image_url,env)) return '';
   const eventId=String(exact.event_id||'').trim();
-  return eventId ? 'https://kk-phone-rental.vercel.app/api/line-poster?event_id='+encodeURIComponent(eventId) : '';
+  return eventId ? target.origin+'/api/line-poster?event_id='+encodeURIComponent(eventId) : '';
 }
 
 function norm(value){ return String(value||'').normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase(); }
@@ -144,17 +148,20 @@ function formatCanonicalPrice(value){
   const n=Number(raw);
   return Number.isFinite(n)&&n>0 ? n.toLocaleString('en-US')+' บาท' : '';
 }
-async function resolveCanonicalPackage(booking, fetchImpl=fetch){
+async function resolveCanonicalPackage(booking, fetchImpl=fetch,env={}){
+  const target=TestTarget.configuration(env);TestTarget.assertNow(target);
+  fetchImpl=TestTarget.guardFetch(fetchImpl,target);
+  const base=target.enabled?target.origin+'/api/kk-data':PUBLIC_DATA_BASE;
   const headers={'User-Agent':'KK-Line-Webhook/1.0'};
-  const events=await Deadline.fetchWithDeadline(fetchImpl,PUBLIC_DATA_BASE+WEB_READY_QUERY,{headers},
-    async r=>r.ok?parseCsv(await r.text()):[]);
+  const events=await Deadline.fetchWithDeadline(fetchImpl,base+WEB_READY_QUERY,TestTarget.readOptions({headers},target),
+    async r=>r.ok&&TestTarget.validReadResponse(r,target)?parseCsv(await r.text()):[]);
   const event=resolveEventRow(events,booking);
-  if(!isBookableWebReadyEvent(event))return null;
+  if(!isBookableWebReadyEvent(event)||!TestTarget.isCanonicalAllowed(event,target))return null;
   const eventId=String(event.event_id||'').trim();
   if(!eventId) return null;
 
-  const packages=await Deadline.fetchWithDeadline(fetchImpl,PUBLIC_DATA_BASE+WEB_PACKAGES_QUERY,{headers},
-    async r=>r.ok?parseCsv(await r.text()):[]);
+  const packages=await Deadline.fetchWithDeadline(fetchImpl,base+WEB_PACKAGES_QUERY,TestTarget.readOptions({headers},target),
+    async r=>r.ok&&TestTarget.validReadResponse(r,target)?parseCsv(await r.text()):[]);
   const rows=packages.filter(x=>String(x.event_id||'').trim()===eventId);
   const wanted=norm(booking.package_name);
   const matches=rows.filter(x=>{
@@ -234,25 +241,32 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
   const admission=TestAdmission.configuration(env);
   TestAdmission.assertOwnerAllowed(env,admission);
   if(!TestAdmission.isEventAllowed(event,admission)) return {handled:false};
+  const target=TestTarget.configuration(env);
+  if(!TestTarget.isEventAllowed(event,target))return {handled:false};
+  fetchImpl=TestTarget.guardFetch(fetchImpl,target);
   if(!event || event.type!=='message' || !event.replyToken || !event.message || event.message.type!=='text') return {handled:false};
   const booking=parseBookingText(event.message.text);
   if(!booking) return {handled:false};
+  TestTarget.assertDurable(env,target);
+  TestTarget.scopedEvent(event,target); // Missing original ID cannot gain a derived identity.
   // One event-local WebReady fetch. Do not cache across customer requests.
   // Preserve exact snapshot while poster and canonical price resolve in parallel.
   let webReadySnapshot;
+  const publicDataBase=target.enabled?target.origin+'/api/kk-data':PUBLIC_DATA_BASE;
   const sharedFetch=async (url, options)=>{
-    if(url!==PUBLIC_DATA_BASE+WEB_READY_QUERY) return fetchImpl(url,options);
+    if(url!==publicDataBase+WEB_READY_QUERY) return fetchImpl(url,options);
     if(!webReadySnapshot) webReadySnapshot=Promise.resolve().then(()=>
       fetchImpl(url,options)).then(async response=>({
         ok:response.ok,
+        status:response.status,redirected:response.redirected,url:response.url,
         text:response.ok ? await response.text() : ''
       }));
     const snapshot=await webReadySnapshot;
-    return {ok:snapshot.ok,text:async()=>snapshot.text};
+    return {...snapshot,text:async()=>snapshot.text};
   };
   const [poster,canonical]=await Promise.all([
-    resolvePoster(booking,sharedFetch).catch(()=> ''),
-    resolveCanonicalPackage(booking,sharedFetch).catch(()=> null)
+    resolvePoster(booking,sharedFetch,env).catch(()=> ''),
+    resolveCanonicalPackage(booking,sharedFetch,env).catch(()=> null)
   ]);
   booking.poster_image_url=poster;
 
@@ -329,7 +343,7 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
       // evidence store is unavailable. No Pending/Owner notification happened.
       await replyFlex(event.replyToken,{
         type:'text',
-        text:'ยังไม่ได้บันทึกคำขอจองค่ะ\nระบบยังตรวจสอบหลักฐานการยอมรับเงื่อนไขจากบัญชี LINE นี้ไม่ได้ กรุณาเปิด https://kk-phone-rental.vercel.app/ เชื่อม LINE และยอมรับเงื่อนไข แล้วส่งคำขอใหม่อีกครั้ง หรือแจ้งร้านให้ช่วยตรวจสอบค่ะ'
+        text:'ยังไม่ได้บันทึกคำขอจองค่ะ\nระบบยังตรวจสอบหลักฐานการยอมรับเงื่อนไขจากบัญชี LINE นี้ไม่ได้ กรุณาเปิด '+target.origin+'/ เชื่อม LINE และยอมรับเงื่อนไข แล้วส่งคำขอใหม่อีกครั้ง หรือแจ้งร้านให้ช่วยตรวจสอบค่ะ'
       },env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
       return {handled:true,booking_id:'',automation_status:automationStatus};
     }else{
@@ -341,7 +355,8 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
           expected:{bookingId:pending.booking_id,requestId:pending.request_id,
             contextHash:InitialOutbox.hash(initialContext),ownerTarget:OwnerApproval.ownerTargetId(env),customer:senderUserId},
           messages:{
-            OWNER_APPROVAL_PUSH:OwnerApproval.ownerApprovalMessage({...frozen,booking_id:pending.booking_id},env),
+            OWNER_APPROVAL_PUSH:OwnerApproval.ownerApprovalMessage({...frozen,booking_id:pending.booking_id,
+              request_id:pending.initial_outbox.request_id},env),
             CUSTOMER_PENDING_REPLY:buildBookingFlex({event:frozen,package:frozen,
               customer:frozen,booking:{booking_id:pending.booking_id}})
           }
@@ -404,18 +419,22 @@ module.exports=async function handler(req,res){
   const sig=req.headers && (req.headers['x-line-signature']||req.headers['X-Line-Signature']);
   if(!validSignature(body,sig,secret)){res.statusCode=401; return res.end('Invalid signature');}
   let payload; try{payload=JSON.parse(body);}catch(_){res.statusCode=400;return res.end('Invalid JSON');}
-  let admission;
+  let admission,target;
   try{
     admission=TestAdmission.configuration(process.env);
     TestAdmission.assertOwnerAllowed(process.env,admission);
+    target=TestTarget.configuration(process.env);
+    TestTarget.assertHost(req,target);
+    TestTarget.assertDurable(process.env,target);
   }catch(_){res.statusCode=503;return res.end('LINE booking test configuration unavailable');}
   const events=(Array.isArray(payload.events)?payload.events:[])
-    .filter(event=>TestAdmission.isEventAllowed(event,admission));
+    .filter(event=>TestAdmission.isEventAllowed(event,admission)&&TestTarget.isEventAllowed(event,target));
+  const transport=TestTarget.guardFetch(fetch,target);
   // Persist only verified events; Inbox failure remains isolated from the existing booking reply path.
-  const inboxPromise=InboxTee.persistVerifiedEvents(events,inboxPersistFn(process.env,fetch),{
-    profileFn:async userId=>LineMessaging.getProfile(userId,token,fetch),
+  const inboxPromise=InboxTee.persistVerifiedEvents(events,inboxPersistFn(process.env,transport),{
+    profileFn:async userId=>LineMessaging.getProfile(userId,token,transport),
     mediaFn:async (event,message)=>InboxMedia.capture(event,message,{
-      token,fetchImpl:fetch
+      token,fetchImpl:transport
     })
   }).then(receipt=>{
     if(receipt.media_errors&&receipt.media_errors.length)console.warn('[line-inbox-media]',JSON.stringify({count:receipt.media_errors.length,codes:receipt.media_errors.map(x=>x.code)}));
@@ -423,9 +442,9 @@ module.exports=async function handler(req,res){
   }).catch(err=>({status:'FAILED_ISOLATED',error:err&&err.message?err.message:'inbox failed'}));
   try{
     for(const event of events){
-      const ownerDecision=await OwnerApproval.processOwnerPostback(event,process.env,fetch);
+      const ownerDecision=await OwnerApproval.processOwnerPostback(event,process.env,transport);
       if(ownerDecision.handled) continue;
-      await processEvent(event,process.env,fetch,{signatureVerified:true});
+      await processEvent(event,process.env,transport,{signatureVerified:true});
     }
     await inboxPromise;
     res.statusCode=200;

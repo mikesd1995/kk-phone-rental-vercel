@@ -40,13 +40,17 @@ async function main(){
   const Terms=require('../../../server/kk-booking-terms-evidence');
   const env={LINE_CHANNEL_SECRET:'synthetic-admission-hmac',LINE_CHANNEL_ACCESS_TOKEN:'synthetic-admission-token',
     KK_LINE_BOOKING_TEST_MODE:'true',KK_LINE_BOOKING_TEST_USER_IDS:OWNER+','+USER,KK_OWNER_LINE_USER_ID:OWNER,
+    KK_LINE_BOOKING_TEST_ORIGIN:'https://s2-admission.invalid',KK_LINE_BOOKING_TEST_SCOPE:'s2_admission_dummy_0001',
+    KK_LINE_BOOKING_TEST_WINDOW_START:new Date(Date.now()-60000).toISOString(),KK_LINE_BOOKING_TEST_WINDOW_END:new Date(Date.now()+300000).toISOString(),
+    KK_LINE_BOOKING_TEST_EVENT_IDS:'EVT-SYNTHETIC',KK_LINE_APPROVAL_SECRET:'synthetic_s2_approval_key_0123456789',
+    KK_LINE_BOOKING_AUTOMATION_ENABLED:'true',KK_LINE_INITIAL_OUTBOX_V1_ENABLED:'true',KK_LINE_OWNER_OUTBOX_V1_ENABLED:'true',
     KK_INBOX_SUPABASE_URL:'https://admission-inbox.supabase.co',KK_INBOX_SUPABASE_SERVICE_ROLE_KEY:'synthetic-inbox-service-only'};
   Object.assign(process.env,env);
-  const event=(userId=DENIED,type='user')=>({type:'message',webhookEventId:'synthetic-admission',timestamp:1794700800000,
+  const event=(userId=DENIED,type='user')=>({type:'message',webhookEventId:'synthetic-admission',timestamp:Date.now(),
     replyToken:'synthetic-unused',source:{type,userId},message:{type:'text',id:'12345678901',text:'สนใจเช่า Phone\nงาน: Synthetic\nวันที่: 18/11/2026\nสถานที่: Synthetic Hall\nราคา: 1 บาท\nชื่อเล่น: Synthetic'}});
   async function deliver(events){
     const raw=Buffer.from(JSON.stringify({events}));const res=response();
-    await webhook({method:'POST',headers:{'x-line-signature':crypto.createHmac('sha256',env.LINE_CHANNEL_SECRET).update(raw).digest('base64')},
+    await webhook({method:'POST',headers:{host:'s2-admission.invalid','x-line-signature':crypto.createHmac('sha256',env.LINE_CHANNEL_SECRET).update(raw).digest('base64')},
       async *[Symbol.asyncIterator](){yield raw;}},res);return res;
   }
   await check('denied signed users and private-source restriction precede every I/O',async()=>{
@@ -54,7 +58,7 @@ async function main(){
     for(const e of [event(),event('Ubad'),event(USER,'group'),event(USER,'room'),{...event(),message:{type:'image',id:'12345678902'}}])
       assert.equal((await deliver([e])).statusCode,200);
     assert.equal((await booking.processEvent(event(),process.env,t.fetch)).handled,false);
-    const data=approval.decisionData('approve','SYNTHETIC_BOOKING',process.env);
+    const data=approval.decisionData('approve','SYNTHETIC_BOOKING',process.env,'line:'+'d'.repeat(48));
     for(const actor of [event(),event(OWNER,'group'),event(OWNER,'room')]){
       const post={...actor,type:'postback',postback:{data}};
       assert.equal((await approval.processOwnerPostback(post,process.env,t.fetch)).handled,false);
@@ -86,12 +90,13 @@ async function main(){
   });
   await check('allowlisted non-owner still fails existing owner authorization',async()=>{
     const t=fixture();
-    const data=approval.decisionData('approve','SYNTHETIC_BOOKING',process.env);
+    const data=approval.decisionData('approve','SYNTHETIC_BOOKING',process.env,'line:'+'d'.repeat(48));
     const out=await approval.processOwnerPostback({...event(USER),type:'postback',postback:{data}},process.env,t.fetch);
     assert.equal(out.status,'UNAUTHORIZED_OWNER');assert.deepEqual(t.counters(),{});
   });
   await check('literal false preserves admitted legacy Inbox even for an unlisted identity',async()=>{
     process.env.KK_LINE_BOOKING_TEST_MODE='false';process.env.KK_LINE_BOOKING_TEST_USER_IDS='invalid ignored';
+    for(const name of ['ORIGIN','SCOPE','WINDOW_START','WINDOW_END','EVENT_IDS'])delete process.env['KK_LINE_BOOKING_TEST_'+name];
     const t=fixture([
       {id:'PROFILE',url:'https://api.line.me/v2/bot/profile/'+DENIED,method:'GET',max:1,respond:()=>json({displayName:'Synthetic'})},
       route('INBOX','https://admission-inbox.supabase.co/rest/v1/rpc/kk_inbox_persist_inbound',()=>json({status:'INSERTED'}),1)
