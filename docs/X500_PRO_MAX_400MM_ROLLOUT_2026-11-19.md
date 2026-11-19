@@ -38,3 +38,28 @@ Future active `PHONE-002` bookings require reconciliation by **booking ID and ev
 - Node regression fixtures in `tests/x500-pro-max-compatibility.test.js`.
 
 **Status: CODE STAGED ONLY. Model/asset/package and production deployment not changed by this branch.**
+
+## Isolated Google Sheets cutover rehearsal (2026-11-20; no Production write)
+
+An owner-only private copy of the actual Core workbook was created and transformed using native Google Sheets batched writes, not synthetic fixture data. The private copy is not published and is not the live Machine SOT.
+
+- `01_Events` has **508 populated events in 516 positional rows** (`A5:A520`, including 8 blanks). The original generated package grid has **1,548 source slots / 1,524 populated packages**. Do **not** compress blank source rows when regenerating public formulas: the existing `INDEX`/ `QUOTIENT` / `MOD` mapping is positional.
+- The 5-template rehearsal regenerated **2,580 source slots** (rows `09_Web_Packages!5:2584`) and **2,540 populated package rows**: 1,524 original + 1,016 new X500 bundles. The added 200mm and 400mm bundles share exactly one X500 physical phone, not two phones.
+- Registered `VIVO_X500_PRO_MAX` and `ZEISS_400MM` in `Model_Master`; registered `PHONE-003` and `LENS-005`; disabled legacy `PHONE-002` without deleting or rewriting historical data; preserved 200mm lenses `LENS-001` and `LENS-004`.
+- Reconciled **10 future active** bookings from `PHONE-002` to `PHONE-003` in the isolated copy, including a pre-existing booking with the 200mm lens, preserving the original booking identity, event, charge and lens allocation. A same-day phone-ID collision scan covered all 18 active future bookings and found zero collisions.
+- Column `M` now derives raw stock using model-scoped `COUNTIFS` for `00_Master_Booking!AJ:AM` with event ID day keys and counts unassigned physical model IDs conservatively. Column `I` clips negative raw stock at 0. X500+200 and X500+400 both reserve the same `PHONE-003`; 400mm cannot be paired with X300.
+- Column `H` for the 3 old templates retained the original event override formula; each new X500 200/400 row directly references that **same event's X300+200mm bundle H cell** and adds exactly 400/700. This avoids circular H-column `FILTER` dependencies and preserves all manually entered old prices, which were separately checked against the canonical overrides.
+- Initial rehearsal revealed **5 hidden bundle events** where a naive new-template status formula would reopen X500 options. It was corrected: new X500 `J` status inherits `hidden` from the event's existing X300+200mm bundle; otherwise it uses its own `I` stock.
+- After correction, **all 1,524 original package prices were unchanged**; **508/508 event pairs** met both price deltas; **0 missing new bundle pairs**, **0 hidden-package reopenings**, **0 invalid X300+400mm pairs**, and **0 Google Sheets formula errors**. Four original availability statuses changed due to the intentional physical reduction from 2 rentable X300 phones to 1, not because their prices or visibility locks changed.
+- Representative same-day cases passed: both X300 and X500 full on Nov 21 Cat Expo, X300 still available when X500 phone-only is reserved on Nov 22, and unrelated hidden events' X500 bundles stay hidden. The real storefront was not changed by this rehearsal.
+- Vercel **preview** of exact PR SHA `3ba2a942e75c40283731a70ee831933ed0f5e51b` reached `READY`; targeted Booking E2E and automated visual QA completed successfully. Preview does not expose the private rehearsal copy as Production content.
+
+## Remaining hard gates before live cutover
+
+1. Independent code Reviewer approval on the exact implementation/head, plus real authenticated visual QA on the exact Preview; repository CI pass alone is not production acceptance.
+2. Integrate the tested 5-template regeneration and `PHONE-002` future-booking reallocation into the **existing governed Apps Script write path**, using the document lock, no overlapping writers, canonical booking IDs, audit entry, backup and rollback. **Do not copy the staging sheet directly into Production through an ungoverned Sheets API write.**
+3. Re-read the live Core workbook immediately before the one-shot cutover: all source event positions, prices, owner visibility locks, active bookings/asset IDs, and physical inventory may have changed since the rehearsal.
+4. Deploy/activate the compatible backend only after exact-head review and release gates; read back `02_Assets`, `Model_Master`, `03_Packages`, `00_Master_Booking` and `09_Web_Packages`; verify `/api/kk-data` and public mobile modal with explicit X300+200 / X500+200 / X500+400 labels, no X300+400, correct event-specific pricing and actual availability.
+5. If any cutover validation fails, preserve existing booking charge and visibility truth, hold publication, and restore the snapshot under the same governed lock.
+
+**Live status: NOT APPLIED.** This is a tested staging rehearsal and a code/preview candidate, not proof of a production rollout.
