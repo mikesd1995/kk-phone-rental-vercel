@@ -732,8 +732,10 @@ function kkWebPackagePriceFormula_(rowNumber, templateId) {
   // 1) old SUMIFS formula ignored override price = 0 and could sum duplicate old rows;
   // 2) public 09_Web_Packages did not always recalculate after an override save.
   const x300BundleSameEvent = `IFERROR(INDEX(FILTER('09_Web_Packages'!$H$5:$H,'09_Web_Packages'!$B$5:$B=B${r},'09_Web_Packages'!$D$5:$D="VIVO_X300_PRO",'09_Web_Packages'!$F$5:$F="ZEISS_2_35X"),1),IFERROR(VLOOKUP("TPL-VIVO-X300-PRO-BUNDLE",'03_Packages'!$A$5:$E$1000,5,FALSE),690))`;
-  const relativeX500 = `IF(AND(D${r}="VIVO_X500_PRO_MAX",C${r}="phone_lens_bundle"),${x300BundleSameEvent}+IF(F${r}="ZEISS_400MM",700,400),${standardExpr})`;
-  return `=IF(B${r}="","",IFERROR(INDEX(FILTER('04_Event_Overrides'!$C$5:$C$1000,'04_Event_Overrides'!$A$5:$A$1000=B${r},'04_Event_Overrides'!$B$5:$B$1000=${tplExpr},'04_Event_Overrides'!$C$5:$C$1000<>""),COUNTIFS('04_Event_Overrides'!$A$5:$A$1000,B${r},'04_Event_Overrides'!$B$5:$B$1000,${tplExpr},'04_Event_Overrides'!$C$5:$C$1000,"<>")),${relativeX500}))`;
+  const oldPackagePrice = `IFERROR(INDEX(FILTER('04_Event_Overrides'!$C$5:$C$1000,'04_Event_Overrides'!$A$5:$A$1000=B${r},'04_Event_Overrides'!$B$5:$B$1000=${tplExpr},'04_Event_Overrides'!$C$5:$C$1000<>""),COUNTIFS('04_Event_Overrides'!$A$5:$A$1000,B${r},'04_Event_Overrides'!$B$5:$B$1000,${tplExpr},'04_Event_Overrides'!$C$5:$C$1000,"<>")),${standardExpr})`;
+  // Owner-set fixed add-ons are absolute: X500 price cannot be overridden independently.
+  // Preserve existing X300 event overrides as the single source for both X500 deltas.
+  return `=IF(B${r}="","",IF(AND(D${r}="VIVO_X500_PRO_MAX",C${r}="phone_lens_bundle"),IF(F${r}="ZEISS_400MM",${x300BundleSameEvent}+700,IF(REGEXMATCH(UPPER(F${r}),"^(ZEISS_2_35X|G1)$"),${x300BundleSameEvent}+400,0)),${oldPackagePrice}))`;
 }
 
 function kkRepairWebPackagePriceFormulas_() {
