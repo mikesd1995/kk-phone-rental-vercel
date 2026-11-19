@@ -13,19 +13,22 @@ function request(messageLines=[]){
  return ['สนใจเช่ามือถือ','🎫 งาน: DEMO EVENT','📅 วันที่: 06/11/2026','📍 สถานที่: DEMO VENUE','📱 รุ่น: vivo X300 Pro','💰 ราคา: 590 บาท','👤 ชื่อเล่น: Demo',...messageLines].join('\n');
 }
 
-test('web-originated booking drafts are compact and do not inject legal attestation text into LINE',()=>{
+test('booking and waitlist LINE drafts omit automatic attestation while legal documents remain versioned',()=>{
  const source=fs.readFileSync(path.join(root,'script.js'),'utf8');
  const terms=fs.readFileSync(path.join(root,'terms/index.html'),'utf8');
  const privacy=fs.readFileSync(path.join(root,'privacy/index.html'),'utf8');
  assert.equal(Evidence.VERSION,'KK-TERMS-2026-11-06');
  assert.match(terms,/<meta name="kk-terms-version" content="KK-TERMS-2026-11-06">/);
- assert.ok(terms.includes('<time datetime="2026-11-06">6 พฤศจิกายน 2569</time>'));
+ assert.match(terms,/<time datetime="2026-11-06">6 พฤศจิกายน 2569<\/time>/);
  assert.match(privacy,/เว็บไซต์ไม่แนบข้อความยืนยันนี้อัตโนมัติ/);
- const booking=source.slice(source.indexOf('function buildBookingMsg'),source.indexOf('function getBookingUrl'));
- const waitlist=source.slice(source.indexOf('function buildWaitlistMsg'),source.indexOf('function getWaitlistUrl'));
- for(const text of [booking,waitlist]){
-   assert.equal(text.includes(Evidence.ACK_LINE),false);
-   assert.equal(text.includes(Evidence.PRIVACY_LINE),false);
+ for(const [name,next] of [['buildBookingMsg','getBookingUrl'],['buildWaitlistMsg','getWaitlistUrl']]){
+   const start=source.indexOf('function '+name+'(');
+   const end=source.indexOf('function '+next+'(',start+1);
+   assert.ok(start>=0&&end>start,'expected non-empty '+name+' builder');
+   const draftSource=source.slice(start,end);
+   assert.equal(draftSource.includes(Evidence.ACK_LINE),false,name+' must not inject terms attestation');
+   assert.equal(draftSource.includes(Evidence.PRIVACY_LINE),false,name+' must not inject privacy acknowledgement');
+   assert.doesNotMatch(draftSource,/ยืนยันยอมรับเงื่อนไข|รับทราบนโยบายความเป็นส่วนตัว|KK-TERMS-|privacy\//);
  }
  // Existing legacy/direct LINE acknowledgements may still be verified, but a
  // browser-only checkbox must never turn into a forged customer-sent statement.

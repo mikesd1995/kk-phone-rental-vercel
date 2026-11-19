@@ -177,7 +177,10 @@ test('homepage language selection translates legal footer and agreement without 
   assert.match(script, /isEn\?"\/en\/terms\/"\:"\/terms\/"/);
   assert.match(script, /isEn\?"\/en\/privacy\/"\:"\/privacy\/"/);
   assert.match(script, /"I have read and accept "/);
-  assert.match(script, /"Confirm and browse events"/);
   assert.doesNotMatch(script, /ยืนยันยอมรับเงื่อนไขการเช่า KK Phone Rental/);
+  assert.match(script, /"Confirm and browse events"/);
+  const evidence = require('../server/kk-booking-terms-evidence');
+  assert.equal(evidence.VERSION, 'KK-TERMS-2026-11-06');
+  assert.ok(read('terms/index.html').includes('<meta name="kk-terms-version" content="'+evidence.VERSION+'">'));
   assert.doesNotMatch(html, /id="kk-booking-terms-check"[^>]*checked/);
 });
