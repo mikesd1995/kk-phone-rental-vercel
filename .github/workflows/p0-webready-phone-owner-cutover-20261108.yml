@@ -1,0 +1,33 @@
+name: P0 WebReady Phone Status Owner Cutover Offline
+on:
+  pull_request:
+    paths:
+      - 'apps-script/Code.gs'
+      - 'tests/p0-webready-phone-owner-cutover-20261108.test.cjs'
+      - '.github/workflows/p0-webready-phone-owner-cutover-20261108.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-only-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact PR HEAD
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify pinned checkout and run Node offline tests
+        env:
+          PINNED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$PINNED_SHA"
+          node --check tests/p0-webready-phone-owner-cutover-20261108.test.cjs
+          node --test tests/p0-webready-phone-owner-cutover-20261108.test.cjs
+
+      - name: Full repository regression and syntax (offline, no provider credentials)
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run check
+          npm test

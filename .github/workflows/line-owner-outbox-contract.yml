@@ -1,0 +1,51 @@
+name: LINE Owner Decision Durable Outbox Contract
+
+on:
+  pull_request:
+    paths:
+      - 'apps-script/Code.gs'
+      - 'server/line-owner-durable-outbox.js'
+      - 'server/line-booking-owner-approval.js'
+      - 'tests/line-booking-owner-durable-outbox.test.js'
+      - 'docs/LINE_OWNER_DURABLE_OUTBOX_SOURCE_20261112.md'
+      - '.github/workflows/line-owner-outbox-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: line-owner-outbox-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-head-offline:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact source candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Reject checkout drift
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install locked dependencies without lifecycle hooks
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Durable LINE owner decision tests
+        run: node --test tests/line-booking-owner-durable-outbox.test.js
+      - name: Syntax and source checks
+        run: |
+          node --check server/line-owner-durable-outbox.js
+          node --check server/line-booking-owner-approval.js
+          node --check tests/line-booking-owner-durable-outbox.test.js
+          npm run check
+      - name: Complete repository regression
+        run: npm test

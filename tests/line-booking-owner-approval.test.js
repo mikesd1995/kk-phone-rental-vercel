@@ -4,6 +4,9 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const Approval=require('../server/line-booking-owner-approval');
+const OWNER='U'+'a'.repeat(32);
+const CUSTOMER='U'+'c'.repeat(32);
+const FOREIGN='U'+'b'.repeat(32);
 
 function env(){
   return {
@@ -12,8 +15,8 @@ function env(){
     KK_ADMIN_API_KEY:'admin-api-key',
     LINE_CHANNEL_ACCESS_TOKEN:'line-token',
     LINE_CHANNEL_SECRET:'line-secret',
-    KK_OWNER_LINE_USER_ID:'UOWNER',
-    KK_OWNER_LINE_TARGET_ID:'UOWNER'
+    KK_OWNER_LINE_USER_ID:OWNER,
+    KK_OWNER_LINE_TARGET_ID:OWNER
   };
 }
 function response(body,status=200){
@@ -25,6 +28,47 @@ test('automation stays fail-closed until all production bindings are present',()
   assert.equal(r.ready,false);
   assert.ok(r.reasons.includes('AUTOMATION_DISABLED'));
   assert.ok(r.reasons.includes('OWNER_USER_ID_MISSING'));
+});
+
+test('malformed owner identities and push targets block booking automation before any write',async()=>{
+  const valid=env();
+  assert.equal(Approval.automationReadiness(valid).ready,true);
+  const invalid=[
+    [{KK_OWNER_LINE_USER_ID:'UOWNER'},'OWNER_USER_ID_INVALID'],
+    [{KK_OWNER_LINE_USER_ID:'C'+'b'.repeat(32)},'OWNER_USER_ID_INVALID'],
+    [{KK_OWNER_LINE_USER_ID:'U'+'G'.repeat(32)},'OWNER_USER_ID_INVALID'],
+    [{KK_OWNER_LINE_TARGET_ID:'UOWNER'},'OWNER_TARGET_ID_INVALID'],
+    [{KK_OWNER_LINE_TARGET_ID:'https://invalid.example/line'},'OWNER_TARGET_ID_INVALID']
+  ];
+  for(const [patch,code] of invalid){
+    const readiness=Approval.automationReadiness({...valid,...patch});
+    assert.equal(readiness.ready,false);
+    assert.ok(readiness.reasons.includes(code),code);
+  }
+  assert.equal(Approval.automationReadiness({...valid,
+    KK_OWNER_LINE_TARGET_ID:'C'+'b'.repeat(32)}).ready,true,
+    'well-formed group IDs preserve the existing explicit target capability');
+  let providerCalls=0;
+  await assert.rejects(()=>Approval.createPendingBooking(
+    {webhookEventId:'evt-synthetic-owner-invalid',source:{type:'user',userId:'U'+'c'.repeat(32)}},
+    {nickname:'Synthetic',phone:''},
+    {event_id:'EVT-SYNTHETIC',template_id:'TPL-SYNTHETIC',package_id:'PKG-SYNTHETIC'},
+    {...valid,KK_OWNER_LINE_USER_ID:'UOWNER'},
+    async()=>{providerCalls++;throw Error('must not reach provider');}
+  ),err=>err&&err.code==='LINE_BOOKING_AUTOMATION_NOT_READY');
+  assert.equal(providerCalls,0);
+});
+
+test('malformed signed customer ID is rejected before any canonical Apps Script pending write',async()=>{
+ let upstream=0;
+ for(const userId of ['U1','UCUSTOMER','U'+'g'.repeat(32),'C'+'a'.repeat(32)]){
+   await assert.rejects(()=>Approval.createPendingBooking(
+     {webhookEventId:'evt-invalid-line-customer',source:{type:'user',userId}},
+     {nickname:'Synthetic',phone:''},{event_id:'EVT-1',template_id:'TPL-1'},
+     env(),async()=>{upstream++;throw Error('must not reach Apps Script');}
+   ),err=>err&&err.code==='LINE_CUSTOMER_USER_ID_INVALID');
+ }
+ assert.equal(upstream,0);
 });
 
 test('signed approval payload rejects tampering',()=>{
@@ -41,7 +85,7 @@ test('pending intake writes only the governed pending action and requires bookin
     return response({ok:true,booking_id:'BK-20261003-001',row_number:25,booking_status:'pending'});
   };
   const result=await Approval.createPendingBooking(
-    {webhookEventId:'evt-1',source:{userId:'UCUSTOMER'}},
+    {webhookEventId:'evt-1',source:{type:'user',userId:CUSTOMER}},
     {nickname:'Mint',phone:'0812345678',pickup_time:'16:00'},
     {event_id:'EVT-1',template_id:'TPL-1',package_id:'PKG-1'},
     env(),fetchImpl
@@ -64,14 +108,14 @@ test('foreign customer without phone stays pending via verified LINE contact; ow
    return response({ok:true,booking_id:'BK-FOREIGN-001',row_number:26,booking_status:'pending'});
  };
  const result=await Approval.createPendingBooking(
-   {webhookEventId:'evt-international-03',source:{userId:'UFOREIGNCUSTOMER001'}},
+   {webhookEventId:'evt-international-03',source:{type:'user',userId:FOREIGN}},
    {nickname:'Alex',phone:''},
    {event_id:'EVT-1',template_id:'TPL-1',package_id:'PKG-1'},
    env(),fetchImpl
  );
  assert.equal(result.booking_id,'BK-FOREIGN-001');
  assert.equal(calls.length,1);
- assert.equal(calls[0].customer_contact,'UFOREIGNCUSTOMER001');
+ assert.equal(calls[0].customer_contact,FOREIGN);
  assert.equal(calls[0].customer_phone,'');
  assert.equal(calls[0].booking_status,'pending');
  assert.equal(calls[0].payment_status,'unpaid');
@@ -107,18 +151,18 @@ test('owner approval requires exact owner identity and performs atomic decision 
       assert.equal(body.action,'decideLineBookingPending');
       assert.equal(body.booking_id,'BK-1');
       assert.equal(body.decision,'approve');
-      return response({ok:true,booking_id:'BK-1',booking_status:'confirmed',customer_contact:'UCUSTOMER',idempotent_replay:false});
+      return response({ok:true,booking_id:'BK-1',booking_status:'confirmed',customer_contact:'Ucccccccccccccccccccccccccccccccc',idempotent_replay:false});
     }
     return response({ok:true});
   };
   const r=await Approval.processOwnerPostback({
-    type:'postback',replyToken:'reply-owner',source:{type:'user',userId:'UOWNER'},postback:{data}
+    type:'postback',replyToken:'reply-owner',source:{type:'user',userId:OWNER},postback:{data}
   },e,fetchImpl);
   assert.equal(r.handled,true);
   assert.equal(r.status,'CONFIRMED');
   assert.equal(calls.filter(x=>x.url.startsWith('https://script.google.com/')).length,1);
   assert.equal(calls.filter(x=>x.url.includes('/reply')).length,1);
-  const customerPush=calls.find(x=>x.url.includes('/push')&&x.body.to==='UCUSTOMER');
+  const customerPush=calls.find(x=>x.url.includes('/push')&&x.body.to==='Ucccccccccccccccccccccccccccccccc');
   assert.ok(customerPush);
   assert.match(customerPush.body.messages[0].text,/ยืนยันการจองแล้ว/);
 });
@@ -130,7 +174,7 @@ test('owner decision fails closed if canonical customer contact is missing',asyn
   let lineSends=0;
   await assert.rejects(
     ()=>Approval.processOwnerPostback({
-      type:'postback',source:{type:'user',userId:'UOWNER'},postback:{data}
+      type:'postback',source:{type:'user',userId:OWNER},postback:{data}
     },e,async(url,opt)=>{
       if(String(url).startsWith('https://script.google.com/')){
         return response({ok:true,booking_id:'BK-NO-CONTACT',booking_status:'confirmed',idempotent_replay:false});

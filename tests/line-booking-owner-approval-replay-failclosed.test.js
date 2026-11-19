@@ -5,9 +5,9 @@ const Approval=require('../server/line-booking-owner-approval');
 const ENV={KK_LINE_BOOKING_AUTOMATION_ENABLED:'true',
  KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/TEST_ONLY/exec',
  KK_ADMIN_API_KEY:'synthetic-admin-key',LINE_CHANNEL_ACCESS_TOKEN:'synthetic-token',
- LINE_CHANNEL_SECRET:'synthetic-secret',KK_OWNER_LINE_USER_ID:'UOWNER',KK_OWNER_LINE_TARGET_ID:'UOWNER'};
+ LINE_CHANNEL_SECRET:'synthetic-secret',KK_OWNER_LINE_USER_ID:'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',KK_OWNER_LINE_TARGET_ID:'Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'};
 const upstream=body=>({ok:true,status:200,text:async()=>JSON.stringify(body)});
-function event(decision,id,actor='UOWNER'){
+function event(decision,id,actor='Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'){
  return {type:'postback',replyToken:'synthetic-owner-reply',
  source:{userId:actor},postback:{data:Approval.decisionData(decision,id,ENV)}};
 }
@@ -17,7 +17,7 @@ test('undefined/null/string/numeric replay flags fail closed without customer/ow
   await assert.rejects(()=>Approval.processOwnerPostback(event('approve','BK-MOCK'),ENV,async url=>{
    calls.push(url);
    if(url.startsWith('https://script.google.com/'))return upstream({
-    ok:true,booking_id:'BK-MOCK',booking_status:'confirmed',customer_contact:'UCUSTOMER',idempotent_replay:flag});
+    ok:true,booking_id:'BK-MOCK',booking_status:'confirmed',customer_contact:'Ucccccccccccccccccccccccccccccccc',idempotent_replay:flag});
    throw Error('no outbound LINE for invalid replay flag');
   }),e=>e.code==='LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED');
   assert.equal(calls.length,1);
@@ -44,7 +44,7 @@ test('fresh decision sends customer first, then owner acknowledgement',async()=>
  const result=await Approval.processOwnerPostback(event('approve','BK-NEW'),ENV,async url=>{
   calls.push(url);
   if(url.startsWith('https://script.google.com/'))return upstream({
-   ok:true,booking_id:'BK-NEW',booking_status:'confirmed',customer_contact:'UCUSTOMER',idempotent_replay:false});
+   ok:true,booking_id:'BK-NEW',booking_status:'confirmed',customer_contact:'Ucccccccccccccccccccccccccccccccc',idempotent_replay:false});
   return {ok:true,status:200};
  });
  assert.equal(result.status,'CONFIRMED');
@@ -57,7 +57,7 @@ test('wrong owner, missing contact and mismatch never send a LINE message',async
  let calls=0;
  const denied=await Approval.processOwnerPostback(event('reject','BK-DENIED','UATTACKER'),ENV,async()=>{calls++;throw Error('no network');});
  assert.equal(denied.status,'UNAUTHORIZED_OWNER');assert.equal(calls,0);
- for(const bad of [{booking_id:'OTHER',booking_status:'confirmed',customer_contact:'UCUSTOMER'},
+ for(const bad of [{booking_id:'OTHER',booking_status:'confirmed',customer_contact:'Ucccccccccccccccccccccccccccccccc'},
                     {booking_id:'BK-FAIL',booking_status:'confirmed',customer_contact:''}]){
   const seen=[];
   await assert.rejects(()=>Approval.processOwnerPostback(event('approve','BK-FAIL'),ENV,async url=>{
@@ -66,5 +66,22 @@ test('wrong owner, missing contact and mismatch never send a LINE message',async
    throw Error('no LINE sends');
   }),e=>['LINE_OWNER_DECISION_BOOKING_ID_MISMATCH','LINE_CUSTOMER_CONTACT_READBACK_REQUIRED'].includes(e.code));
   assert.equal(seen.length,1);
+ }
+});
+
+test('legacy owner decision never discloses a customer booking to a group, room or malformed recipient',async()=>{
+ for(const customerContact of ['C'+'b'.repeat(32),'R'+'b'.repeat(32),'UCUSTOMER','U'+'g'.repeat(32)]){
+  for(const decision of ['approve','reject']){
+   const calls=[];
+   await assert.rejects(()=>Approval.processOwnerPostback(event(decision,'BK-PRIVATE'),ENV,async url=>{
+    calls.push(url);
+    if(url.startsWith('https://script.google.com/'))return upstream({
+     ok:true,booking_id:'BK-PRIVATE',decision,
+     booking_status:decision==='approve'?'confirmed':'cancelled',
+     customer_contact:customerContact,idempotent_replay:false});
+    return {ok:true,status:200};
+   }),err=>err.code==='LINE_CUSTOMER_CONTACT_READBACK_REQUIRED');
+   assert.equal(calls.length,1,'invalid recipient cannot reach either LINE send');
+  }
  }
 });
