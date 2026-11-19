@@ -101,3 +101,26 @@ test('legacy booking without a template ID must not guess between X300 and X500'
   ];
   assert.throws(() => ctx.kkGetPackageSpecByType_('phone_lens_bundle'), /Ambiguous package_type/);
 });
+
+test('X500 bundle visibility inherits only the same event X300 bundle hidden lock', () => {
+  const ctx = loadFunctions(['kkFormulaWebPackageStatus_']);
+  const x300 = ctx.kkFormulaWebPackageStatus_(7,5);
+  const x500200 = ctx.kkFormulaWebPackageStatus_(8,5);
+  const x500400 = ctx.kkFormulaWebPackageStatus_(9,5);
+  assert.doesNotMatch(x300, /J7="hidden"/, 'the base row must not self-reference its J cell');
+  assert.match(x500200, /J7="hidden"/);
+  assert.match(x500400, /J7="hidden"/);
+  assert.match(ctx.kkFormulaWebPackageStatus_(13,5), /J12="hidden"/);
+  assert.doesNotMatch(ctx.kkFormulaWebPackageStatus_(8,3), /J7="hidden"/, 'old 3-template layout remains unaffected');
+});
+
+test('backend package repair covers complete generated sheet, booking price looks beyond row 1000', () => {
+  const bookingPrice = extractFunction('kkFormulaBookingPrice_');
+  const repair = extractFunction('kkRepairLensCompatibilityFormulas_');
+  const lockRepair = extractFunction('kkRepairOwnerVisibilityLockFormulas_');
+  assert.match(bookingPrice, /\$3000/);
+  assert.match(repair, /web\.getLastRow\(\)/);
+  assert.match(repair, /bookingEnd = Math\.min\(1000, booking\.getMaxRows\(\)\)/);
+  assert.match(repair, /kkFormulaWebPackageStatus_\(row, templateCount\)/);
+  assert.match(lockRepair, /packageSheet\.getLastRow\(\)/);
+});
