@@ -89,3 +89,15 @@ test('public package mapper hides invalid X300 + 400mm tuples', () => {
   assert.match(extractFunction('kkApiCreateBooking_'), /kkAssertPhysicalPhoneLensPair_/);
   assert.match(extractFunction('kkApiUpdateBooking_'), /kkAssertPhysicalPhoneLensPair_/);
 });
+
+test('legacy booking without a template ID must not guess between X300 and X500', () => {
+  const ctx = loadFunctions(['kkGetPackageSpecByType_']);
+  ctx.KK = { packages: '03_Packages' };
+  ctx.kkIsTrue_ = value => value === true;
+  ctx.kkGetValues_ = () => [
+    ['TPL-X300-BUNDLE', 'VIVO_X300_PRO', 'phone_lens_bundle', 'ZEISS_2_35X', 690, '', '', true],
+    ['TPL-X500-200', 'VIVO_X500_PRO_MAX', 'phone_lens_bundle', 'ZEISS_2_35X', 1090, '', '', true],
+    ['TPL-X500-400', 'VIVO_X500_PRO_MAX', 'phone_lens_bundle', 'ZEISS_400MM', 1390, '', '', true]
+  ];
+  assert.throws(() => ctx.kkGetPackageSpecByType_('phone_lens_bundle'), /Ambiguous package_type/);
+});
