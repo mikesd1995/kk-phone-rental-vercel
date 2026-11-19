@@ -731,7 +731,7 @@ function kkWebPackagePriceFormula_(rowNumber, templateId) {
   // Use FILTER + COUNTIFS to read the latest matching override row. LOOKUP(2,1/(...)) returns #N/A in the live Sheet for valid matches.
   // 1) old SUMIFS formula ignored override price = 0 and could sum duplicate old rows;
   // 2) public 09_Web_Packages did not always recalculate after an override save.
-  const x300BundleSameEvent = `IFERROR(INDEX(FILTER('09_Web_Packages'!$H$5:$H$5000,'09_Web_Packages'!$B$5:$B$5000=B${r},'09_Web_Packages'!$D$5:$D$5000="VIVO_X300_PRO",'09_Web_Packages'!$F$5:$F$5000="ZEISS_2_35X"),1),IFERROR(VLOOKUP("TPL-VIVO-X300-PRO-BUNDLE",'03_Packages'!$A$5:$E$1000,5,FALSE),690))`;
+  const x300BundleSameEvent = `IFERROR(INDEX(FILTER('09_Web_Packages'!$H$5:$H,'09_Web_Packages'!$B$5:$B=B${r},'09_Web_Packages'!$D$5:$D="VIVO_X300_PRO",'09_Web_Packages'!$F$5:$F="ZEISS_2_35X"),1),IFERROR(VLOOKUP("TPL-VIVO-X300-PRO-BUNDLE",'03_Packages'!$A$5:$E$1000,5,FALSE),690))`;
   const relativeX500 = `IF(AND(D${r}="VIVO_X500_PRO_MAX",C${r}="phone_lens_bundle"),${x300BundleSameEvent}+IF(F${r}="ZEISS_400MM",700,400),${standardExpr})`;
   return `=IF(B${r}="","",IFERROR(INDEX(FILTER('04_Event_Overrides'!$C$5:$C$1000,'04_Event_Overrides'!$A$5:$A$1000=B${r},'04_Event_Overrides'!$B$5:$B$1000=${tplExpr},'04_Event_Overrides'!$C$5:$C$1000<>""),COUNTIFS('04_Event_Overrides'!$A$5:$A$1000,B${r},'04_Event_Overrides'!$B$5:$B$1000,${tplExpr},'04_Event_Overrides'!$C$5:$C$1000,"<>")),${relativeX500}))`;
 }
