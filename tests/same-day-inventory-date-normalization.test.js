@@ -7,15 +7,15 @@ const fs = require('node:fs');
 const gs = fs.readFileSync('apps-script/Code.gs', 'utf8');
 
 test('same-day stock reservation compares event-id day keys, not raw date cells', () => {
-  assert.match(gs, /function kkFormulaActiveBookingCount_\(eventIdExpr, packageRegex\)/);
+  assert.match(gs, /function kkFormulaActiveBookingCount_\(eventIdExpr, packageRegex, modelExpr, assetModelColumn\)/);
   assert.match(gs, /MID\('00_Master_Booking'!\$D\$5:\$D\$1000,5,8\)/);
   assert.match(gs, /MID\(\$\{eventIdExpr\},5,8\)/);
   assert.doesNotMatch(gs, /'00_Master_Booking'!\$V\$5:\$V\$1000=\$\{eventDateExpr\}/);
 });
 
 test('phone and lens availability both use event-id same-day reservation helper', () => {
-  assert.match(gs, /kkFormulaActiveBookingCount_\(`B\$\{rowNumber\}`, 'lens_only\|phone_lens_bundle'\)/);
-  assert.match(gs, /kkFormulaActiveBookingCount_\(`B\$\{r\}`, 'phone_only\|phone_lens_bundle'\)/);
+  assert.match(gs, /kkFormulaActiveBookingCount_\(`B\$\{rowNumber\}`, 'lens_only\|phone_lens_bundle', `F\$\{rowNumber\}`, 'AM'\)/);
+  assert.match(gs, /kkFormulaActiveBookingCount_\(`B\$\{r\}`, 'phone_only\|phone_lens_bundle', `D\$\{r\}`, 'AL'\)/);
 });
 
 test('repair version is bumped so deployed repair will restore hardened formulas', () => {
