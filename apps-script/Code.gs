@@ -1034,6 +1034,7 @@ function kkGetPackageSpecByType_(packageType) {
   if (!wanted) throw new Error('Booking missing package_type');
   const rows = kkGetValues_(KK.packages, 5, 1, 10);
   let fallback = null;
+  let selected = null;
   for (const r of rows) {
     const type = String(r[2] || '').toLowerCase().trim();
     if (type !== wanted) continue;
@@ -1044,9 +1045,17 @@ function kkGetPackageSpecByType_(packageType) {
       lens_group: String(r[3] || '').trim(),
       active: kkIsTrue_(r[7])
     };
-    if (spec.active) return spec;
+    if (spec.active) {
+      // A legacy booking stores only package_type. After introducing X500
+      // variants, never guess a model/lens on preparation of missing assets.
+      if (selected && (selected.model_group !== spec.model_group || selected.lens_group !== spec.lens_group)) {
+        throw new Error('Ambiguous package_type ' + wanted + ': select physical phone/lens assets explicitly');
+      }
+      selected = spec;
+    }
     if (!fallback) fallback = spec;
   }
+  if (selected) return selected;
   if (fallback) return fallback;
   throw new Error('No package master found for package_type: ' + wanted);
 }
