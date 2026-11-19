@@ -1068,6 +1068,13 @@ function dedupeWebRowsByEventId(webRows){
 }
 
 // ─── FIX 1: buildPackagesFromSheet — ใช้ available_count จาก 09_Web_Packages จริง ─
+// Public package label must distinguish the two X500 lens variants.
+function kkPublicLensLabel(lensGroup, lensDisplay){
+  var normalized=String(lensGroup||"").trim().toUpperCase();
+  if(normalized==="ZEISS_400MM")return "Lens 400mm";
+  if(normalized==="ZEISS_2_35X"||normalized==="G1")return "Lens 200mm";
+  return String(lensDisplay||lensGroup||"Lens").trim()||"Lens";
+}
 function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
   // phoneCnt + lensCnt มาจาก 08_Web_Ready G/H; package count มาจาก 09_Web_Packages I
   var evtPkgs=dedupePackageRows(pkgRows).filter(function(p){
@@ -1100,8 +1107,9 @@ function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
     else if(pkgType==="lens_only"){  price=toNum(p.lens_price); }
     else{ price=toNum(p.bundle_price||p.phone_price); }
 
-    var spec  = pkgType==="phone_only" ? "เฉพาะมือถือ" : pkgType==="lens_only" ? (lensDisplay||"เลนส์เสริม") : "มือถือ + เลนส์";
-    var label = pkgType==="lens_only"  ? (lensDisplay||"Lens") : pkgType==="phone_lens_bundle" ? modelDisplay+" + Lens" : modelDisplay;
+    var bundleLensLabel=kkPublicLensLabel(p.lens_group,lensDisplay);
+    var spec  = pkgType==="phone_only" ? "เฉพาะมือถือ" : pkgType==="lens_only" ? (lensDisplay||"เลนส์เสริม") : "มือถือ + "+bundleLensLabel;
+    var label = pkgType==="lens_only"  ? (lensDisplay||"Lens") : pkgType==="phone_lens_bundle" ? modelDisplay+" + "+bundleLensLabel : modelDisplay;
 
     // FIX: ใช้ available_count จาก 09_Web_Packages แทน isOpen&&price>0
     // available_count จาก 09_Web_Packages เป็น source of truth ต่อ package
