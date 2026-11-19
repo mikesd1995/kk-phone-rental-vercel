@@ -12,6 +12,8 @@ on:
       - 'tests/line-webhook*.test.js'
       - 'tests/same-day-inventory-date-normalization.test.js'
       - 'tests/x500-pro-max-compatibility.test.js'
+      - 'tests/x500-public-package-label.test.js'
+      - 'script.js'
       - '.github/workflows/booking-e2e-acceptance.yml'
   workflow_dispatch:
 
@@ -61,6 +63,7 @@ jobs:
             tests/line-webhook-raw-body.test.js \
             tests/same-day-inventory-date-normalization.test.js \
             tests/x500-pro-max-compatibility.test.js \
+            tests/x500-public-package-label.test.js \
             tests/booking-id-primary-close-regression-20261002.test.js
 
       - name: Assert no provider or production acceptance side effects
