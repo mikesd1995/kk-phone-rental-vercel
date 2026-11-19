@@ -46,7 +46,7 @@ test('X500 price is based on same-event X300 bundle plus 400 or 700', () => {
   assert.match(formula, /ZEISS_400MM/);
   assert.match(formula, /\+700/);
   assert.match(formula, /\+400/);
-  assert.match(formula, /VIVO_X300_PRO/);
+  assert.match(formula, /TPL-VIVO-X300-PRO-BUNDLE/, 'price must inherit the actual X300 bundle template override');
   assert.doesNotMatch(formula, /09_Web_Packages/, 'generated public H column must never self-reference');
   assert.match(formula, /04_Event_Overrides/);
   assert.ok(!formula.includes('$H$5000'), 'no cap on price source when package grid grows');
