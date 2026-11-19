@@ -731,7 +731,11 @@ function kkWebPackagePriceFormula_(rowNumber, templateId) {
   // Use FILTER + COUNTIFS to read the latest matching override row. LOOKUP(2,1/(...)) returns #N/A in the live Sheet for valid matches.
   // 1) old SUMIFS formula ignored override price = 0 and could sum duplicate old rows;
   // 2) public 09_Web_Packages did not always recalculate after an override save.
-  const x300BundleSameEvent = `IFERROR(INDEX(FILTER('09_Web_Packages'!$H$5:$H,'09_Web_Packages'!$B$5:$B=B${r},'09_Web_Packages'!$D$5:$D="VIVO_X300_PRO",'09_Web_Packages'!$F$5:$F="ZEISS_2_35X"),1),IFERROR(VLOOKUP("TPL-VIVO-X300-PRO-BUNDLE",'03_Packages'!$A$5:$E$1000,5,FALSE),690))`;
+  // Read canonical event overrides, not the generated public H column: referring to
+  // the full H column from an H-cell price formula creates a circular dependency.
+  const baseTemplate = '"TPL-VIVO-X300-PRO-BUNDLE"';
+  const x300Fallback = `IFERROR(VLOOKUP(${baseTemplate},'03_Packages'!$A$5:$E$1000,5,FALSE),690)`;
+  const x300BundleSameEvent = `IFERROR(INDEX(FILTER('04_Event_Overrides'!$C$5:$C$1000,'04_Event_Overrides'!$A$5:$A$1000=B${r},'04_Event_Overrides'!$B$5:$B$1000=${baseTemplate},'04_Event_Overrides'!$C$5:$C$1000<>""),COUNTIFS('04_Event_Overrides'!$A$5:$A$1000,B${r},'04_Event_Overrides'!$B$5:$B$1000,${baseTemplate},'04_Event_Overrides'!$C$5:$C$1000,"<>")),${x300Fallback})`;
   const oldPackagePrice = `IFERROR(INDEX(FILTER('04_Event_Overrides'!$C$5:$C$1000,'04_Event_Overrides'!$A$5:$A$1000=B${r},'04_Event_Overrides'!$B$5:$B$1000=${tplExpr},'04_Event_Overrides'!$C$5:$C$1000<>""),COUNTIFS('04_Event_Overrides'!$A$5:$A$1000,B${r},'04_Event_Overrides'!$B$5:$B$1000,${tplExpr},'04_Event_Overrides'!$C$5:$C$1000,"<>")),${standardExpr})`;
   // Owner-set fixed add-ons are absolute: X500 price cannot be overridden independently.
   // Preserve existing X300 event overrides as the single source for both X500 deltas.
