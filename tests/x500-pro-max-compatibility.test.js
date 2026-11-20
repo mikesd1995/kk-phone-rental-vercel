@@ -52,6 +52,19 @@ test('X500 price is based on same-event X300 bundle plus 400 or 700', () => {
   assert.ok(!formula.includes('$H$5000'), 'no cap on price source when package grid grows');
 });
 
+test('second X500 PHONE-004 starts on 28 Nov without removing first X500 from earlier event stock', () => {
+  const ctx = loadFunctions(['kkFormulaActiveBookingCount_', 'kkFormulaPhoneRawCount_', 'kkFormulaWebPackageStatus_']);
+  const formula = ctx.kkFormulaPhoneRawCount_(29);
+  assert.match(formula, /PHONE-004/, 'only the newly added X500 is subject to the start gate');
+  assert.match(formula, /D29="VIVO_X500_PRO_MAX"/, 'X300 inventory must remain unchanged');
+  assert.match(formula, /MID\(B29,5,8\)/, 'eligibility must follow the EVENT date');
+  assert.match(formula, /<20261128/, 'second device must not count before 28 November');
+  assert.match(formula, /AL\$5:AL\$1000/, 'same-day X500 bookings still subtract from shared model stock');
+  const earlierPackage = ctx.kkFormulaWebPackageStatus_(8, 5);
+  assert.doesNotMatch(earlierPackage, /20261128/, 'first X500 must not be suppressed by a package-wide date gate');
+  assert.match(earlierPackage, /J7="hidden"/, 'owner-hidden parent bundle still closes X500 variants');
+});
+
 test('stock holds are scoped by physical phone or lens model group', () => {
   const ctx = loadFunctions(['kkFormulaActiveBookingCount_', 'kkFormulaLensBookedCount_', 'kkFormulaPhoneRawCount_']);
   const phones = ctx.kkFormulaPhoneRawCount_(29);
