@@ -1068,6 +1068,13 @@ function dedupeWebRowsByEventId(webRows){
 }
 
 // ─── FIX 1: buildPackagesFromSheet — ใช้ available_count จาก 09_Web_Packages จริง ─
+// Public package label must distinguish the two X500 lens variants.
+function kkPublicLensLabel(lensGroup, lensDisplay){
+  var normalized=String(lensGroup||"").trim().toUpperCase();
+  if(normalized==="ZEISS_400MM")return "Lens 400mm";
+  if(normalized==="ZEISS_2_35X"||normalized==="G1")return "Lens 200mm";
+  return String(lensDisplay||lensGroup||"Lens").trim()||"Lens";
+}
 function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
   // phoneCnt + lensCnt มาจาก 08_Web_Ready G/H; package count มาจาก 09_Web_Packages I
   var evtPkgs=dedupePackageRows(pkgRows).filter(function(p){
@@ -1100,8 +1107,9 @@ function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
     else if(pkgType==="lens_only"){  price=toNum(p.lens_price); }
     else{ price=toNum(p.bundle_price||p.phone_price); }
 
-    var spec  = pkgType==="phone_only" ? "เฉพาะมือถือ" : pkgType==="lens_only" ? (lensDisplay||"เลนส์เสริม") : "มือถือ + เลนส์";
-    var label = pkgType==="lens_only"  ? (lensDisplay||"Lens") : pkgType==="phone_lens_bundle" ? modelDisplay+" + Lens" : modelDisplay;
+    var bundleLensLabel=kkPublicLensLabel(p.lens_group,lensDisplay);
+    var spec  = pkgType==="phone_only" ? "เฉพาะมือถือ" : pkgType==="lens_only" ? (lensDisplay||"เลนส์เสริม") : "มือถือ + "+bundleLensLabel;
+    var label = pkgType==="lens_only"  ? (lensDisplay||"Lens") : pkgType==="phone_lens_bundle" ? modelDisplay+" + "+bundleLensLabel : modelDisplay;
 
     // FIX: ใช้ available_count จาก 09_Web_Packages แทน isOpen&&price>0
     // available_count จาก 09_Web_Packages เป็น source of truth ต่อ package
@@ -1209,19 +1217,22 @@ async function loadData(){
       ? buildPackagesFromSheet(visiblePkgRows, eventId, phoneCnt, lensCnt)
       : buildPackagesFromWebRow(r);
 
-    // Shared-inventory guard: all phone packages consume the same phone pool and all
-    // lens packages consume the same lens pool. Clamp every package to the event-level
-    // stock from 08_Web_Ready so one package row cannot make a booked phone reappear.
+    // Event-level stock is the shared total across models. Package stock from
+    // 09_Web_Packages is the per-model/per-lens limit (e.g. X300=1, X500=1).
+    // Never overwrite a package's count with the event total: that would make
+    // one physical X500 appear twice in each of its 200mm/400mm choices.
     packages = packages.map(function(p){
+      // Legacy 08_Web_Ready-only fallback has no package-level count.
+      var pkgLimit = hasPkgSheet ? Math.max(0,toNum(p.count)) : Number.POSITIVE_INFINITY;
       if(p.type==="phone_only"){
-        p.avail = p.avail && phoneCnt>0;
-        p.count = phoneCnt;
+        p.count = Math.min(Math.max(0,phoneCnt),pkgLimit);
+        p.avail = p.avail && p.count>0;
       } else if(p.type==="lens_only"){
-        p.avail = p.avail && lensCnt>0;
-        p.count = lensCnt;
+        p.count = Math.min(Math.max(0,lensCnt),pkgLimit);
+        p.avail = p.avail && p.count>0;
       } else if(p.type==="phone_lens_bundle"){
-        p.avail = p.avail && phoneCnt>0 && lensCnt>0;
-        p.count = Math.min(phoneCnt,lensCnt);
+        p.count = Math.min(Math.max(0,phoneCnt),Math.max(0,lensCnt),pkgLimit);
+        p.avail = p.avail && p.count>0;
       }
       return p;
     });

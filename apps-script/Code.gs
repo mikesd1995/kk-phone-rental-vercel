@@ -666,26 +666,36 @@ function kkFormulaLensAssetCount_(rowNumber) {
   return `IF(REGEXMATCH(UPPER(REGEXREPLACE(${f},"[^A-Za-z0-9]","")),"^G2$"),0,SUM(COUNTIFS('02_Assets'!$B$5:$B$1000,"lens",'02_Assets'!$C$5:$C$1000,${kkFormulaLensCriteria_(f)},'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE)))`;
 }
 
-function kkFormulaActiveBookingCount_(eventIdExpr, packageRegex) {
-  // Reserve stock by the date encoded in event_id (EVT-YYYYMMDD-...), not by raw
-  // sheet date-cell equality. This makes same-day inventory collision-safe even when
-  // one event row contains a native Date and another was imported as dd/mm/yyyy text.
-  // Active holds are pending / confirmed / prepared / picked_up.
+function kkFormulaActiveBookingCount_(eventIdExpr, packageRegex, modelExpr, assetModelColumn) {
+  // Reserve by event-day AND the physically assigned model group. An unassigned
+  // active booking reserves capacity conservatively in every matching category.
   const bookingDayKey = `MID('00_Master_Booking'!$D$5:$D$1000,5,8)`;
   const eventDayKey = `MID(${eventIdExpr},5,8)`;
-  return `SUMPRODUCT(N(${bookingDayKey}=${eventDayKey}),N(REGEXMATCH(LOWER('00_Master_Booking'!$C$5:$C$1000),"^(pending|confirmed|prepared|picked_up)$")),N(REGEXMATCH(LOWER('00_Master_Booking'!$I$5:$I$1000),"^(${packageRegex})$")))`;
+  const col = assetModelColumn === 'AM' ? 'AM' : 'AL';
+  const bookingModel = `'00_Master_Booking'!${col}$5:${col}$1000`;
+  const isZeiss200 = col === 'AM' ? `REGEXMATCH(UPPER(${modelExpr}),"^(ZEISS_2_35X|G1)$")` : 'FALSE';
+  const zeissMatches = col === 'AM' ? `REGEXMATCH(UPPER(${bookingModel}),"^(ZEISS_2_35X|G1)$")` : 'FALSE';
+  const modelScope = modelExpr ? `N((${bookingModel}="")+(${bookingModel}=${modelExpr})+IF(${isZeiss200},${zeissMatches},FALSE)>0)` : '1';
+  return `SUMPRODUCT(N(${bookingDayKey}=${eventDayKey}),N(REGEXMATCH(LOWER('00_Master_Booking'!$C$5:$C$1000),"^(pending|confirmed|prepared|picked_up)$")),N(REGEXMATCH(LOWER('00_Master_Booking'!$I$5:$I$1000),"^(${packageRegex})$")),${modelScope})`;
 }
 
 function kkFormulaLensBookedCount_(rowNumber) {
   const f = 'F' + rowNumber;
-  const booked = kkFormulaActiveBookingCount_(`B${rowNumber}`, 'lens_only|phone_lens_bundle');
+  const booked = kkFormulaActiveBookingCount_(`B${rowNumber}`, 'lens_only|phone_lens_bundle', `F${rowNumber}`, 'AM');
   return `IF(REGEXMATCH(UPPER(REGEXREPLACE(${f},"[^A-Za-z0-9]","")),"^G2$"),0,${booked})`;
 }
 
 function kkFormulaPhoneRawCount_(rowNumber) {
   const r = rowNumber;
-  const booked = kkFormulaActiveBookingCount_(`B${r}`, 'phone_only|phone_lens_bundle');
-  return `(COUNTIFS('02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,D${r},'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE)-${booked})`;
+  const booked = kkFormulaActiveBookingCount_(`B${r}`, 'phone_only|phone_lens_bundle', `D${r}`, 'AL');
+  // PHONE-003 is the existing X500. PHONE-004 is a SECOND X500, rentable
+  // only for EVENT DATES >= 2026-11-28 (not based on the date of purchase).
+  // This stock-side guard keeps old X500 bookings and pre-28 availability
+  // unchanged while the new X500 becomes bookable for 28 Nov onward.
+  // Do not hide the entire X500 package in status J or restore it by a
+  // naive model-wide COUNTIFS repair: that would misrepresent both phones.
+  const newX500BeforeStart = `IF(AND(D${r}="VIVO_X500_PRO_MAX",IFERROR(VALUE(MID(B${r},5,8)),0)<20261128),COUNTIFS('02_Assets'!$A$5:$A$1000,"PHONE-004",'02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,"VIVO_X500_PRO_MAX",'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE),0)`;
+  return `(COUNTIFS('02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,D${r},'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE)-${newX500BeforeStart}-${booked})`;
 }
 
 function kkFormulaWebPackageAvailable_(rowNumber, rawMode) {
@@ -728,7 +738,15 @@ function kkWebPackagePriceFormula_(rowNumber, templateId) {
   // Use FILTER + COUNTIFS to read the latest matching override row. LOOKUP(2,1/(...)) returns #N/A in the live Sheet for valid matches.
   // 1) old SUMIFS formula ignored override price = 0 and could sum duplicate old rows;
   // 2) public 09_Web_Packages did not always recalculate after an override save.
-  return `=IF(B${r}="","",IFERROR(INDEX(FILTER('04_Event_Overrides'!$C$5:$C$1000,'04_Event_Overrides'!$A$5:$A$1000=B${r},'04_Event_Overrides'!$B$5:$B$1000=${tplExpr},'04_Event_Overrides'!$C$5:$C$1000<>""),COUNTIFS('04_Event_Overrides'!$A$5:$A$1000,B${r},'04_Event_Overrides'!$B$5:$B$1000,${tplExpr},'04_Event_Overrides'!$C$5:$C$1000,"<>")),${standardExpr}))`;
+  // Read canonical event overrides, not the generated public H column: referring to
+  // the full H column from an H-cell price formula creates a circular dependency.
+  const baseTemplate = '"TPL-VIVO-X300-PRO-BUNDLE"';
+  const x300Fallback = `IFERROR(VLOOKUP(${baseTemplate},'03_Packages'!$A$5:$E$1000,5,FALSE),690)`;
+  const x300BundleSameEvent = `IFERROR(INDEX(FILTER('04_Event_Overrides'!$C$5:$C$1000,'04_Event_Overrides'!$A$5:$A$1000=B${r},'04_Event_Overrides'!$B$5:$B$1000=${baseTemplate},'04_Event_Overrides'!$C$5:$C$1000<>""),COUNTIFS('04_Event_Overrides'!$A$5:$A$1000,B${r},'04_Event_Overrides'!$B$5:$B$1000,${baseTemplate},'04_Event_Overrides'!$C$5:$C$1000,"<>")),${x300Fallback})`;
+  const oldPackagePrice = `IFERROR(INDEX(FILTER('04_Event_Overrides'!$C$5:$C$1000,'04_Event_Overrides'!$A$5:$A$1000=B${r},'04_Event_Overrides'!$B$5:$B$1000=${tplExpr},'04_Event_Overrides'!$C$5:$C$1000<>""),COUNTIFS('04_Event_Overrides'!$A$5:$A$1000,B${r},'04_Event_Overrides'!$B$5:$B$1000,${tplExpr},'04_Event_Overrides'!$C$5:$C$1000,"<>")),${standardExpr})`;
+  // Owner-set fixed add-ons are absolute: X500 price cannot be overridden independently.
+  // Preserve existing X300 event overrides as the single source for both X500 deltas.
+  return `=IF(B${r}="","",IF(AND(D${r}="VIVO_X500_PRO_MAX",C${r}="phone_lens_bundle"),IF(F${r}="ZEISS_400MM",${x300BundleSameEvent}+700,IF(REGEXMATCH(UPPER(F${r}),"^(ZEISS_2_35X|G1)$"),${x300BundleSameEvent}+400,0)),${oldPackagePrice}))`;
 }
 
 function kkRepairWebPackagePriceFormulas_() {
@@ -750,6 +768,35 @@ function kkPriceLensCanonical_(lensGroup) {
   if (norm === 'ZEISS235X' || norm === 'ZEISS235' || norm === 'G1') return 'ZEISS_2_35X_G1';
   if (norm === 'G2') return '__RETIRED_G2__';
   return raw.toUpperCase();
+}
+
+
+function kkPhoneLensCompatible_(phoneModelGroup, lensModelGroup) {
+  const phone = String(phoneModelGroup || '').trim().toUpperCase();
+  const lens = kkPriceLensCanonical_(lensModelGroup);
+  if (phone === 'VIVO_X300_PRO') return lens === 'ZEISS_2_35X_G1';
+  if (phone === 'VIVO_X500_PRO_MAX') return lens === 'ZEISS_2_35X_G1' || lens === 'ZEISS_400MM';
+  return true; // Preserve compatibility for existing non-vivo model groups.
+}
+
+function kkAssertPhoneLensCompatible_(phoneModelGroup, lensModelGroup) {
+  if (!kkPhoneLensCompatible_(phoneModelGroup, lensModelGroup)) {
+    throw new Error('Incompatible phone/lens package: ' + phoneModelGroup + ' + ' + lensModelGroup);
+  }
+}
+
+function kkAssertPhysicalPhoneLensPair_(phoneAssetId, lensAssetId) {
+  if (!phoneAssetId || !lensAssetId) return;
+  const found = {};
+  kkGetValues_(KK.assets, 5, 1, 7).forEach(row => {
+    if (row[0] === phoneAssetId || row[0] === lensAssetId) found[row[0]] = row;
+  });
+  const phone = found[phoneAssetId], lens = found[lensAssetId];
+  if (!phone || !lens) throw new Error('Phone/lens asset ID not found');
+  if (String(phone[1]).toLowerCase() !== 'phone' || String(lens[1]).toLowerCase() !== 'lens') {
+    throw new Error('Invalid physical phone/lens asset types');
+  }
+  kkAssertPhoneLensCompatible_(phone[2], lens[2]);
 }
 
 function kkWebPackageRowMatchesTemplate_(webRow, eventId, templateId, targetPackage) {
@@ -817,9 +864,9 @@ function kkRefreshWebPackagePriceForOverride_(eventId, templateId, overridePrice
 function kkFormulaBookingPrice_(rowNumber) {
   const r = rowNumber;
   const lensCriteria = kkFormulaLensCriteria_('AM' + r);
-  const lensOnly = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H$1000,'09_Web_Packages'!$B$5:$B$1000,D${r},'09_Web_Packages'!$C$5:$C$1000,I${r},'09_Web_Packages'!$F$5:$F$1000,${lensCriteria}))`;
-  const bundle = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H$1000,'09_Web_Packages'!$B$5:$B$1000,D${r},'09_Web_Packages'!$C$5:$C$1000,I${r},'09_Web_Packages'!$D$5:$D$1000,AL${r},'09_Web_Packages'!$F$5:$F$1000,${lensCriteria}))`;
-  const phoneOnly = `SUMIFS('09_Web_Packages'!$H$5:$H$1000,'09_Web_Packages'!$B$5:$B$1000,D${r},'09_Web_Packages'!$C$5:$C$1000,I${r},'09_Web_Packages'!$D$5:$D$1000,AL${r})`;
+  const lensOnly = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H$3000,'09_Web_Packages'!$B$5:$B$3000,D${r},'09_Web_Packages'!$C$5:$C$3000,I${r},'09_Web_Packages'!$F$5:$F$3000,${lensCriteria}))`;
+  const bundle = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H$3000,'09_Web_Packages'!$B$5:$B$3000,D${r},'09_Web_Packages'!$C$5:$C$3000,I${r},'09_Web_Packages'!$D$5:$D$3000,AL${r},'09_Web_Packages'!$F$5:$F$3000,${lensCriteria}))`;
+  const phoneOnly = `SUMIFS('09_Web_Packages'!$H$5:$H$3000,'09_Web_Packages'!$B$5:$B$3000,D${r},'09_Web_Packages'!$C$5:$C$3000,I${r},'09_Web_Packages'!$D$5:$D$3000,AL${r})`;
   return `=IF(I${r}="","",IF(I${r}="lens_only",IFERROR(${lensOnly},0),IF(I${r}="phone_lens_bundle",IFERROR(${bundle},0),IFERROR(${phoneOnly},0))))`;
 }
 
@@ -874,14 +921,21 @@ function kkRetireG2AssetsAndPackages_() {
   return changed;
 }
 
-function kkFormulaWebPackageStatus_(rowNumber) {
+function kkFormulaWebPackageStatus_(rowNumber, templateCount) {
   const r = rowNumber;
+  const t = Number(templateCount || 3);
+  const position = (r - 5) % t;
+  // Only X500 rows inherit the existing X300+200 bundle's owner-hidden state.
+  // Use a direct prior-row reference, never all J:J (circular dependency).
+  const inheritedHidden = t === 5 && (position === 3 || position === 4)
+    ? `J${r - position + 2}="hidden"`
+    : 'FALSE';
   const templateExpr = `INDEX('03_Packages'!$A$5:$A,1+MOD(ROW()-5,MAX(1,COUNTA('03_Packages'!$A$5:$A))))`;
   const activePhoneOnly = `SUMPRODUCT(N('00_Master_Booking'!$D$5:$D$1000=B${r}),N(REGEXMATCH(LOWER('00_Master_Booking'!$C$5:$C$1000),"^(pending|confirmed|prepared|picked_up)$")),N(LOWER('00_Master_Booking'!$I$5:$I$1000)="phone_only"))`;
   const lockedById = `COUNTIFS('18_Event_Visibility_Locks'!$B$2:$B,B${r},'18_Event_Visibility_Locks'!$G$2:$G,"LOCKED")>0`;
   const lockedByIdentity = `COUNTIFS('18_Event_Visibility_Locks'!$C$2:$C,IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,2,FALSE),""),'18_Event_Visibility_Locks'!$D$2:$D,IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,3,FALSE),""),'18_Event_Visibility_Locks'!$E$2:$E,IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,4,FALSE),""),'18_Event_Visibility_Locks'!$G$2:$G,"LOCKED")>0`;
   const historicalDifferentId = `COUNTIFS('18_Event_Visibility_Locks'!$C$2:$C,IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,2,FALSE),""),'18_Event_Visibility_Locks'!$D$2:$D,IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,3,FALSE),""),'18_Event_Visibility_Locks'!$E$2:$E,IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,4,FALSE),""),'18_Event_Visibility_Locks'!$B$2:$B,"<>"&B${r})>0`;
-  return `=ARRAY_CONSTRAIN(ARRAYFORMULA(IF(B${r}="","",IF(OR(${lockedById},${lockedByIdentity},${historicalDifferentId},IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,9,FALSE),"")<>"OK",IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,6,FALSE),"")<>"open",IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,7,FALSE),FALSE)<>TRUE,INDEX('03_Packages'!$H$5:$H,1+MOD(ROW()-5,MAX(1,COUNTA('03_Packages'!$A$5:$A))))<>TRUE,COUNTIFS('04_Event_Overrides'!$A$5:$A,B${r},'04_Event_Overrides'!$B$5:$B,${templateExpr},'04_Event_Overrides'!$D$5:$D,FALSE)>0,AND(C${r}="lens_only",${activePhoneOnly}=0)),"hidden",IF(I${r}>0,"available","full")))),1,1)`;
+  return `=ARRAY_CONSTRAIN(ARRAYFORMULA(IF(B${r}="","",IF(OR(${lockedById},${lockedByIdentity},${historicalDifferentId},${inheritedHidden},IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,9,FALSE),"")<>"OK",IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,6,FALSE),"")<>"open",IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,7,FALSE),FALSE)<>TRUE,INDEX('03_Packages'!$H$5:$H,1+MOD(ROW()-5,MAX(1,COUNTA('03_Packages'!$A$5:$A))))<>TRUE,COUNTIFS('04_Event_Overrides'!$A$5:$A,B${r},'04_Event_Overrides'!$B$5:$B,${templateExpr},'04_Event_Overrides'!$D$5:$D,FALSE)>0,AND(C${r}="lens_only",${activePhoneOnly}=0)),"hidden",IF(I${r}>0,"available","full")))),1,1)`;
 }
 
 function kkFormulaWebReadyAction_(rowNumber) {
@@ -894,29 +948,94 @@ function kkFormulaWebReadyAction_(rowNumber) {
 
 function kkRepairOwnerVisibilityLockFormulas_() {
   const startRow = 5;
-  const endRow = 1000;
-  const rowCount = endRow - startRow + 1;
-  const webReadyAction = [];
-  const webPackageStatus = [];
-  for (let row = startRow; row <= endRow; row++) {
-    webReadyAction.push([kkFormulaWebReadyAction_(row)]);
-    webPackageStatus.push([kkFormulaWebPackageStatus_(row)]);
-  }
-  kkSheet_(KK.webReady).getRange(startRow, 10, rowCount, 1).setFormulas(webReadyAction);
-  kkSheet_(KK.webPackages).getRange(startRow, 10, rowCount, 1).setFormulas(webPackageStatus);
+  const readySheet = kkSheet_(KK.webReady);
+  const packageSheet = kkSheet_(KK.webPackages);
+  const templateCount = kkGetValues_(KK.packages, 5, 1, 1).filter(r => r[0]).length;
+  const readyEnd = Math.max(startRow, readySheet.getLastRow());
+  const packageEnd = Math.max(startRow, packageSheet.getLastRow());
+  const ready = [], statuses = [];
+  for (let row = startRow; row <= readyEnd; row++) ready.push([kkFormulaWebReadyAction_(row)]);
+  for (let row = startRow; row <= packageEnd; row++) statuses.push([kkFormulaWebPackageStatus_(row, templateCount)]);
+  readySheet.getRange(startRow, 10, ready.length, 1).setFormulas(ready);
+  packageSheet.getRange(startRow, 10, statuses.length, 1).setFormulas(statuses);
   SpreadsheetApp.flush();
-  return rowCount;
+  return statuses.length;
 }
 
 // Storefront policy: standalone lens rental is hidden by default.
 // It becomes visible only when the same event has an active phone_only booking,
 // meaning at least one physical lens is spare. active_override=FALSE remains a kill switch.
+
+/** Fail closed: a Core event must have all five generated package formulas.
+ * Only copy the trusted formula-only A5:N9 seed into an entirely blank block.
+ * Never overwrite an existing manual package price, status, or owner override. */
+function kkEnsureWebPackageCoverageForEventRow_(eventRow) {
+  const sourceRow = Number(eventRow);
+  if (!Number.isInteger(sourceRow) || sourceRow < 5) throw new Error('INVALID_CORE_EVENT_ROW');
+  const web = kkSheet_(KK.webPackages);
+  const count = kkGetValues_(KK.packages, 5, 1, 1).filter(row => String(row[0] || '').trim()).length;
+  if (count !== 5) throw new Error('WEB_PACKAGE_CARDINALITY_CHANGED_REVIEW_REQUIRED:' + count);
+  const first = 5 + (sourceRow - 5) * count;
+  const last = first + count - 1;
+  if (web.getMaxRows() < last) web.insertRowsAfter(web.getMaxRows(), last - web.getMaxRows());
+  const target = web.getRange(first, 1, count, 14);
+  const formulas = target.getFormulas();
+  const required = [0,1,2,3,4,5,6,8,9,10,11,12,13];
+  if (formulas.every(row => required.every(col => !!row[col]))) return {first_row:first,last_row:last,populated:false};
+  if (formulas.some(row => row.some(Boolean)) ||
+      target.getValues().some(row => row.some(cell => cell !== '' && cell !== null))) {
+    throw new Error('PARTIAL_WEB_PACKAGE_BLOCK_FAIL_CLOSED:' + first + ':' + last);
+  }
+  const seed = web.getRange(5, 1, count, 14);
+  if (!seed.getFormulas().every(row => row.every(Boolean))) throw new Error('WEB_PACKAGE_SEED_NOT_ALL_FORMULAS_REVIEW_REQUIRED');
+  seed.copyTo(target, SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+  SpreadsheetApp.flush();
+  if (!target.getFormulas().every(row => row.every(Boolean))) throw new Error('WEB_PACKAGE_FORMULA_COPY_UNVERIFIED');
+  return {first_row:first,last_row:last,populated:true};
+}
+
+/** Card stock = sum of per-model MAXIFS, not MAX of all packages.
+ * X500 200mm/400mm variants share the same physical phone. */
+function kkFormulaWebReadyPhoneCount_(rowNumber) {
+  const r = Number(rowNumber);
+  if (!Number.isInteger(r) || r < 5) throw new Error('INVALID_WEB_READY_ROW');
+  const models = ['VIVO_X300_PRO','VIVO_X500_PRO_MAX'];
+  const parts = models.map(model =>
+    `MAXIFS('09_Web_Packages'!$I$5:$I,'09_Web_Packages'!$B$5:$B,A${r},'09_Web_Packages'!$D$5:$D,"${model}",'09_Web_Packages'!$J$5:$J,"<>hidden")`
+  );
+  return `=IF(A${r}="","",IFERROR(${parts.join('+')},0))`;
+}
+
+function kkRepairWebReadyPhoneStock_(lastRow) {
+  const ready = kkSheet_(KK.webReady);
+  const end = Math.min(ready.getMaxRows(), Math.max(5, Number(lastRow || 5)));
+  const values = [];
+  for (let row = 5; row <= end; row++) values.push([kkFormulaWebReadyPhoneCount_(row)]);
+  ready.getRange(5, 7, values.length, 1).setFormulas(values);
+  return values.length;
+}
+
 function kkRepairLensCompatibilityFormulas_() {
   const web = kkSheet_(KK.webPackages);
   const booking = kkSheet_(KK.bookings);
   const startRow = 5;
-  const endRow = 1000;
+  const endRow = Math.max(startRow, web.getLastRow());
   const rowCount = endRow - startRow + 1;
+  const templateCount = kkGetValues_(KK.packages, 5, 1, 1).filter(r => r[0]).length;
+  if (templateCount !== 5) throw new Error('WEB_PACKAGE_CARDINALITY_CHANGED_REVIEW_REQUIRED:' + templateCount);
+  const sourceIds = kkGetValues_(KK.events, 5, 1, 1);
+  let lastSourceIndex = sourceIds.length - 1;
+  while (lastSourceIndex >= 0 && !String(sourceIds[lastSourceIndex][0] || '').trim()) lastSourceIndex--;
+  if (lastSourceIndex >= 0) {
+    const first = 5 + lastSourceIndex * templateCount;
+    const last = first + templateCount - 1;
+    if (web.getMaxRows() < last) throw new Error('WEB_PACKAGE_COVERAGE_TOO_SHORT:' + last);
+    const existing = web.getRange(first, 1, templateCount, 14).getFormulas();
+    const required = [0,1,2,3,4,5,6,8,9,10,11,12,13];
+    if (!existing.every(row => required.every(col => !!row[col]))) throw new Error('WEB_PACKAGE_TAIL_MISSING_FORMULAS:' + first);
+  }
+  const bookingEnd = Math.min(1000, booking.getMaxRows());
+  const bookingCount = bookingEnd - startRow + 1;
   const avail = [];
   const status = [];
   const raw = [];
@@ -926,8 +1045,10 @@ function kkRepairLensCompatibilityFormulas_() {
   const lensHold = [];
   for (let row = startRow; row <= endRow; row++) {
     avail.push([kkFormulaWebPackageAvailable_(row, false)]);
-    status.push([kkFormulaWebPackageStatus_(row)]);
+    status.push([kkFormulaWebPackageStatus_(row, templateCount)]);
     raw.push([kkFormulaWebPackageAvailable_(row, true)]);
+  }
+  for (let row = startRow; row <= bookingEnd; row++) {
     bookingPrice.push([kkFormulaBookingPrice_(row)]);
     activeHold.push([`=IF(D${row}="","",OR(C${row}="pending",C${row}="confirmed",C${row}="prepared",C${row}="picked_up"))`]);
     phoneHold.push([`=IF(D${row}="","",AND(Z${row}=TRUE,OR(I${row}="phone_only",I${row}="phone_lens_bundle")))`]);
@@ -939,10 +1060,12 @@ function kkRepairLensCompatibilityFormulas_() {
   web.getRange(startRow, 9, rowCount, 1).setFormulas(avail);      // 09_Web_Packages!I available_count
   web.getRange(startRow, 10, rowCount, 1).setFormulas(status);     // 09_Web_Packages!J package_status + lens-only auto guard
   web.getRange(startRow, 13, rowCount, 1).setFormulas(raw);       // 09_Web_Packages!M raw_available_count
-  booking.getRange(startRow, 24, rowCount, 1).setFormulas(bookingPrice); // 00_Master_Booking!X package_price
-  booking.getRange(startRow, 26, rowCount, 1).setFormulas(activeHold);   // Z active booking hold
-  booking.getRange(startRow, 36, rowCount, 1).setFormulas(phoneHold);    // AJ reserves a phone by package
-  booking.getRange(startRow, 37, rowCount, 1).setFormulas(lensHold);     // AK reserves a lens by package
+  booking.getRange(startRow, 24, bookingCount, 1).setFormulas(bookingPrice); // 00_Master_Booking!X package_price
+  booking.getRange(startRow, 26, bookingCount, 1).setFormulas(activeHold);   // Z active booking hold
+  booking.getRange(startRow, 36, bookingCount, 1).setFormulas(phoneHold);    // AJ reserves a phone by package
+  booking.getRange(startRow, 37, bookingCount, 1).setFormulas(lensHold);     // AK reserves a lens by package
+  // Preserve model-summed G; other public columns, prices and owner locks are unchanged.
+  kkRepairWebReadyPhoneStock_(kkSheet_(KK.webReady).getMaxRows());
 }
 
 function kkEnsureLensCompatibilityPatchInstalled_() {
@@ -994,6 +1117,7 @@ function kkGetPackageSpecByType_(packageType) {
   if (!wanted) throw new Error('Booking missing package_type');
   const rows = kkGetValues_(KK.packages, 5, 1, 10);
   let fallback = null;
+  let selected = null;
   for (const r of rows) {
     const type = String(r[2] || '').toLowerCase().trim();
     if (type !== wanted) continue;
@@ -1004,9 +1128,17 @@ function kkGetPackageSpecByType_(packageType) {
       lens_group: String(r[3] || '').trim(),
       active: kkIsTrue_(r[7])
     };
-    if (spec.active) return spec;
+    if (spec.active) {
+      // A legacy booking stores only package_type. After introducing X500
+      // variants, never guess a model/lens on preparation of missing assets.
+      if (selected && (selected.model_group !== spec.model_group || selected.lens_group !== spec.lens_group)) {
+        throw new Error('Ambiguous package_type ' + wanted + ': select physical phone/lens assets explicitly');
+      }
+      selected = spec;
+    }
     if (!fallback) fallback = spec;
   }
+  if (selected) return selected;
   if (fallback) return fallback;
   throw new Error('No package master found for package_type: ' + wanted);
 }
@@ -1560,7 +1692,7 @@ function kkApiWebReadyRows_() {
 }
 
 function kkApiWebPackageRows_() {
-  return kkGetValues_(KK.webPackages, 5, 1, 14).filter(r => r[0] && r[1] && !kkIsRetiredG2LensGroup_(r[5])).map(r => ({
+  return kkGetValues_(KK.webPackages, 5, 1, 14).filter(r => r[0] && r[1] && !kkIsRetiredG2LensGroup_(r[5]) && (r[2] !== 'phone_lens_bundle' || kkPhoneLensCompatible_(r[3], r[5]))).map(r => ({
     package_id: String(r[0] || '').trim(),
     event_id: String(r[1] || '').trim(),
     package_type: r[2] || '',
@@ -1973,6 +2105,7 @@ function kkApiCreateEvent_(payload) {
     const priceOverrides = kkNormalizeCreateEventOverrides_(payload.event_price_overrides);
     const eventId = kkGenerateUniqueEventId_(eventName, eventDate);
     const row = kkFirstEmptyRow_(KK.events, 1, 5, 1, 8);
+    kkEnsureWebPackageCoverageForEventRow_(row); // before writing Core/history/price
     const sh = kkSheet_(KK.events);
     sh.getRange(row, 1, 1, 8).setValues([[eventId, eventName, kkDateObj_(eventDate), venue, poster, status, active, note]]);
     const visibilityHistory = kkUpsertVisibilityLock_(eventId, eventName, eventDate, venue, active ? 'SEEN_CORE' : 'LOCKED', payload);
@@ -2118,6 +2251,7 @@ function kkApiCreatePackage_(payload) {
     if ((packageType === 'lens_only' || packageType === 'phone_lens_bundle') && (!lensGroup || lensGroup === 'NONE')) throw new Error('lens_group is required for lens packages');
     if (packageType === 'phone_only' || packageType === 'phone_lens_bundle') kkAssertModelGroupType_(modelGroup, 'phone');
     if (packageType === 'lens_only' || packageType === 'phone_lens_bundle') kkAssertModelGroupType_(lensGroup, 'lens');
+    if (packageType === 'phone_lens_bundle') kkAssertPhoneLensCompatible_(modelGroup, lensGroup);
 
     const existing = kkGetValues_(KK.packages, 5, 1, 1).flat().map(v => String(v || '').trim());
     if (existing.includes(templateId)) throw new Error('template_id already exists: ' + templateId);
@@ -2141,6 +2275,7 @@ function kkApiUpdatePackage_(payload) {
       if (String(rows[i][0] || '').trim() !== templateId) continue;
       const rowNumber = i + 5;
       const current = rows[i].slice();
+      if (String(current[2] || '').trim() === 'phone_lens_bundle') kkAssertPhoneLensCompatible_(current[1], current[3]);
       if (payload.standard_price !== '' && payload.standard_price !== undefined) current[4] = kkApiNumber_(payload.standard_price, 'standard_price', false);
       if (payload.display_name) current[5] = String(payload.display_name).trim();
       const active = kkApiBoolOrBlank_(payload.active);
@@ -2899,10 +3034,12 @@ function kkApiCreateBooking_(payload) {
     kkAssertWebPackageBookable_(eventId, templateId);
 
     const pkgType = String(pkg.package_type || '').toLowerCase().trim();
+    if (pkgType === 'phone_lens_bundle') kkAssertPhoneLensCompatible_(pkg.model_group, pkg.lens_group);
     if (phoneAssetId) kkValidateManualAsset_(phoneAssetId, 'phone', pkg.model_group, event.event_date);
     if (lensAssetId) kkValidateManualAsset_(lensAssetId, 'lens', pkg.lens_group, event.event_date);
     if ((pkgType === 'phone_only' || pkgType === 'phone_lens_bundle') && !phoneAssetId) phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date);
     if ((pkgType === 'lens_only' || pkgType === 'phone_lens_bundle') && !lensAssetId) lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date);
+    kkAssertPhysicalPhoneLensPair_(phoneAssetId, lensAssetId);
 
     const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
     const bookingId = kkGenerateUniqueBookingId_(event.event_date);
@@ -2972,6 +3109,7 @@ function kkApiUpdateBooking_(payload) {
       if (next[9] && (reactivating || phoneChanged)) kkValidateManualAsset_(next[9], 'phone', '', event.event_date, row);
       if (next[10] && (reactivating || lensChanged)) kkValidateManualAsset_(next[10], 'lens', '', event.event_date, row);
     }
+    if (kkActiveHold_(nextStatus)) kkAssertPhysicalPhoneLensPair_(next[9], next[10]);
     kkAssertBookingAssetsNotDoubleBooked_(row, next, nextStatus);
 
     // One canonical A:T row write prevents a later range write from leaving the
