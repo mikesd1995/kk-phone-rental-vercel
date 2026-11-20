@@ -157,3 +157,70 @@ test('missing transport diagnostic remains exact and suffixes stay private',()=>
  assert.equal(Preflight.classify({code:'CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED'}),'CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED');
  assert.equal(Preflight.classify({code:'CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED_PRIVATE'}),'CORE_PRIVATE_PROBE_FAILED');
 });
+
+
+test('all 19 private Core read ranges reject swapped, shifted or unexpected named headers',()=>{
+  const {schemaResult}=require('../server/core-private-range-contract.js');
+  assert.equal(Preflight.RANGE_SPECS.length,19);
+  for(const spec of Preflight.RANGE_SPECS){
+    assert.ok(Array.isArray(spec.orderedHeaders)&&spec.orderedHeaders.length>0,spec.dataset);
+    const canonical=[...spec.orderedHeaders];
+    assert.equal(schemaResult([canonical,['fixture']],spec).ok,true,'baseline '+spec.dataset);
+    if(canonical.length>1){
+      const swapped=[...canonical];
+      [swapped[0],swapped[1]]=[swapped[1],swapped[0]];
+      assert.equal(schemaResult([swapped,['fixture']],spec).ok,false,'swapped '+spec.dataset);
+    }
+    assert.ok(canonical.includes(spec.header),'required heading must be present in contract '+spec.dataset);
+    const renamed=[...canonical];
+    renamed[renamed.length-1]='UNEXPECTED_PRIVATE_COLUMN';
+    assert.equal(schemaResult([renamed,['fixture']],spec).ok,false,'renamed '+spec.dataset);
+    const caseShift=[...canonical];
+    const firstCaseSensitive=caseShift.findIndex(x=>/[A-Za-z]/.test(x));
+    if(firstCaseSensitive>=0){
+      const raw=caseShift[firstCaseSensitive];
+      caseShift[firstCaseSensitive]=raw===raw.toUpperCase()?raw.toLowerCase():raw.toUpperCase();
+      assert.equal(schemaResult([caseShift,['fixture']],spec).ok,false,'case shift '+spec.dataset);
+    }
+    if(canonical.length<spec.width){
+      const extra=[...canonical,'UNEXPECTED_PUBLIC_FIELD'];
+      assert.equal(schemaResult([extra,['fixture']],spec).ok,false,'extra '+spec.dataset);
+      const padded=[...canonical,...Array(spec.width-canonical.length).fill('')];
+      assert.equal(schemaResult([padded,['fixture']],spec).ok,true,'blank trailing cells '+spec.dataset);
+    }
+  }
+  const booking=Preflight.RANGE_SPECS.find(s=>s.dataset==='bookings');
+  // Independent position sentinels from owner-verified Core row 4, not
+  // computed from the fixture under test.
+  assert.equal(booking.orderedHeaders[0],'booking_id');
+  assert.equal(booking.orderedHeaders[3],'event_id');
+  assert.equal(booking.orderedHeaders[5],'customer_contact');
+  assert.equal(booking.orderedHeaders[6],'customer_phone');
+  assert.equal(booking.orderedHeaders[10],'lens_asset_id');
+  assert.equal(booking.orderedHeaders[23],'package_price');
+  const contactSwap=[...booking.orderedHeaders];
+  [contactSwap[5],contactSwap[6]]=[contactSwap[6],contactSwap[5]];
+  assert.equal(schemaResult([contactSwap,['fixture']],booking).classification,'PRIVATE_SCHEMA_INVALID',
+    'customer phone/contact column swap cannot pass private cutover');
+  const dashboard=Preflight.RANGE_SPECS.find(s=>s.dataset==='rental_dashboard_data');
+  assert.equal(dashboard.orderedHeaders[1],'Booking ID');
+  assert.equal(schemaResult([[dashboard.orderedHeaders[1],...dashboard.orderedHeaders.slice(1)],['fixture']],dashboard).ok,false,
+    'dashboard Booking ID is column B, not column A');
+});
+
+test('private Core probe rejects a synthetic contact-column reorder with only opaque diagnostics',async()=>{
+  const spec=Preflight.RANGE_SPECS.find(s=>s.dataset==='bookings');
+  const broken=[...spec.orderedHeaders];
+  [broken[5],broken[6]]=[broken[6],broken[5]];
+  const report=await Preflight.probe({env,reader:async info=>
+    info.sheet===spec.sheet&&info.range===spec.range
+      ? [broken,['SYNTHETIC_PRIVATE_CUSTOMER_VALUE_MUST_NEVER_LEAK']]
+      : validValues(info)
+  });
+  assert.equal(report.datasets_checked,19);
+  assert.equal(report.passed,18);
+  assert.equal(report.failed,1);
+  assert.equal(report.cutover_ready,false);
+  assert.deepEqual(report.results.filter(x=>!x.ok).map(x=>x.dataset),['bookings']);
+  assert.doesNotMatch(JSON.stringify(report),/SYNTHETIC_PRIVATE_CUSTOMER_VALUE_MUST_NEVER_LEAK/);
+});
