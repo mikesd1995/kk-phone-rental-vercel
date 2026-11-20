@@ -72,6 +72,32 @@ test('two different phones yield an event total of two while each model stays at
   assert.ok(Array.from(event.packages).every(p => p.avail));
 });
 
+test('Nov 28 onward three physical phones appear as X300 one and X500 two, not three X500s', async () => {
+  const event = await loadFixture(3, [
+    stock('phone_only', 'VIVO_X300_PRO', 1),
+    stock('phone_lens_bundle', 'VIVO_X300_PRO', 1, '200mm'),
+    stock('phone_lens_bundle', 'VIVO_X500_PRO_MAX', 2, '200mm'),
+    stock('phone_lens_bundle', 'VIVO_X500_PRO_MAX', 1, '400mm')
+  ]);
+  assert.equal(event.phoneCnt, 3, 'public event availability is capped by the shared physical fleet');
+  assert.deepEqual(Array.from(event.packages, p => p.count), [1, 1, 2, 1],
+    '200mm and 400mm X500 choices share the two X500 physical units');
+  assert.ok(Array.from(event.packages).every(p => p.avail));
+});
+
+test('Nov 28 two prior bookings leave one X500, not three available phones', async () => {
+  const event = await loadFixture(1, [
+    stock('phone_only', 'VIVO_X300_PRO', 0),
+    stock('phone_lens_bundle', 'VIVO_X300_PRO', 0, '200mm'),
+    stock('phone_lens_bundle', 'VIVO_X500_PRO_MAX', 1, '200mm'),
+    stock('phone_lens_bundle', 'VIVO_X500_PRO_MAX', 1, '400mm')
+  ]);
+  assert.equal(event.phoneCnt, 1);
+  assert.deepEqual(Array.from(event.packages, p => p.count), [0, 0, 1, 1]);
+  assert.ok(!event.packages[0].avail && !event.packages[1].avail);
+  assert.ok(event.packages[2].avail && event.packages[3].avail);
+});
+
 test('one reserved X300 cannot reappear when the X500 is available', async () => {
   const event = await loadFixture(1, [
     stock('phone_only', 'VIVO_X300_PRO', 0),
