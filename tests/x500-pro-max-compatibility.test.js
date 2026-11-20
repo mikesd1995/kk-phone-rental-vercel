@@ -124,3 +124,108 @@ test('backend package repair covers complete generated sheet, booking price look
   assert.match(repair, /kkFormulaWebPackageStatus_\(row, templateCount\)/);
   assert.match(lockRepair, /packageSheet\.getLastRow\(\)/);
 });
+
+test('public event stock formula sums unique X300 and X500 capacity, not 200/400mm variants', () => {
+  const ctx = loadFunctions(['kkFormulaWebReadyPhoneCount_']);
+  const formula = ctx.kkFormulaWebReadyPhoneCount_(523);
+  assert.match(formula, /A523/);
+  assert.match(formula, /"VIVO_X300_PRO"/);
+  assert.match(formula, /"VIVO_X500_PRO_MAX"/);
+  assert.match(formula, /"<>hidden"/);
+  assert.equal((formula.match(/MAXIFS\(/g) || []).length, 2, 'one MAXIFS for each unique phone model');
+  assert.match(formula, /\+MAXIFS\(/, 'combine the two separate model counts');
+  assert.doesNotMatch(formula, /"<>lens_only"/, 'global MAXIFS ignores the second physical phone');
+  assert.throws(() => ctx.kkFormulaWebReadyPhoneCount_(4), /INVALID_WEB_READY_ROW/);
+});
+
+test('stock formula repair writes only 08_Web_Ready column G using row-adjusted formulas', () => {
+  const ctx = loadFunctions(['kkFormulaWebReadyPhoneCount_', 'kkRepairWebReadyPhoneStock_']);
+  const writes = [];
+  ctx.KK = {webReady:'08_Web_Ready'};
+  ctx.kkSheet_ = name => {
+    assert.equal(name, '08_Web_Ready');
+    return {
+      getMaxRows: () => 1000,
+      getRange: (r,c,rows,cols) => {
+        assert.deepEqual([r,c,rows,cols], [5,7,3,1]);
+        return {setFormulas: formulas => writes.push(formulas)};
+      }
+    };
+  };
+  assert.equal(ctx.kkRepairWebReadyPhoneStock_(7), 3);
+  assert.equal(writes.length, 1);
+  assert.deepEqual(Array.from(writes[0], x=>x[0].match(/A\d+/)?.[0]), ['A5','A6','A7']);
+});
+
+function mockNewEventPackageCoverage({partial=false, existing=false}={}) {
+  const formulas = Array.from({length:5},()=>Array(14).fill(''));
+  const seeded = Array.from({length:5},()=>Array(14).fill('=FORMULA'));
+  const data = Array.from({length:5},()=>Array(14).fill(''));
+  if (partial) formulas[0][0] = '=HALF_GENERATED';
+  if (existing) formulas.forEach(row => row.fill('=COMPLETE'));
+  let rows = 2594, insertCount = 0, copies = 0;
+  const target = {
+    getFormulas: () => formulas,
+    getValues: () => data,
+  };
+  const seed = {getFormulas:()=>seeded,copyTo:(dest,type,transpose)=>{
+    assert.equal(dest, target);
+    assert.equal(type, 'PASTE_NORMAL');
+    assert.equal(transpose, false);
+    copies++;
+    formulas.forEach(row=>row.fill('=COPIED'));
+  }};
+  const web = {
+    getMaxRows: () => rows,
+    insertRowsAfter: (after,n) => {assert.equal(after, 2594); rows+=n; insertCount+=n;},
+    getRange: (start,col,count,width) => {
+      assert.equal(col,1);
+      assert.deepEqual([count,width],[5,14]);
+      if (start===2595) return target;
+      if (start===5) return seed;
+      throw new Error('Unexpected start '+start);
+    }
+  };
+  const ctx = loadFunctions(['kkEnsureWebPackageCoverageForEventRow_']);
+  ctx.KK = {webPackages:'09_Web_Packages',packages:'03_Packages'};
+  ctx.SpreadsheetApp = {CopyPasteType:{PASTE_NORMAL:'PASTE_NORMAL'},flush:()=>{}};
+  ctx.kkSheet_ = name => {assert.equal(name, '09_Web_Packages');return web;};
+  ctx.kkGetValues_ = (name,start,col,width) => {
+    assert.deepEqual([name,start,col,width],['03_Packages',5,1,1]);
+    return Array.from({length:5},(_,i)=>['TPL_'+i]);
+  };
+  return {ctx,state:()=>({rows,insertCount,copies})};
+}
+
+test('new Core event row 523 extends generated five-package public rows exactly once', () => {
+  const m = mockNewEventPackageCoverage();
+  const result = m.ctx.kkEnsureWebPackageCoverageForEventRow_(523);
+  assert.deepEqual({first:result.first_row,last:result.last_row,populated:result.populated},
+                   {first:2595,last:2599,populated:true});
+  assert.deepEqual(m.state(),{rows:2599,insertCount:5,copies:1});
+});
+
+test('new event package migration is idempotent and never overwrites prices', () => {
+  const m = mockNewEventPackageCoverage({existing:true});
+  const result = m.ctx.kkEnsureWebPackageCoverageForEventRow_(523);
+  assert.equal(result.populated,false);
+  assert.deepEqual(m.state(),{rows:2599,insertCount:5,copies:0});
+});
+
+test('partially generated package block fails closed, rather than overwriting user values', () => {
+  const m = mockNewEventPackageCoverage({partial:true});
+  assert.throws(()=>m.ctx.kkEnsureWebPackageCoverageForEventRow_(523),/PARTIAL_WEB_PACKAGE_BLOCK_FAIL_CLOSED/);
+  assert.equal(m.state().copies,0);
+});
+
+test('event create preflights generated package coverage before Core and override writes', () => {
+  const create = extractFunction('kkApiCreateEvent_');
+  const a = create.indexOf('kkEnsureWebPackageCoverageForEventRow_(row)');
+  const b = create.indexOf('sh.getRange(row, 1, 1, 8).setValues');
+  const c = create.indexOf('kkWriteEventOverrides_');
+  assert.ok(a>=0 && b>a && c>b, 'publishability check must precede Core/history/price writes');
+  const repair = extractFunction('kkRepairLensCompatibilityFormulas_');
+  assert.match(repair,/WEB_PACKAGE_TAIL_MISSING_FORMULAS/);
+  assert.match(repair,/kkRepairWebReadyPhoneStock_/);
+  assert.doesNotMatch(repair,/getRange\(startRow, 8, rowCount, 1\)\.setFormulas/, 'do not rewrite price column H');
+});
