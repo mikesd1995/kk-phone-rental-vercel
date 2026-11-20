@@ -171,9 +171,17 @@ test('all 19 private Core read ranges reject swapped, shifted or unexpected name
       [swapped[0],swapped[1]]=[swapped[1],swapped[0]];
       assert.equal(schemaResult([swapped,['fixture']],spec).ok,false,'swapped '+spec.dataset);
     }
+    assert.ok(canonical.includes(spec.header),'required heading must be present in contract '+spec.dataset);
     const renamed=[...canonical];
     renamed[renamed.length-1]='UNEXPECTED_PRIVATE_COLUMN';
     assert.equal(schemaResult([renamed,['fixture']],spec).ok,false,'renamed '+spec.dataset);
+    const caseShift=[...canonical];
+    const firstCaseSensitive=caseShift.findIndex(x=>/[A-Za-z]/.test(x));
+    if(firstCaseSensitive>=0){
+      const raw=caseShift[firstCaseSensitive];
+      caseShift[firstCaseSensitive]=raw===raw.toUpperCase()?raw.toLowerCase():raw.toUpperCase();
+      assert.equal(schemaResult([caseShift,['fixture']],spec).ok,false,'case shift '+spec.dataset);
+    }
     if(canonical.length<spec.width){
       const extra=[...canonical,'UNEXPECTED_PUBLIC_FIELD'];
       assert.equal(schemaResult([extra,['fixture']],spec).ok,false,'extra '+spec.dataset);
