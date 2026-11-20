@@ -1217,19 +1217,22 @@ async function loadData(){
       ? buildPackagesFromSheet(visiblePkgRows, eventId, phoneCnt, lensCnt)
       : buildPackagesFromWebRow(r);
 
-    // Shared-inventory guard: all phone packages consume the same phone pool and all
-    // lens packages consume the same lens pool. Clamp every package to the event-level
-    // stock from 08_Web_Ready so one package row cannot make a booked phone reappear.
+    // Event-level stock is the shared total across models. Package stock from
+    // 09_Web_Packages is the per-model/per-lens limit (e.g. X300=1, X500=1).
+    // Never overwrite a package's count with the event total: that would make
+    // one physical X500 appear twice in each of its 200mm/400mm choices.
     packages = packages.map(function(p){
+      // Legacy 08_Web_Ready-only fallback has no package-level count.
+      var pkgLimit = hasPkgSheet ? Math.max(0,toNum(p.count)) : Number.POSITIVE_INFINITY;
       if(p.type==="phone_only"){
-        p.avail = p.avail && phoneCnt>0;
-        p.count = phoneCnt;
+        p.count = Math.min(Math.max(0,phoneCnt),pkgLimit);
+        p.avail = p.avail && p.count>0;
       } else if(p.type==="lens_only"){
-        p.avail = p.avail && lensCnt>0;
-        p.count = lensCnt;
+        p.count = Math.min(Math.max(0,lensCnt),pkgLimit);
+        p.avail = p.avail && p.count>0;
       } else if(p.type==="phone_lens_bundle"){
-        p.avail = p.avail && phoneCnt>0 && lensCnt>0;
-        p.count = Math.min(phoneCnt,lensCnt);
+        p.count = Math.min(Math.max(0,phoneCnt),Math.max(0,lensCnt),pkgLimit);
+        p.avail = p.avail && p.count>0;
       }
       return p;
     });
