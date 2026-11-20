@@ -958,6 +958,56 @@ function kkRepairOwnerVisibilityLockFormulas_() {
 // Storefront policy: standalone lens rental is hidden by default.
 // It becomes visible only when the same event has an active phone_only booking,
 // meaning at least one physical lens is spare. active_override=FALSE remains a kill switch.
+
+/** Fail closed: a Core event must have all five generated package formulas.
+ * Only copy the trusted formula-only A5:N9 seed into an entirely blank block.
+ * Never overwrite an existing manual package price, status, or owner override. */
+function kkEnsureWebPackageCoverageForEventRow_(eventRow) {
+  const sourceRow = Number(eventRow);
+  if (!Number.isInteger(sourceRow) || sourceRow < 5) throw new Error('INVALID_CORE_EVENT_ROW');
+  const web = kkSheet_(KK.webPackages);
+  const count = kkGetValues_(KK.packages, 5, 1, 1).filter(row => String(row[0] || '').trim()).length;
+  if (count !== 5) throw new Error('WEB_PACKAGE_CARDINALITY_CHANGED_REVIEW_REQUIRED:' + count);
+  const first = 5 + (sourceRow - 5) * count;
+  const last = first + count - 1;
+  if (web.getMaxRows() < last) web.insertRowsAfter(web.getMaxRows(), last - web.getMaxRows());
+  const target = web.getRange(first, 1, count, 14);
+  const formulas = target.getFormulas();
+  const required = [0,1,2,3,4,5,6,8,9,10,11,12,13];
+  if (formulas.every(row => required.every(col => !!row[col]))) return {first_row:first,last_row:last,populated:false};
+  if (formulas.some(row => row.some(Boolean)) ||
+      target.getValues().some(row => row.some(cell => cell !== '' && cell !== null))) {
+    throw new Error('PARTIAL_WEB_PACKAGE_BLOCK_FAIL_CLOSED:' + first + ':' + last);
+  }
+  const seed = web.getRange(5, 1, count, 14);
+  if (!seed.getFormulas().every(row => row.every(Boolean))) throw new Error('WEB_PACKAGE_SEED_NOT_ALL_FORMULAS_REVIEW_REQUIRED');
+  seed.copyTo(target, SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+  SpreadsheetApp.flush();
+  if (!target.getFormulas().every(row => row.every(Boolean))) throw new Error('WEB_PACKAGE_FORMULA_COPY_UNVERIFIED');
+  return {first_row:first,last_row:last,populated:true};
+}
+
+/** Card stock = sum of per-model MAXIFS, not MAX of all packages.
+ * X500 200mm/400mm variants share the same physical phone. */
+function kkFormulaWebReadyPhoneCount_(rowNumber) {
+  const r = Number(rowNumber);
+  if (!Number.isInteger(r) || r < 5) throw new Error('INVALID_WEB_READY_ROW');
+  const models = ['VIVO_X300_PRO','VIVO_X500_PRO_MAX'];
+  const parts = models.map(model =>
+    `MAXIFS('09_Web_Packages'!$I$5:$I,'09_Web_Packages'!$B$5:$B,A${r},'09_Web_Packages'!$D$5:$D,"${model}",'09_Web_Packages'!$J$5:$J,"<>hidden")`
+  );
+  return `=IF(A${r}="","",IFERROR(${parts.join('+')},0))`;
+}
+
+function kkRepairWebReadyPhoneStock_(lastRow) {
+  const ready = kkSheet_(KK.webReady);
+  const end = Math.min(ready.getMaxRows(), Math.max(5, Number(lastRow || 5)));
+  const values = [];
+  for (let row = 5; row <= end; row++) values.push([kkFormulaWebReadyPhoneCount_(row)]);
+  ready.getRange(5, 7, values.length, 1).setFormulas(values);
+  return values.length;
+}
+
 function kkRepairLensCompatibilityFormulas_() {
   const web = kkSheet_(KK.webPackages);
   const booking = kkSheet_(KK.bookings);
@@ -965,6 +1015,18 @@ function kkRepairLensCompatibilityFormulas_() {
   const endRow = Math.max(startRow, web.getLastRow());
   const rowCount = endRow - startRow + 1;
   const templateCount = kkGetValues_(KK.packages, 5, 1, 1).filter(r => r[0]).length;
+  if (templateCount !== 5) throw new Error('WEB_PACKAGE_CARDINALITY_CHANGED_REVIEW_REQUIRED:' + templateCount);
+  const sourceIds = kkGetValues_(KK.events, 5, 1, 1);
+  let lastSourceIndex = sourceIds.length - 1;
+  while (lastSourceIndex >= 0 && !String(sourceIds[lastSourceIndex][0] || '').trim()) lastSourceIndex--;
+  if (lastSourceIndex >= 0) {
+    const first = 5 + lastSourceIndex * templateCount;
+    const last = first + templateCount - 1;
+    if (web.getMaxRows() < last) throw new Error('WEB_PACKAGE_COVERAGE_TOO_SHORT:' + last);
+    const existing = web.getRange(first, 1, templateCount, 14).getFormulas();
+    const required = [0,1,2,3,4,5,6,8,9,10,11,12,13];
+    if (!existing.every(row => required.every(col => !!row[col]))) throw new Error('WEB_PACKAGE_TAIL_MISSING_FORMULAS:' + first);
+  }
   const bookingEnd = Math.min(1000, booking.getMaxRows());
   const bookingCount = bookingEnd - startRow + 1;
   const avail = [];
@@ -995,6 +1057,8 @@ function kkRepairLensCompatibilityFormulas_() {
   booking.getRange(startRow, 26, bookingCount, 1).setFormulas(activeHold);   // Z active booking hold
   booking.getRange(startRow, 36, bookingCount, 1).setFormulas(phoneHold);    // AJ reserves a phone by package
   booking.getRange(startRow, 37, bookingCount, 1).setFormulas(lensHold);     // AK reserves a lens by package
+  // Preserve model-summed G; other public columns, prices and owner locks are unchanged.
+  kkRepairWebReadyPhoneStock_(kkSheet_(KK.webReady).getMaxRows());
 }
 
 function kkEnsureLensCompatibilityPatchInstalled_() {
@@ -2034,6 +2098,7 @@ function kkApiCreateEvent_(payload) {
     const priceOverrides = kkNormalizeCreateEventOverrides_(payload.event_price_overrides);
     const eventId = kkGenerateUniqueEventId_(eventName, eventDate);
     const row = kkFirstEmptyRow_(KK.events, 1, 5, 1, 8);
+    kkEnsureWebPackageCoverageForEventRow_(row); // before writing Core/history/price
     const sh = kkSheet_(KK.events);
     sh.getRange(row, 1, 1, 8).setValues([[eventId, eventName, kkDateObj_(eventDate), venue, poster, status, active, note]]);
     const visibilityHistory = kkUpsertVisibilityLock_(eventId, eventName, eventDate, venue, active ? 'SEEN_CORE' : 'LOCKED', payload);
