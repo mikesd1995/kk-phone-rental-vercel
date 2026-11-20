@@ -27,10 +27,12 @@ function spec(dataset,sheet,range,header,width,consumers,orderedHeaders){
   // Single canonical header map covers all 19 private ranges. Public derived
   // projections keep their existing per-range prefixes and alias exception.
   const expected=orderedHeaders||CORE_HEADER_ORDER[sheet];
-  if(!expected)throw Error('CORE_PRIVATE_SCHEMA_CONTRACT_MISSING');
+  const columns=expected&&expected.slice(0,width);
+  // The security contract itself must name the dataset's required header.
+  if(!columns||!columns.includes(header))throw Error('CORE_PRIVATE_SCHEMA_CONTRACT_MISSING');
   return Object.freeze({dataset,sheet,range,header,width,
     consumers:Object.freeze(consumers),
-    orderedHeaders:Object.freeze(expected.slice(0,width))});
+    orderedHeaders:Object.freeze(columns)});
 }
 const RANGE_SPECS=Object.freeze([
   spec('events','01_Events','A4:I','event_id',9,['admin_snapshot']),
@@ -67,8 +69,8 @@ function schemaResult(values,specification){
       // A4:Z / A1:Z may include empty trailing cells. Extra named headers are
       // never silently accepted, since consumers rely on column offsets.
       if(i>=expected.length)return name!=='';
-      return name.toLowerCase()!==expected[i].toLowerCase()&&
-        !(specification.sheet==='09_Web_Packages'&&i===11&&name.toLowerCase()==='package_note');
+      return name!==expected[i]&&
+        !(specification.sheet==='09_Web_Packages'&&i===11&&name==='package_note');
     }))
     return {ok:false,classification:'PRIVATE_SCHEMA_INVALID'};
   const hasData=values.slice(1).some(row=>row.some(cell=>cell.trim()!==''));
