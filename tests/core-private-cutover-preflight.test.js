@@ -182,6 +182,14 @@ test('all 19 private Core read ranges reject swapped, shifted or unexpected name
     }
   }
   const booking=Preflight.RANGE_SPECS.find(s=>s.dataset==='bookings');
+  // Independent position sentinels from owner-verified Core row 4, not
+  // computed from the fixture under test.
+  assert.equal(booking.orderedHeaders[0],'booking_id');
+  assert.equal(booking.orderedHeaders[3],'event_id');
+  assert.equal(booking.orderedHeaders[5],'customer_contact');
+  assert.equal(booking.orderedHeaders[6],'customer_phone');
+  assert.equal(booking.orderedHeaders[10],'lens_asset_id');
+  assert.equal(booking.orderedHeaders[23],'package_price');
   const contactSwap=[...booking.orderedHeaders];
   [contactSwap[5],contactSwap[6]]=[contactSwap[6],contactSwap[5]];
   assert.equal(schemaResult([contactSwap,['fixture']],booking).classification,'PRIVATE_SCHEMA_INVALID',
