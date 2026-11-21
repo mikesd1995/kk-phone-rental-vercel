@@ -1023,7 +1023,15 @@ function kkAssignMissingAssetsForPreparedBooking_(bookingRow, nextStatus, eventD
   const needsLens = packageType === 'lens_only' || packageType === 'phone_lens_bundle';
   if ((!needsPhone || String(next[9] || '').trim()) && (!needsLens || String(next[10] || '').trim())) return next;
 
-  const spec = kkGetPackageSpecByType_(packageType);
+  // Preserve the selected phone model through pending -> confirmed -> prepared.
+  // A type-only lookup picks the first phone_only template (X300) and is unsafe for X500.
+  const selectedTemplateId = kkBookingTemplateIdFromNote_(next[19]);
+  const spec = selectedTemplateId
+    ? kkGetPackageByTemplateId_(selectedTemplateId)
+    : kkGetPackageSpecByType_(packageType);
+  if (selectedTemplateId && String(spec.package_type || '').trim() !== packageType) {
+    throw new Error('Booking template/type mismatch: ' + selectedTemplateId);
+  }
   if (needsPhone && !String(next[9] || '').trim()) {
     next[9] = kkFindAvailableAsset_('phone', spec.model_group, eventDate);
   }
@@ -2470,8 +2478,25 @@ function kkBookingNoteWithRequest_(note, requestId) {
   return marker ? (base ? base + ' ' + marker : marker) : base;
 }
 
+// Retain the precise selected template so pending LINE bookings cannot switch models.
+function kkBookingTemplateIdFromNote_(note) {
+  const match = String(note || '').match(/\[KK_TEMPLATE:(TPL-[A-Za-z0-9-]{3,160})\]/);
+  return match ? match[1] : '';
+}
+
+function kkBookingNoteWithTemplate_(note, templateId) {
+  const clean = String(note || '').replace(/\s*\[KK_TEMPLATE:TPL-[A-Za-z0-9-]{3,160}\]\s*/g, ' ').trim();
+  const id = String(templateId || '').trim();
+  if (!id) return clean;
+  if (!/^TPL-[A-Za-z0-9-]{3,160}$/.test(id)) throw new Error('Invalid template id for booking marker');
+  return (clean ? clean + ' ' : '') + '[KK_TEMPLATE:' + id + ']';
+}
+
 function kkBookingNoteForDisplay_(note) {
-  return String(note || '').replace(/\s*\[KK_REQ:[A-Za-z0-9._:-]{8,128}\]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  return String(note || '')
+    .replace(/\s*\[KK_REQ:[A-Za-z0-9._:-]{8,128}\]\s*/g, ' ')
+    .replace(/\s*\[KK_TEMPLATE:TPL-[A-Za-z0-9-]{3,160}\]\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ').trim();
 }
 
 function kkBookingRequestIdFromNote_(note) {
@@ -2749,7 +2774,10 @@ function kkApiCreateLineBookingPending_(payload) {
       claimed_at: new Date().toISOString()
     }));
 
-    const bookingNote = kkBookingNoteWithRequest_(payload.booking_note || 'LINE webhook intake', requestId);
+    const bookingNote = kkBookingNoteWithTemplate_(
+      kkBookingNoteWithRequest_(payload.booking_note || 'LINE webhook intake', requestId),
+      templateId
+    );
     const sh = kkSheet_(KK.bookings);
     sh.getRange(row, 1, 1, 20).setValues([[
       bookingId, new Date(), 'pending', eventId, customerName, customerContact, customerPhone, 'LINE',
@@ -2882,7 +2910,7 @@ function kkApiCreateBooking_(payload) {
     const pickupTime = String(payload.pickup_time || '').trim();
     const paymentStatus = String(payload.payment_status || 'unpaid').toLowerCase().trim();
     const amountReceived = kkApiNumber_(payload.amount_received, 'amount_received', true) || 0;
-    const bookingNote = kkBookingNoteWithRequest_(payload.booking_note || '', requestId);
+    let bookingNote = kkBookingNoteWithRequest_(payload.booking_note || '', requestId);
 
     kkEnsureLensCompatibilityPatchInstalled_();
     if (!eventId || !templateId || !customerName) throw new Error('Please fill event_id, template_id and customer_name');
@@ -2893,6 +2921,7 @@ function kkApiCreateBooking_(payload) {
     const event = kkGetEventById_(eventId);
     if (kkIsPastEventDate_(event.event_date)) throw new Error('Cannot create booking for a past event date: ' + kkApiDate_(event.event_date));
     const pkg = kkGetPackageByTemplateId_(templateId);
+    bookingNote = kkBookingNoteWithTemplate_(bookingNote, templateId);
     if (String(event.status).toLowerCase() !== 'open') throw new Error('Event is not open: ' + eventId);
     if (!event.active) throw new Error('Event is not active_on_web: ' + eventId);
     if (!pkg.active) throw new Error('Package is inactive: ' + templateId);
@@ -2948,7 +2977,10 @@ function kkApiUpdateBooking_(payload) {
     if (payload.amount_received !== undefined && payload.amount_received !== '') next[14] = amountReceived;
     if (payload.booking_note !== undefined) {
       const existingRequestId = kkBookingRequestIdFromNote_(current[19]);
-      next[19] = kkBookingNoteWithRequest_(payload.booking_note || '', existingRequestId);
+      next[19] = kkBookingNoteWithTemplate_(
+        kkBookingNoteWithRequest_(payload.booking_note || '', existingRequestId),
+        kkBookingTemplateIdFromNote_(current[19])
+      );
     }
     if (!String(next[4] || '').trim()) throw new Error('customer_name is required');
 
