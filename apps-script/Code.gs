@@ -685,7 +685,11 @@ function kkFormulaLensBookedCount_(rowNumber) {
 function kkFormulaPhoneRawCount_(rowNumber) {
   const r = rowNumber;
   const booked = kkFormulaActiveBookingCount_(`B${r}`, 'phone_only|phone_lens_bundle');
-  return `(COUNTIFS('02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,D${r},'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE)-${booked})`;
+  // PHONE-004 is in asset stock now but is not bookable before 2026-11-28.
+  // Apply the gate in the source generator, not only in manually repaired Sheet rows:
+  // every newly generated X500 package must share this same pre-start inventory rule.
+  const preStart = `IF(AND(D${r}="VIVO_X500_PRO_MAX",IFERROR(VALUE(MID(B${r},5,8)),0)<20261128),COUNTIFS('02_Assets'!$A$5:$A$1000,"PHONE-004",'02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,"VIVO_X500_PRO_MAX",'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE),0)`;
+  return `(COUNTIFS('02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,D${r},'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE)-${preStart}-${booked})`;
 }
 
 function kkFormulaWebPackageAvailable_(rowNumber, rawMode) {
