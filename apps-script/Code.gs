@@ -731,12 +731,12 @@ function kkWebPackagePriceFormula_(rowNumber, templateId) {
     ? `"${String(templateId || '').replace(/"/g, '""')}"`
     : kkWebPackageTemplateFormula_(r);
   const standardExpr = templateId
-    ? `IFERROR(VLOOKUP(${tplExpr},'03_Packages'!$A$5:$E$1000,5,FALSE),0)`
+    ? `IFERROR(VLOOKUP(${tplExpr},'03_Packages'!$A$5:$E,5,FALSE),0)`
     : kkWebPackageStandardPriceFormula_(r);
   // Use FILTER + COUNTIFS to read the latest matching override row. LOOKUP(2,1/(...)) returns #N/A in the live Sheet for valid matches.
   // 1) old SUMIFS formula ignored override price = 0 and could sum duplicate old rows;
   // 2) public 09_Web_Packages did not always recalculate after an override save.
-  return `=IF(B${r}="","",IFERROR(INDEX(FILTER('04_Event_Overrides'!$C$5:$C$1000,'04_Event_Overrides'!$A$5:$A$1000=B${r},'04_Event_Overrides'!$B$5:$B$1000=${tplExpr},'04_Event_Overrides'!$C$5:$C$1000<>""),COUNTIFS('04_Event_Overrides'!$A$5:$A$1000,B${r},'04_Event_Overrides'!$B$5:$B$1000,${tplExpr},'04_Event_Overrides'!$C$5:$C$1000,"<>")),${standardExpr}))`;
+  return `=IF(B${r}="","",IFERROR(INDEX(FILTER('04_Event_Overrides'!$C$5:$C,'04_Event_Overrides'!$A$5:$A=B${r},'04_Event_Overrides'!$B$5:$B=${tplExpr},'04_Event_Overrides'!$C$5:$C<>""),COUNTIFS('04_Event_Overrides'!$A$5:$A,B${r},'04_Event_Overrides'!$B$5:$B,${tplExpr},'04_Event_Overrides'!$C$5:$C,"<>")),${standardExpr}))`;
 }
 
 function kkRepairWebPackagePriceFormulas_() {
@@ -832,9 +832,9 @@ function kkRefreshWebPackagePriceForOverride_(eventId, templateId, overridePrice
 function kkFormulaBookingPrice_(rowNumber) {
   const r = rowNumber;
   const lensCriteria = kkFormulaLensCriteria_('AM' + r);
-  const lensOnly = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H$1000,'09_Web_Packages'!$B$5:$B$1000,D${r},'09_Web_Packages'!$C$5:$C$1000,I${r},'09_Web_Packages'!$F$5:$F$1000,${lensCriteria}))`;
-  const bundle = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H$1000,'09_Web_Packages'!$B$5:$B$1000,D${r},'09_Web_Packages'!$C$5:$C$1000,I${r},'09_Web_Packages'!$D$5:$D$1000,AL${r},'09_Web_Packages'!$F$5:$F$1000,${lensCriteria}))`;
-  const phoneOnly = `SUMIFS('09_Web_Packages'!$H$5:$H$1000,'09_Web_Packages'!$B$5:$B$1000,D${r},'09_Web_Packages'!$C$5:$C$1000,I${r},'09_Web_Packages'!$D$5:$D$1000,AL${r})`;
+  const lensOnly = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H,'09_Web_Packages'!$B$5:$B,D${r},'09_Web_Packages'!$C$5:$C,I${r},'09_Web_Packages'!$F$5:$F,${lensCriteria}))`;
+  const bundle = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H,'09_Web_Packages'!$B$5:$B,D${r},'09_Web_Packages'!$C$5:$C,I${r},'09_Web_Packages'!$D$5:$D,AL${r},'09_Web_Packages'!$F$5:$F,${lensCriteria}))`;
+  const phoneOnly = `SUMIFS('09_Web_Packages'!$H$5:$H,'09_Web_Packages'!$B$5:$B,D${r},'09_Web_Packages'!$C$5:$C,I${r},'09_Web_Packages'!$D$5:$D,AL${r})`;
   return `=IF(I${r}="","",IF(I${r}="lens_only",IFERROR(${lensOnly},0),IF(I${r}="phone_lens_bundle",IFERROR(${bundle},0),IFERROR(${phoneOnly},0))))`;
 }
 
