@@ -689,12 +689,12 @@ function kkFormulaPhoneRawCount_(rowNumber) {
   const r = rowNumber;
   const booked = kkFormulaActiveBookingCount_(`B${r}`, 'phone_only|phone_lens_bundle', `D${r}`, 'AL');
   // PHONE-003 is the existing X500. PHONE-004 is a SECOND X500, rentable
-  // only for EVENT DATES >= 2026-11-28 (not based on the date of purchase).
-  // This stock-side guard keeps old X500 bookings and pre-28 availability
-  // unchanged while the new X500 becomes bookable for 28 Nov onward.
+  // only for EVENT DATES >= 2026-11-22 (not based on the date of purchase).
+  // This stock-side guard keeps old X500 bookings and pre-22 Nov availability
+  // unchanged while the new X500 becomes bookable for 22 Nov onward.
   // Do not hide the entire X500 package in status J or restore it by a
   // naive model-wide COUNTIFS repair: that would misrepresent both phones.
-  const newX500BeforeStart = `IF(AND(D${r}="VIVO_X500_PRO_MAX",IFERROR(VALUE(MID(B${r},5,8)),0)<20261128),COUNTIFS('02_Assets'!$A$5:$A$1000,"PHONE-004",'02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,"VIVO_X500_PRO_MAX",'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE),0)`;
+  const newX500BeforeStart = `IF(AND(D${r}="VIVO_X500_PRO_MAX",IFERROR(VALUE(MID(B${r},5,8)),0)<20261122),COUNTIFS('02_Assets'!$A$5:$A$1000,"PHONE-004",'02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,"VIVO_X500_PRO_MAX",'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE),0)`;
   return `(COUNTIFS('02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,D${r},'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE)-${newX500BeforeStart}-${booked})`;
 }
 
