@@ -1,0 +1,33 @@
+name: X500 Phone-only Six-package QA
+
+on:
+  pull_request:
+    paths:
+      - 'apps-script/Code.gs'
+      - 'tests/x500-phone-only-*.test.js'
+      - 'tests/same-day-inventory-date-normalization.test.js'
+      - '.github/workflows/x500-phone-only-six-package-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-and-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact PR HEAD
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check
+        run: npm run check
+      - name: X500 phone-only regression
+        run: node --test tests/x500-phone-only-pending-template.test.js tests/x500-phone-only-six-package-formula-guard.test.js tests/same-day-inventory-date-normalization.test.js
+      - name: Full regression
+        run: npm test
