@@ -684,8 +684,16 @@ function kkFormulaLensBookedCount_(rowNumber) {
 
 function kkFormulaPhoneRawCount_(rowNumber) {
   const r = rowNumber;
-  const booked = kkFormulaActiveBookingCount_(`B${r}`, 'phone_only|phone_lens_bundle');
-  return `(COUNTIFS('02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,D${r},'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE)-${booked})`;
+  // Booking flags AJ and model hints AL reserve the same physical phone across
+  // phone-only and bundle packages. Unknown-model holds reserve conservatively.
+  const dateKey = `"EVT-"&MID(B${r},5,8)&"-*"`;
+  const available = `COUNTIFS('02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,D${r},'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE)`;
+  const bookedModel = `COUNTIFS('00_Master_Booking'!$D$5:$D$1000,${dateKey},'00_Master_Booking'!$AJ$5:$AJ$1000,TRUE,'00_Master_Booking'!$AL$5:$AL$1000,D${r})`;
+  const bookedUnknown = `COUNTIFS('00_Master_Booking'!$D$5:$D$1000,${dateKey},'00_Master_Booking'!$AJ$5:$AJ$1000,TRUE,'00_Master_Booking'!$AL$5:$AL$1000,"")`;
+  // PHONE-004 is rentable starting 2026-11-28, never earlier, even if master
+  // status is available. A phone-only package consumes the same X500 pool.
+  const notStarted = `IF(AND(D${r}="VIVO_X500_PRO_MAX",IFERROR(VALUE(MID(B${r},5,8)),0)<20261128),COUNTIFS('02_Assets'!$A$5:$A$1000,"PHONE-004",'02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,"VIVO_X500_PRO_MAX",'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE),0)`;
+  return `((${available})-${notStarted}-${bookedModel}-${bookedUnknown})`;
 }
 
 function kkFormulaWebPackageAvailable_(rowNumber, rawMode) {
@@ -723,25 +731,32 @@ function kkWebPackagePriceFormula_(rowNumber, templateId) {
     ? `"${String(templateId || '').replace(/"/g, '""')}"`
     : kkWebPackageTemplateFormula_(r);
   const standardExpr = templateId
-    ? `IFERROR(VLOOKUP(${tplExpr},'03_Packages'!$A$5:$E$1000,5,FALSE),0)`
+    ? `IFERROR(VLOOKUP(${tplExpr},'03_Packages'!$A$5:$E,5,FALSE),0)`
     : kkWebPackageStandardPriceFormula_(r);
   // Use FILTER + COUNTIFS to read the latest matching override row. LOOKUP(2,1/(...)) returns #N/A in the live Sheet for valid matches.
   // 1) old SUMIFS formula ignored override price = 0 and could sum duplicate old rows;
   // 2) public 09_Web_Packages did not always recalculate after an override save.
-  return `=IF(B${r}="","",IFERROR(INDEX(FILTER('04_Event_Overrides'!$C$5:$C$1000,'04_Event_Overrides'!$A$5:$A$1000=B${r},'04_Event_Overrides'!$B$5:$B$1000=${tplExpr},'04_Event_Overrides'!$C$5:$C$1000<>""),COUNTIFS('04_Event_Overrides'!$A$5:$A$1000,B${r},'04_Event_Overrides'!$B$5:$B$1000,${tplExpr},'04_Event_Overrides'!$C$5:$C$1000,"<>")),${standardExpr}))`;
+  return `=IF(B${r}="","",IFERROR(INDEX(FILTER('04_Event_Overrides'!$C$5:$C,'04_Event_Overrides'!$A$5:$A=B${r},'04_Event_Overrides'!$B$5:$B=${tplExpr},'04_Event_Overrides'!$C$5:$C<>""),COUNTIFS('04_Event_Overrides'!$A$5:$A,B${r},'04_Event_Overrides'!$B$5:$B,${tplExpr},'04_Event_Overrides'!$C$5:$C,"<>")),${standardExpr}))`;
 }
 
 function kkRepairWebPackagePriceFormulas_() {
   const web = kkSheet_(KK.webPackages);
   const startRow = 5;
-  const endRow = 1000;
-  const rowCount = endRow - startRow + 1;
-  const formulas = [];
-  for (let row = startRow; row <= endRow; row++) {
-    formulas.push([kkWebPackagePriceFormula_(row, '')]);
+  const endRow = web.getLastRow();
+  if (endRow < startRow) return 0;
+  // Six-template cutover explicitly snapshots every previously published price.
+  // A full-column rewrite would discard owner-approved per-event prices even
+  // where there is no 04_Event_Overrides row. Only repair genuinely BLANK cells.
+  const values = web.getRange(startRow, 8, endRow - startRow + 1, 1).getValues();
+  let restored = 0;
+  for (let idx = 0; idx < values.length; idx++) {
+    if (values[idx][0] !== '' && values[idx][0] !== null) continue;
+    const row = startRow + idx;
+    if (!web.getRange(row, 2).getValue()) continue;
+    web.getRange(row, 8).setFormula(kkWebPackagePriceFormula_(row, ''));
+    restored++;
   }
-  web.getRange(startRow, 8, rowCount, 1).setFormulas(formulas); // 09_Web_Packages!H price
-  return rowCount;
+  return restored;
 }
 
 function kkPriceLensCanonical_(lensGroup) {
@@ -817,9 +832,13 @@ function kkRefreshWebPackagePriceForOverride_(eventId, templateId, overridePrice
 function kkFormulaBookingPrice_(rowNumber) {
   const r = rowNumber;
   const lensCriteria = kkFormulaLensCriteria_('AM' + r);
-  const lensOnly = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H$1000,'09_Web_Packages'!$B$5:$B$1000,D${r},'09_Web_Packages'!$C$5:$C$1000,I${r},'09_Web_Packages'!$F$5:$F$1000,${lensCriteria}))`;
-  const bundle = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H$1000,'09_Web_Packages'!$B$5:$B$1000,D${r},'09_Web_Packages'!$C$5:$C$1000,I${r},'09_Web_Packages'!$D$5:$D$1000,AL${r},'09_Web_Packages'!$F$5:$F$1000,${lensCriteria}))`;
-  const phoneOnly = `SUMIFS('09_Web_Packages'!$H$5:$H$1000,'09_Web_Packages'!$B$5:$B$1000,D${r},'09_Web_Packages'!$C$5:$C$1000,I${r},'09_Web_Packages'!$D$5:$D$1000,AL${r})`;
+  // Pending LINE bookings have blank asset-derived AL, so resolve the selected
+  // model from the internal KK_TEMPLATE marker in the booking note (column T).
+  const templateId = `IFERROR(REGEXEXTRACT(T${r},"\\[KK_TEMPLATE:(TPL-[A-Za-z0-9-]+)\\]"),"")`;
+  const selectedModel = `IF(AL${r}<>"",AL${r},IFERROR(VLOOKUP(${templateId},'03_Packages'!$A$5:$B,2,FALSE),""))`;
+  const lensOnly = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H,'09_Web_Packages'!$B$5:$B,D${r},'09_Web_Packages'!$C$5:$C,I${r},'09_Web_Packages'!$F$5:$F,${lensCriteria}))`;
+  const bundle = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H,'09_Web_Packages'!$B$5:$B,D${r},'09_Web_Packages'!$C$5:$C,I${r},'09_Web_Packages'!$D$5:$D,${selectedModel},'09_Web_Packages'!$F$5:$F,${lensCriteria}))`;
+  const phoneOnly = `SUMIFS('09_Web_Packages'!$H$5:$H,'09_Web_Packages'!$B$5:$B,D${r},'09_Web_Packages'!$C$5:$C,I${r},'09_Web_Packages'!$D$5:$D,${selectedModel})`;
   return `=IF(I${r}="","",IF(I${r}="lens_only",IFERROR(${lensOnly},0),IF(I${r}="phone_lens_bundle",IFERROR(${bundle},0),IFERROR(${phoneOnly},0))))`;
 }
 
@@ -1023,7 +1042,15 @@ function kkAssignMissingAssetsForPreparedBooking_(bookingRow, nextStatus, eventD
   const needsLens = packageType === 'lens_only' || packageType === 'phone_lens_bundle';
   if ((!needsPhone || String(next[9] || '').trim()) && (!needsLens || String(next[10] || '').trim())) return next;
 
-  const spec = kkGetPackageSpecByType_(packageType);
+  // Preserve the selected phone model through pending -> confirmed -> prepared.
+  // A type-only lookup picks the first phone_only template (X300) and is unsafe for X500.
+  const selectedTemplateId = kkBookingTemplateIdFromNote_(next[19]);
+  const spec = selectedTemplateId
+    ? kkGetPackageByTemplateId_(selectedTemplateId)
+    : kkGetPackageSpecByType_(packageType);
+  if (selectedTemplateId && String(spec.package_type || '').trim() !== packageType) {
+    throw new Error('Booking template/type mismatch: ' + selectedTemplateId);
+  }
   if (needsPhone && !String(next[9] || '').trim()) {
     next[9] = kkFindAvailableAsset_('phone', spec.model_group, eventDate);
   }
@@ -2470,8 +2497,25 @@ function kkBookingNoteWithRequest_(note, requestId) {
   return marker ? (base ? base + ' ' + marker : marker) : base;
 }
 
+// Retain the precise selected template so pending LINE bookings cannot switch models.
+function kkBookingTemplateIdFromNote_(note) {
+  const match = String(note || '').match(/\[KK_TEMPLATE:(TPL-[A-Za-z0-9-]{3,160})\]/);
+  return match ? match[1] : '';
+}
+
+function kkBookingNoteWithTemplate_(note, templateId) {
+  const clean = String(note || '').replace(/\s*\[KK_TEMPLATE:TPL-[A-Za-z0-9-]{3,160}\]\s*/g, ' ').trim();
+  const id = String(templateId || '').trim();
+  if (!id) return clean;
+  if (!/^TPL-[A-Za-z0-9-]{3,160}$/.test(id)) throw new Error('Invalid template id for booking marker');
+  return (clean ? clean + ' ' : '') + '[KK_TEMPLATE:' + id + ']';
+}
+
 function kkBookingNoteForDisplay_(note) {
-  return String(note || '').replace(/\s*\[KK_REQ:[A-Za-z0-9._:-]{8,128}\]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  return String(note || '')
+    .replace(/\s*\[KK_REQ:[A-Za-z0-9._:-]{8,128}\]\s*/g, ' ')
+    .replace(/\s*\[KK_TEMPLATE:TPL-[A-Za-z0-9-]{3,160}\]\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ').trim();
 }
 
 function kkBookingRequestIdFromNote_(note) {
@@ -2749,7 +2793,10 @@ function kkApiCreateLineBookingPending_(payload) {
       claimed_at: new Date().toISOString()
     }));
 
-    const bookingNote = kkBookingNoteWithRequest_(payload.booking_note || 'LINE webhook intake', requestId);
+    const bookingNote = kkBookingNoteWithTemplate_(
+      kkBookingNoteWithRequest_(payload.booking_note || 'LINE webhook intake', requestId),
+      templateId
+    );
     const sh = kkSheet_(KK.bookings);
     sh.getRange(row, 1, 1, 20).setValues([[
       bookingId, new Date(), 'pending', eventId, customerName, customerContact, customerPhone, 'LINE',
@@ -2882,7 +2929,7 @@ function kkApiCreateBooking_(payload) {
     const pickupTime = String(payload.pickup_time || '').trim();
     const paymentStatus = String(payload.payment_status || 'unpaid').toLowerCase().trim();
     const amountReceived = kkApiNumber_(payload.amount_received, 'amount_received', true) || 0;
-    const bookingNote = kkBookingNoteWithRequest_(payload.booking_note || '', requestId);
+    let bookingNote = kkBookingNoteWithRequest_(payload.booking_note || '', requestId);
 
     kkEnsureLensCompatibilityPatchInstalled_();
     if (!eventId || !templateId || !customerName) throw new Error('Please fill event_id, template_id and customer_name');
@@ -2893,6 +2940,7 @@ function kkApiCreateBooking_(payload) {
     const event = kkGetEventById_(eventId);
     if (kkIsPastEventDate_(event.event_date)) throw new Error('Cannot create booking for a past event date: ' + kkApiDate_(event.event_date));
     const pkg = kkGetPackageByTemplateId_(templateId);
+    bookingNote = kkBookingNoteWithTemplate_(bookingNote, templateId);
     if (String(event.status).toLowerCase() !== 'open') throw new Error('Event is not open: ' + eventId);
     if (!event.active) throw new Error('Event is not active_on_web: ' + eventId);
     if (!pkg.active) throw new Error('Package is inactive: ' + templateId);
@@ -2948,7 +2996,10 @@ function kkApiUpdateBooking_(payload) {
     if (payload.amount_received !== undefined && payload.amount_received !== '') next[14] = amountReceived;
     if (payload.booking_note !== undefined) {
       const existingRequestId = kkBookingRequestIdFromNote_(current[19]);
-      next[19] = kkBookingNoteWithRequest_(payload.booking_note || '', existingRequestId);
+      next[19] = kkBookingNoteWithTemplate_(
+        kkBookingNoteWithRequest_(payload.booking_note || '', existingRequestId),
+        kkBookingTemplateIdFromNote_(current[19])
+      );
     }
     if (!String(next[4] || '').trim()) throw new Error('customer_name is required');
 
