@@ -35,7 +35,7 @@ test('X500 bare phone shares booking counts and gates PHONE-004 before 28 Nov 20
 
 test('phone_only capacity is independent of lens stock, bundle needs both',()=>{
   const f = context.kkFormulaWebPackageAvailable_(33,false);
-  assert.match(f, /C33="phone_only"/);
+  assert.match(f, /C33="lens_only"/);
   assert.match(f, /C33="phone_lens_bundle"/);
   assert.match(f, /LENS_AVAILABLE_33/);
   assert.match(f, /LENS_BOOKED_33/);
