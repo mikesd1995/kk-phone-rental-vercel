@@ -684,8 +684,16 @@ function kkFormulaLensBookedCount_(rowNumber) {
 
 function kkFormulaPhoneRawCount_(rowNumber) {
   const r = rowNumber;
-  const booked = kkFormulaActiveBookingCount_(`B${r}`, 'phone_only|phone_lens_bundle');
-  return `(COUNTIFS('02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,D${r},'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE)-${booked})`;
+  // Booking flags AJ and model hints AL reserve the same physical phone across
+  // phone-only and bundle packages. Unknown-model holds reserve conservatively.
+  const dateKey = `"EVT-"&MID(B${r},5,8)&"-*"`;
+  const available = `COUNTIFS('02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,D${r},'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE)`;
+  const bookedModel = `COUNTIFS('00_Master_Booking'!$D$5:$D$1000,${dateKey},'00_Master_Booking'!$AJ$5:$AJ$1000,TRUE,'00_Master_Booking'!$AL$5:$AL$1000,D${r})`;
+  const bookedUnknown = `COUNTIFS('00_Master_Booking'!$D$5:$D$1000,${dateKey},'00_Master_Booking'!$AJ$5:$AJ$1000,TRUE,'00_Master_Booking'!$AL$5:$AL$1000,"")`;
+  // PHONE-004 is rentable starting 2026-11-28, never earlier, even if master
+  // status is available. A phone-only package consumes the same X500 pool.
+  const notStarted = `IF(AND(D${r}="VIVO_X500_PRO_MAX",IFERROR(VALUE(MID(B${r},5,8)),0)<20261128),COUNTIFS('02_Assets'!$A$5:$A$1000,"PHONE-004",'02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,"VIVO_X500_PRO_MAX",'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE),0)`;
+  return `((${available})-${notStarted}-${bookedModel}-${bookedUnknown})`;
 }
 
 function kkFormulaWebPackageAvailable_(rowNumber, rawMode) {
@@ -734,14 +742,21 @@ function kkWebPackagePriceFormula_(rowNumber, templateId) {
 function kkRepairWebPackagePriceFormulas_() {
   const web = kkSheet_(KK.webPackages);
   const startRow = 5;
-  const endRow = 1000;
-  const rowCount = endRow - startRow + 1;
-  const formulas = [];
-  for (let row = startRow; row <= endRow; row++) {
-    formulas.push([kkWebPackagePriceFormula_(row, '')]);
+  const endRow = web.getLastRow();
+  if (endRow < startRow) return 0;
+  // Six-template cutover explicitly snapshots every previously published price.
+  // A full-column rewrite would discard owner-approved per-event prices even
+  // where there is no 04_Event_Overrides row. Only repair genuinely BLANK cells.
+  const values = web.getRange(startRow, 8, endRow - startRow + 1, 1).getValues();
+  let restored = 0;
+  for (let idx = 0; idx < values.length; idx++) {
+    if (values[idx][0] !== '' && values[idx][0] !== null) continue;
+    const row = startRow + idx;
+    if (!web.getRange(row, 2).getValue()) continue;
+    web.getRange(row, 8).setFormula(kkWebPackagePriceFormula_(row, ''));
+    restored++;
   }
-  web.getRange(startRow, 8, rowCount, 1).setFormulas(formulas); // 09_Web_Packages!H price
-  return rowCount;
+  return restored;
 }
 
 function kkPriceLensCanonical_(lensGroup) {
