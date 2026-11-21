@@ -1,0 +1,82 @@
+'use strict';
+
+// Regression: the canonical Apps Script generator must not count PHONE-004
+// for event dates before its owner-approved public booking start (2026-11-28).
+// This test extracts only pure formula builders; it never runs Apps Script,
+// touches a Sheet, sends a booking, or invokes a deployment.
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+const source = fs.readFileSync(path.join(__dirname, '..', 'apps-script', 'Code.gs'), 'utf8');
+
+function extract(name) {
+  const begin = source.indexOf('function ' + name + '(');
+  assert.ok(begin !== -1, 'function missing: ' + name);
+  const end = source.indexOf('\n}\n', begin);
+  assert.ok(end !== -1, 'function body not closed: ' + name);
+  return source.slice(begin, end + 2);
+}
+
+function makeBuilders() {
+  const sandbox = {
+    kkFormulaLensAssetCount_: row => 'LENS_STOCK_' + row,
+    kkFormulaLensBookedCount_: row => 'LENS_HOLDS_' + row
+  };
+  vm.runInNewContext(
+    [
+      extract('kkFormulaActiveBookingCount_'),
+      extract('kkFormulaPhoneRawCount_'),
+      extract('kkFormulaWebPackageAvailable_')
+    ].join('\n\n'),
+    sandbox,
+    { timeout: 1000 }
+  );
+  return sandbox;
+}
+
+test('X500 raw inventory formula subtracts PHONE-004 until 28 November 2026', () => {
+  const { kkFormulaPhoneRawCount_ } = makeBuilders();
+  const formula = kkFormulaPhoneRawCount_(3104);
+
+  assert.match(formula, /D3104="VIVO_X500_PRO_MAX"/);
+  assert.match(formula, /VALUE\(MID\(B3104,5,8\)\),0\)<20261128/);
+  assert.match(formula, /COUNTIFS\('02_Assets'!\$A\$5:\$A\$1000,"PHONE-004"/);
+  assert.match(formula, /'02_Assets'!\$E\$5:\$E\$1000,"available"/);
+  assert.match(formula, /'02_Assets'!\$G\$5:\$G\$1000,TRUE/);
+  assert.match(formula, /SUMPRODUCT\(/, 'existing same-day booking hold must remain');
+  assert.match(formula, /phone_only\|phone_lens_bundle/, 'all phone packages share the booking hold');
+  assert.ok(formula.indexOf('PHONE-004') < formula.indexOf('SUMPRODUCT('),
+    'gate must be deducted before existing booking holds');
+});
+
+test('generated raw and clamped public counts share the pre-start gate', () => {
+  const { kkFormulaWebPackageAvailable_ } = makeBuilders();
+  for (const row of [3104, 3105, 3106, 3110, 3111, 3112]) {
+    for (const raw of [true, false]) {
+      const formula = kkFormulaWebPackageAvailable_(row, raw);
+      assert.match(formula, new RegExp('D' + row + '="VIVO_X500_PRO_MAX"'));
+      assert.match(formula, new RegExp('B' + row + ',5,8'));
+      assert.match(formula, /PHONE-004/);
+      assert.match(formula, /20261128/);
+      assert.match(formula, /SUMPRODUCT\(/);
+      assert.match(formula, /LENS_STOCK_/, 'lens allocation must remain part of bundle logic');
+      assert.match(formula, /LENS_HOLDS_/, 'lens booking holds must be preserved');
+    }
+  }
+});
+
+test('cutoff operator is strictly before 20261128 and cannot count another phone', () => {
+  const { kkFormulaPhoneRawCount_ } = makeBuilders();
+  const a = kkFormulaPhoneRawCount_(3104);
+  const b = kkFormulaPhoneRawCount_(570);
+  assert.match(a, /<20261128\)/);
+  assert.match(b, /<20261128\)/);
+  assert.ok(a.includes('D3104="VIVO_X500_PRO_MAX"'));
+  assert.ok(b.includes('D570="VIVO_X500_PRO_MAX"'));
+  assert.ok(!a.includes('"PHONE-001"'));
+  assert.ok(!a.includes('"PHONE-003"'));
+  assert.match(a, /"PHONE-004"/);
+});
