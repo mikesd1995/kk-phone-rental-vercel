@@ -834,7 +834,7 @@ function kkFormulaBookingPrice_(rowNumber) {
   const lensCriteria = kkFormulaLensCriteria_('AM' + r);
   // Pending LINE bookings have blank asset-derived AL, so resolve the selected
   // model from the internal KK_TEMPLATE marker in the booking note (column T).
-  const templateId = `IFERROR(REGEXEXTRACT(T${r},"\\\\[KK_TEMPLATE:(TPL-[A-Za-z0-9-]+)\\\\]"),"")`;
+  const templateId = `IFERROR(REGEXEXTRACT(T${r},"\\[KK_TEMPLATE:(TPL-[A-Za-z0-9-]+)\\]"),"")`;
   const selectedModel = `IF(AL${r}<>"",AL${r},IFERROR(VLOOKUP(${templateId},'03_Packages'!$A$5:$B,2,FALSE),""))`;
   const lensOnly = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H,'09_Web_Packages'!$B$5:$B,D${r},'09_Web_Packages'!$C$5:$C,I${r},'09_Web_Packages'!$F$5:$F,${lensCriteria}))`;
   const bundle = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H,'09_Web_Packages'!$B$5:$B,D${r},'09_Web_Packages'!$C$5:$C,I${r},'09_Web_Packages'!$D$5:$D,${selectedModel},'09_Web_Packages'!$F$5:$F,${lensCriteria}))`;
