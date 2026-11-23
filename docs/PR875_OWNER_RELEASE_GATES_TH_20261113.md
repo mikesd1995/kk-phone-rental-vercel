@@ -1,3 +1,7 @@
+> ⚠️ **HISTORICAL / NOT CURRENT CUTOVER PATH (2026-11-23).** ส่วน LINE Login + Supabase customer-auth ด้านล่างเป็นแผนเดิม ไม่ใช่ขั้นตอน Release ของ LINE Card แบบ LINE OA-native ที่เจ้าของเลือกแล้ว ห้ามสร้าง Login/Supabase หรือเปิด flags สองรูปแบบตามคู่มือเก่านี้โดยอัตโนมัติ. สำหรับ PR #875 รุ่นปัจจุบันให้ใช้ **[LINE Card Native Live Cutover Runbook](LINE_CARD_NATIVE_LIVE_CUTOVER_RUNBOOK_20261123.md)** เป็นคู่มือหลัก พร้อมตรวจ exact HEAD, staging GAS/Outbox, owner binding, signed provider UAT และ independent approval ก่อน Production. การคงเอกสารเก่านี้มีไว้เพื่อประวัติและ rollback เท่านั้น.
+
+---
+
 # PR #875 — ขั้นตอนเจ้าของสำหรับ LINE, Supabase และ GAS
 
 **RELEASE HOLD — ห้าม merge, deploy Production, เปิดใช้งานจริง หรือส่งข้อความหาลูกค้าจริง**
