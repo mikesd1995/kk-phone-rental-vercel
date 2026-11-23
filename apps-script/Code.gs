@@ -1771,6 +1771,7 @@ function doPost(e) {
       case 'deleteAsset': result = kkApiDeleteAsset_(payload); break;
       case 'createBooking': result = kkApiCreateBooking_(payload); break;
       case 'createLineBookingPending': result = kkApiCreateLineBookingPending_(payload); break;
+      case 'acceptLineBookingTerms': result = kkApiAcceptLineBookingTerms_(payload); break;
       case 'decideLineBookingPending': result = kkApiDecideLineBookingPending_(payload); break;
       case 'lineOwnerOutboxReadiness': result = kkApiLineOwnerOutboxReadiness_(payload); break;
       case 'claimLineBookingDecisionDelivery': result = kkApiClaimLineBookingDecisionDelivery_(payload); break;
@@ -1788,6 +1789,12 @@ function doPost(e) {
       kkAuditLog_(action, {booking_id:payload.booking_id}, {
         booking_id:result.booking_id,outbox_id:result.outbox_id,state:result.state
       },startedAt);
+    } else if (action === 'acceptLineBookingTerms') {
+      // Never log a customer LINE ID, recipient or private dispatcher credential.
+      kkAuditLog_(action,{booking_id:payload.booking_id},{
+        booking_id:result.booking_id,terms_confirmed:result.terms_confirmed,
+        idempotent_replay:result.idempotent_replay
+      },startedAt);
     } else if (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery' ||
         (action === 'decideLineBookingPending' && result && result.outbox_mode === KK_LINE_OWNER_OUTBOX_VERSION_)) {
       // This ledger contains LINE recipient IDs and credentials; the admin audit
@@ -1803,7 +1810,10 @@ function doPost(e) {
       if(keyOk)kkErrorLog_(action,{booking_id:String(payload.booking_id||'').trim()},safeError,startedAt);
       return kkApiJson_(Object.assign({admin_api_version:KK_ADMIN_VERSION},kkApiFail_(safeError)));
     }
-    if (keyOk && (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery')) {
+    if (keyOk && action === 'acceptLineBookingTerms') {
+      kkErrorLog_(action,{booking_id:String(payload.booking_id||'').trim()},
+        new Error('LINE_NATIVE_CONSENT_ACTION_FAILED'),startedAt);
+    } else if (keyOk && (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery')) {
       kkErrorLog_(action, {booking_id: String(payload.booking_id || '').trim()}, 
         new Error('LINE_OWNER_OUTBOX_ACTION_FAILED'), startedAt);
     } else if (keyOk && action !== 'privateCoreRead') kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
@@ -3544,6 +3554,7 @@ function kkApiDecideLineBookingPendingDurable_(payload) {
     const canonical=kkLineOwnerOutboxCanonical_(bookingId);
     const status=String(canonical.current[2]||'').toLowerCase().trim();
     const target=decision==='approve'?'confirmed':'cancelled';
+    kkLineNativeConsentRequireApproval_(canonical.current[19],decision);
     const outboxId=kkLineOwnerOutboxId_(bookingId);
     let record=kkLineOwnerOutboxFind_(ledger,outboxId);
     if (record) kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId,canonical.contact,canonical.requestId);
@@ -3660,6 +3671,75 @@ function kkApiSettleLineBookingDecisionDelivery_(payload) {
   } finally {lock.releaseLock();}
 }
 
+// LINE-native affirmative Terms receipt: attached to the existing canonical
+// Booking row under the same document lock. No second store, no LINE Login.
+// Disabled until the owner provisions and verifies the distinct dispatcher key.
+function kkLineNativeConsentEnabled_(){
+  return String(PropertiesService.getScriptProperties().getProperty('KK_LINE_NATIVE_CONSENT_V1_ENABLED')||'')==='true';
+}
+function kkLineNativeConsentMarker_(){return 'TERMS_ACK_BACKEND:KK-TERMS-2026-11-06';}
+function kkLineNativeConsentAccepted_(note){
+  return String(note||'').split(' | ').indexOf(kkLineNativeConsentMarker_())>=0;
+}
+function kkLineNativeConsentRequireApproval_(note,decision){
+  if(kkLineNativeConsentEnabled_() && decision==='approve' && !kkLineNativeConsentAccepted_(note))
+    throw new Error('LINE_NATIVE_CONSENT_REQUIRED_BEFORE_APPROVAL');
+}
+function kkLineNativeConsentRequireDispatch_(payload){
+  if(!kkLineNativeConsentEnabled_())throw new Error('LINE_NATIVE_CONSENT_DISABLED');
+  const props=PropertiesService.getScriptProperties();
+  const secret=String(props.getProperty('KK_LINE_NATIVE_CONSENT_DISPATCH_SECRET')||'');
+  if(!/^[A-Za-z0-9_-]{32,128}$/.test(secret) ||
+      ['KK_ADMIN_API_KEY','KK_LINE_INITIAL_OUTBOX_DISPATCH_SECRET',
+       'KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET'].some(function(key){
+        return secret===String(props.getProperty(key)||'');
+      }))throw new Error('LINE_NATIVE_CONSENT_DISPATCH_NOT_READY');
+  const supplied=String(payload&&payload.native_consent_dispatch_key||'');
+  let difference=secret.length^supplied.length;
+  for(let i=0;i<secret.length;i++)difference|=secret.charCodeAt(i)^(supplied.charCodeAt(i)||0);
+  if(difference!==0)throw new Error('LINE_NATIVE_CONSENT_DISPATCH_DENIED');
+}
+function kkApiAcceptLineBookingTerms_(payload){
+  kkLineNativeConsentRequireDispatch_(payload);
+  const bookingId=String(payload.booking_id||'').trim();
+  const requestId=String(payload.request_id||'').trim();
+  const userId=String(payload.source_user_id||'').trim();
+  const version=String(payload.terms_version||'').trim();
+  if(!/^[A-Za-z0-9_-]{1,90}$/.test(bookingId) ||
+      !/^line:[a-f0-9]{48}$/.test(requestId) ||
+      !/^U[0-9a-f]{32}$/.test(userId) ||
+      version!=='KK-TERMS-2026-11-06')
+    throw new Error('LINE_NATIVE_CONSENT_INVALID_IDENTITIES');
+  const lock=kkAcquireDocumentLock_('LINE native consent receipt',12000);
+  try{
+    const row=kkFindBookingRow_('',bookingId);
+    const sh=kkSheet_(KK.bookings);
+    const current=sh.getRange(row,1,1,20).getValues()[0];
+    const note=String(current[19]||'');
+    if(String(current[0]||'').trim()!==bookingId ||
+        String(current[2]||'').toLowerCase().trim()!=='pending' ||
+        String(current[7]||'').toUpperCase().trim()!=='LINE' ||
+        String(current[5]||'').trim()!==userId ||
+        kkBookingRequestIdFromNote_(note)!==requestId)
+      throw new Error('LINE_NATIVE_CONSENT_BOOKING_IDENTITY_OR_STATUS_MISMATCH');
+    const replay=kkLineNativeConsentAccepted_(note);
+    if(!replay){
+      if(note.length>1200)throw new Error('LINE_NATIVE_CONSENT_NOTE_CAPACITY');
+      sh.getRange(row,20).setValue(note+' | '+kkLineNativeConsentMarker_());
+      SpreadsheetApp.flush();
+    }
+    const after=sh.getRange(row,1,1,20).getValues()[0];
+    if(String(after[0]||'').trim()!==bookingId ||
+        String(after[2]||'').toLowerCase().trim()!=='pending' ||
+        String(after[5]||'').trim()!==userId ||
+        kkBookingRequestIdFromNote_(after[19])!==requestId ||
+        !kkLineNativeConsentAccepted_(after[19]))
+      throw new Error('LINE_NATIVE_CONSENT_EXACT_READBACK_FAILED');
+    return {booking_id:bookingId,request_id:requestId,booking_status:'pending',
+      terms_version:version,terms_confirmed:true,idempotent_replay:replay};
+  }finally{lock.releaseLock();}
+}
+
 function kkApiDecideLineBookingPending_(payload) {
   if (kkLineOwnerOutboxEnabled_()) return kkApiDecideLineBookingPendingDurable_(payload);
   const lock = kkAcquireDocumentLock_('LINE owner booking decision', 12000);
@@ -3685,6 +3765,7 @@ function kkApiDecideLineBookingPending_(payload) {
 
     const currentStatus = String(current[2] || '').toLowerCase().trim();
     const targetStatus = decision === 'approve' ? 'confirmed' : 'cancelled';
+    kkLineNativeConsentRequireApproval_(current[19],decision);
     if (currentStatus === targetStatus) {
       return {
         row_number: row,
