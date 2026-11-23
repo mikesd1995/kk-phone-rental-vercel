@@ -50,7 +50,7 @@ test('signed consent token is per-booking, per-request, per-LINE user and time-b
   assert.equal(parsed.booking_id,BID);
   assert.equal(parsed.request_id,RID);
   assert.equal(parsed.user_id,CUSTOMER);
-  assert.match(t,/^kkc1\\|BK-SYNTHETIC-2026-001\\|line:[a-f0-9]{48}\\|[0-9]{13}\\|[A-Za-z0-9_-]{32}$/);
+  assert.match(t,/^kkc1\|BK-SYNTHETIC-2026-001\|line:[a-f0-9]{48}\|[0-9]{13}\|[A-Za-z0-9_-]{32}$/);
   assert.equal(Native.parse(t,event(t,STRANGER),e,NOW),null);
   assert.equal(Native.parse(t,{...userEvent,source:{type:'group',userId:CUSTOMER}},e,NOW),null);
   assert.equal(Native.parse(t,event(t.replace(BID,BID+'x')),e,NOW),null);
@@ -121,18 +121,18 @@ test('canonical response mismatch fails closed before replying to the customer',
 });
 test('canonical GAS accepts same LINE customer only under document lock and blocks premature Confirm',()=>{
   const source=fs.readFileSync(path.join(__dirname,'..','apps-script','Code.gs'),'utf8');
-  assert.match(source,/case 'acceptLineBookingTerms': result = kkApiAcceptLineBookingTerms_\\(payload\\); break;/);
+  assert.match(source,/case 'acceptLineBookingTerms': result = kkApiAcceptLineBookingTerms_\(payload\); break;/);
   const begin=source.indexOf('function kkApiAcceptLineBookingTerms_');
   const end=source.indexOf('function kkApiDecideLineBookingPending_',begin);
   assert.ok(begin>0&&end>begin);
   const body=source.slice(begin,end);
-  assert.match(body,/kkLineNativeConsentRequireDispatch_\\(payload\\)/);
-  assert.match(body,/kkAcquireDocumentLock_\\('LINE native consent receipt',12000\\)/);
-  assert.match(body,/String\\(current\\[5\\]\\|\\|''\\)\\.trim\\(\\)!==userId/);
-  assert.match(body,/kkBookingRequestIdFromNote_\\(note\\)!==requestId/);
-  assert.match(body,/kkLineNativeConsentAccepted_\\(after\\[19\\]\\)/);
-  assert.match(source,/kkLineNativeConsentApprovalReady_\\(canonical\\.current\\[19\\],decision\\)/);
-  assert.match(source,/kkLineNativeConsentApprovalReady_\\(current\\[19\\],decision\\)/);
+  assert.match(body,/kkLineNativeConsentRequireDispatch_\(payload\)/);
+  assert.match(body,/kkAcquireDocumentLock_\('LINE native consent receipt',12000\)/);
+  assert.match(body,/String\(current\[5\]\|\|''\)\.trim\(\)!==userId/);
+  assert.match(body,/kkBookingRequestIdFromNote_\(note\)!==requestId/);
+  assert.match(body,/kkLineNativeConsentAccepted_\(after\[19\]\)/);
+  assert.match(source,/kkLineNativeConsentApprovalReady_\(canonical\.current\[19\],decision\)/);
+  assert.match(source,/kkLineNativeConsentApprovalReady_\(current\[19\],decision\)/);
   assert.match(source,/terms_confirmation_required:true,idempotent_replay:true/);
-  assert.doesNotMatch(body,/createSheet\\(|insertSheet\\(|createBooking\\(/);
+  assert.doesNotMatch(body,/createSheet\(|insertSheet\(|createBooking\(/);
 });
