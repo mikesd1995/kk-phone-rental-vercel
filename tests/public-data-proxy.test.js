@@ -361,3 +361,69 @@ test('public advertising notes redact synthetic contact indicators without affec
  assert.equal(parsed[3][5],'');
  assert.doesNotMatch(result.text,/0999999999|dummy@example.invalid/);
 });
+
+
+test('private-only public feed rejects EMPTY authenticated read with zero GViz fallback for events/packages/share',async()=>{
+  const reader=require('../api/lib/private-google-sheets.js');
+  const originalRead=reader.readValuesCsv, originalFetch=global.fetch;
+  let privateCalls=0, publicCalls=0;
+  reader.readValuesCsv=async()=>{privateCalls++;return '';};
+  global.fetch=async()=>{publicCalls++;throw Error('Public GViz must never execute in strict mode');};
+  try{
+    await withEnv(withoutPrivateCredentials({
+      GOOGLE_SHEET_ID:'synthetic-core-sheet-id',
+      KK_CRM_SHEET_ID:undefined,
+      KK_CORE_SHEET_REQUIRE_PRIVATE:undefined,
+      KK_PUBLIC_SHEET_REQUIRE_PRIVATE:'1',
+      GOOGLE_SERVICE_ACCOUNT_EMAIL:'synthetic-reader@example.invalid',
+      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:'synthetic-non-real-private-key'
+    }),async()=>{
+      const queries=[
+        {sheet:'08_Web_Ready',range:'A4:K'},
+        {sheet:'09_Web_Packages',range:'A4:N'},
+        {eventShare:'EVT-20261218-SYNTHETIC'}
+      ];
+      for(const query of queries){
+        const response=fakeRes();
+        await handler({method:'GET',query},response);
+        assert.equal(response.statusCode,503);
+        assert.equal(response.headers['x-kk-sheet-source'],'private-empty');
+        assert.equal(response.headers['x-kk-private-reader-strict'],'1');
+        assert.doesNotMatch(response.body,/synthetic-core-sheet-id|synthetic-reader/);
+      }
+    });
+    assert.equal(privateCalls,3,'each allowed request should use the private reader once');
+    assert.equal(publicCalls,0,'no public Google Sheets fallback is permitted under either strict flag');
+  }finally{reader.readValuesCsv=originalRead;global.fetch=originalFetch;}
+});
+
+test('non-strict transitional mode still uses GViz after an empty private reader result',async()=>{
+  const reader=require('../api/lib/private-google-sheets.js');
+  const originalRead=reader.readValuesCsv,originalFetch=global.fetch;
+  let privateCalls=0,publicCalls=0;
+  reader.readValuesCsv=async()=>{privateCalls++;return '';};
+  global.fetch=async()=>{publicCalls++;return {
+    ok:true,status:200,text:async()=>[
+      'event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web,line_message_template',
+      'EVT-20261218-SYNTHETIC,Public Event,18/12/2026,Test Hall,,,1,1,เปิดจอง,show,จอง'
+    ].join('\n')
+  };};
+  try{
+    await withEnv(withoutPrivateCredentials({
+      GOOGLE_SHEET_ID:'synthetic-core-sheet-id',
+      KK_CRM_SHEET_ID:undefined,
+      KK_CORE_SHEET_REQUIRE_PRIVATE:undefined,
+      KK_PUBLIC_SHEET_REQUIRE_PRIVATE:undefined,
+      GOOGLE_SERVICE_ACCOUNT_EMAIL:'synthetic-reader@example.invalid',
+      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:'synthetic-non-real-private-key'
+    }),async()=>{
+      const response=fakeRes();
+      await handler({method:'GET',query:{sheet:'08_Web_Ready',range:'A4:K'}},response);
+      assert.equal(response.statusCode,200);
+      assert.equal(response.headers['x-kk-sheet-source'],'public-gviz-fallback');
+      assert.match(response.body,/EVT-20261218-SYNTHETIC/);
+    });
+    assert.equal(privateCalls,1);
+    assert.equal(publicCalls,1);
+  }finally{reader.readValuesCsv=originalRead;global.fetch=originalFetch;}
+});
