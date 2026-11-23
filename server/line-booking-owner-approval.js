@@ -9,6 +9,7 @@ const Deadline=require('./line-booking-deadline');
 const InitialOutbox=require('./line-initial-durable-outbox');
 const TestAdmission=require('./kk-line-booking-test-admission');
 const TestTarget=require('./kk-line-booking-test-target');
+const NativeConsent=require('./line-booking-native-consent');
 
 const VERSION='KK_LINE_BOOKING_OWNER_APPROVAL_V1';
 const LINE_PUSH_URL='https://api.line.me/v2/bot/message/push';
@@ -290,6 +291,11 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     return {handled:true,status:'UNAUTHORIZED_OWNER',booking_id:parsed.booking_id};
   }
   const decision=parsed.decision;
+  if(NativeConsent.enabled(env)){
+    // Never let an old or misconfigured GAS writer approve without the native
+    // signed customer receipt. Check before any canonical decision mutation.
+    await NativeConsent.preflightGas(env,fetchImpl,appsScriptCall);
+  }
   // Verify the canonical writer's feature flag and private outbox schema
   // BEFORE deciding a booking. A half-deployed migration must never commit
   // the decision and then discover that notification durability is absent.
