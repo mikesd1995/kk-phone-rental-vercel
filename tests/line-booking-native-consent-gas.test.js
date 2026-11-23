@@ -4,7 +4,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'..','apps-script','Code.gs'),'utf8');
-const begin=source.indexOf('function kkLineNativeConsentEnabled_');
+const begin=source.indexOf('function kkLineNativeConsentRequirePrivateCore_');
 const end=source.indexOf('\nfunction kkApiDecideLineBookingPending_',begin);
 assert.ok(begin>0&&end>begin,'canonical native consent implementation found');
 const consentSource=source.slice(begin,end);
@@ -45,7 +45,12 @@ function fixture(overrides={}){
     kkBookingRequestIdFromNote_(value){
       const m=String(value).match(/line:[a-f0-9]{48}/);return m?m[0]:'';
     },
-    SpreadsheetApp:{flush(){flushes++}},
+    SpreadsheetApp:{flush(){flushes++},getActiveSpreadsheet(){return {getId(){return 'synthetic-private-core-id'}}}},
+    DriveApp:{Access:{PRIVATE:'PRIVATE',ANYONE_WITH_LINK:'ANYONE_WITH_LINK',ANYONE:'ANYONE',DOMAIN:'DOMAIN'},
+      getFileById(id){assert.equal(id,'synthetic-private-core-id');
+        if(overrides.driveUnavailable)throw Error('SYNTHETIC_DRIVE_READ_FAILED');
+        return {getSharingAccess(){return overrides.access||'PRIVATE'}};
+      }},
     KK:{bookings:'00_Master_Booking'},
     console
   };
@@ -110,4 +115,26 @@ test('deployed native GAS readiness requires the exact enabled writer, distinct 
   }
   assert.throws(()=>h.readiness(h.payload({native_consent_dispatch_key:'forged'})));
   assert.equal(h.stats().writes,0);
+});
+
+test('private Core access gate denies public sharing on Terms readiness and consent before any customer data mutation',()=>{
+  for(const access of ['ANYONE_WITH_LINK','ANYONE','DOMAIN','OTHER']){
+    const h=fixture({access});
+    assert.throws(()=>h.readiness(h.payload()),/LINE_NATIVE_CONSENT_PUBLIC_CORE_DENIED/);
+    assert.throws(()=>h.accept(h.payload()),/LINE_NATIVE_CONSENT_PUBLIC_CORE_DENIED/);
+    assert.deepEqual(h.stats(),{writes:0,flushes:0,releases:0});
+  }
+  const unknown=fixture({driveUnavailable:true});
+  assert.throws(()=>unknown.readiness(unknown.payload()),/SYNTHETIC_DRIVE_READ_FAILED/);
+  assert.throws(()=>unknown.accept(unknown.payload()),/SYNTHETIC_DRIVE_READ_FAILED/);
+  assert.equal(unknown.stats().writes,0);
+});
+test('canonical Pending / owner durable decision writers invoke privacy gate before any admission claim or outbox intent',()=>{
+  const pending=source.slice(source.indexOf('function kkApiCreateLineBookingPending_'),source.indexOf('\n// Initial notifications have a separate',source.indexOf('function kkApiCreateLineBookingPending_')));
+  const decision=source.slice(source.indexOf('function kkApiDecideLineBookingPendingDurable_'),source.indexOf('\nfunction kkApiLineOwnerOutboxReadiness_',source.indexOf('function kkApiDecideLineBookingPendingDurable_')));
+  for(const body of [pending,decision]){
+    assert.match(body,/kkLineNativeConsentRequirePrivateCore_\(\)/);
+  }
+  assert.ok(pending.indexOf('kkLineNativeConsentRequirePrivateCore_()')<pending.indexOf('kkLineInitialOutboxPrepare_'));
+  assert.ok(decision.indexOf('kkLineNativeConsentRequirePrivateCore_()')<decision.indexOf('kkLineOwnerOutboxFind_'));
 });
