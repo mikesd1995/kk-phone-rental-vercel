@@ -57,6 +57,36 @@ test('private Core and private CRM sheet IDs can differ when explicit Core cutov
   assert.equal(Core.verifiedRange('08_Web_Ready','A4:K'),'08_Web_Ready!A4:K');
   assert.throws(()=>Core.verifiedRange('00_Master_Booking','A1:Z;DROP'),e=>e.code==='CORE_PRIVATE_RANGE_INVALID');
 });
+test('exact private Core allowlist is enforced for all 19 Core pairs before provider I/O',async()=>{
+  const {RANGE_SPECS}=require('../server/core-private-range-contract.js');
+  assert.equal(RANGE_SPECS.length,19);
+  for(const spec of RANGE_SPECS){
+    assert.equal(Core.verifiedRange(spec.sheet,spec.range),spec.sheet+'!'+spec.range,spec.dataset);
+  }
+  for(const [sheet,range] of [
+    ['00_Master_Booking','A4:Z'], // valid A1 syntax, but extra customer columns
+    ['00_Master_Booking','A1:X'], // a shifted booking header
+    ['08_Web_Ready','A4:Z'],
+    ['09_Web_Packages','A4:N500'],
+    ['Unreviewed_Internal','A4:K'],
+    ['08_Web_Ready','A4:K999'],
+  ]){
+    assert.throws(()=>Core.verifiedRange(sheet,range),e=>e.code==='CORE_PRIVATE_RANGE_INVALID',sheet+'!'+range);
+  }
+  const original={csv:privateSheets.readValuesCsv,values:privateSheets.readValues};
+  let calls=0;
+  privateSheets.readValuesCsv=async()=>{calls++;throw Error('UNSAFE_PROVIDER_CALLED')};
+  privateSheets.readValues=async()=>{calls++;throw Error('UNSAFE_PROVIDER_CALLED')};
+  try{
+    await assert.rejects(Core.readCsv({sheetId:authorized.GOOGLE_SHEET_ID,sheet:'00_Master_Booking',range:'A4:Z',env:authorized}),e=>e.code==='CORE_PRIVATE_RANGE_INVALID');
+    await assert.rejects(Core.readValues({sheetId:authorized.GOOGLE_SHEET_ID,sheet:'Unreviewed_Internal',range:'A4:K',env:authorized}),e=>e.code==='CORE_PRIVATE_RANGE_INVALID');
+    assert.equal(calls,0,'provider I/O must be zero for out-of-contract Core ranges');
+  }finally{
+    privateSheets.readValuesCsv=original.csv;
+    privateSheets.readValues=original.values;
+  }
+});
+
 test('strict /api/kk-data responds 503 with NO public GViz when service-account credential is absent',async()=>{
   const old=global.fetch;
   let network=0;global.fetch=async()=>{network++;throw new Error('public network must never be contacted');};
