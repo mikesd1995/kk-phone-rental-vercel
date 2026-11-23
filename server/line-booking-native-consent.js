@@ -25,8 +25,11 @@ function dispatchKey(env={}){
 }
 function ready(env={}){
   return enabled(env) &&
+    str(env.KK_LINE_BOOKING_AUTOMATION_ENABLED)==='true' &&
+    str(env.KK_CUSTOMER_LOGIN_ENABLED)!=='true' &&
     str(env.KK_LINE_INITIAL_OUTBOX_V1_ENABLED)==='true' &&
     str(env.KK_LINE_OWNER_OUTBOX_V1_ENABLED)==='true' &&
+    Boolean(str(env.KK_ADMIN_API_KEY)) &&
     Boolean(dispatchKey(env)) &&
     Boolean(str(env.LINE_CHANNEL_SECRET)) &&
     Boolean(str(env.KK_ADMIN_SCRIPT_URL)) &&
