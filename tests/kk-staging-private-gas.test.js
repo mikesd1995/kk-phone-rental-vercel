@@ -20,23 +20,23 @@ const pkgHeaders = ['package_id','event_id','package_type','model_group','model_
   'web_note','raw_available_count','use_case'];
 const eventRows = [
   eventHeaders,
-  ['EVT-20261218-SYNTHETIC-01','TEST-ONLY', '18/12/2026','SANDBOX','',
-    'Synthetic event','2','1','เปิดจอง','show','DO NOT SEND'],
-  ['EVT-20261219-SYNTHETIC-02','CLOSED TEST','19/12/2026','SANDBOX','',
-    'Synthetic event','0','0','เต็ม','hide','DO NOT SEND']
+  ['EVT-20261218-SYNTHETIC-01','STAGING MOCK EVENT ALPHA','18/12/2026','SANDBOX TEST HALL','',
+    'SYNTHETIC ONLY — NOT REAL','2','1','เปิดจอง','show','SYNTHETIC — DO NOT SEND'],
+  ['EVT-20261219-SYNTHETIC-02','STAGING MOCK EVENT BETA','19/12/2026','SANDBOX TEST HALL','',
+    'SYNTHETIC ONLY — NOT REAL','0','0','เต็ม','hide','SYNTHETIC — DO NOT SEND']
 ];
 const packageRows = [
   pkgHeaders,
   ['PKG-STAGING-01','EVT-20261218-SYNTHETIC-01','phone_only',
-    'VIVO_X300_PRO','vivo X300 Pro','NONE','','790','1','available','1','','1',''],
+    'VIVO_X300_PRO','vivo X300 Pro','NONE','','790','1','available','1','SYNTHETIC PRICES — NOT LIVE','1','TEST ONLY'],
   ['PKG-STAGING-02','EVT-20261218-SYNTHETIC-01','phone_lens_bundle',
-    'VIVO_X300_PRO','vivo X300 Pro','ZEISS_2_35X','200 mm','990','1','available','2','','1',''],
+    'VIVO_X300_PRO','vivo X300 Pro','ZEISS_2_35X','200 mm','990','1','available','2','SYNTHETIC PRICES — NOT LIVE','1','TEST ONLY'],
   ['PKG-STAGING-03','EVT-20261218-SYNTHETIC-01','phone_only',
-    'VIVO_X500_PRO_MAX','vivo X500 Pro Max','NONE','','1090','1','available','3','','1',''],
+    'VIVO_X500_PRO_MAX','vivo X500 Pro Max','NONE','','1090','1','available','3','SYNTHETIC PRICES — NOT LIVE','1','TEST ONLY'],
   ['PKG-STAGING-04','EVT-20261218-SYNTHETIC-01','phone_lens_bundle',
-    'VIVO_X500_PRO_MAX','vivo X500 Pro Max','ZEISS_2_35X','200 mm','1290','1','available','4','','1',''],
+    'VIVO_X500_PRO_MAX','vivo X500 Pro Max','ZEISS_2_35X','200 mm','1290','1','available','4','SYNTHETIC PRICES — NOT LIVE','1','TEST ONLY'],
   ['PKG-STAGING-05','EVT-20261218-SYNTHETIC-01','phone_lens_bundle',
-    'VIVO_X500_PRO_MAX','vivo X500 Pro Max','ZEISS_400MM','400 mm','1490','1','available','5','','1','']
+    'VIVO_X500_PRO_MAX','vivo X500 Pro Max','ZEISS_400MM','400 mm','1490','1','available','5','SYNTHETIC PRICES — NOT LIVE','1','TEST ONLY']
 ];
 const props = {
   KK_STAGING_SHEET_ID: SID,
@@ -54,6 +54,18 @@ function fixture(options={}){
     '08_Web_Ready':(options.corruptHeader ? [['customer_phone',...eventHeaders.slice(1)],...eventRows.slice(1)] : eventRows).map(row=>row.slice()),
     '09_Web_Packages':packageRows.map(row=>row.slice())
   };
+  if(options.actualEventNameCopied)table['08_Web_Ready'][1][1]='Real fanmeet customer contact';
+  if(options.actualEventVenueCopied)table['08_Web_Ready'][1][3]='Real venue with customer info';
+  if(options.actualEventNoteCopied)table['08_Web_Ready'][1][5]='Please call 0800000000';
+  if(options.actualEventLineCopied)table['08_Web_Ready'][1][10]='line:u987654321(real)';
+  if(options.actualEventPosterCopied)table['08_Web_Ready'][1][4]='https://example.invalid/customer-selfie.png';
+  if(options.actualPackageNoteCopied)table['09_Web_Packages'][1][11]='Actual customer phone 0899999999';
+  if(options.actualPackageUseCaseCopied)table['09_Web_Packages'][1][13]='Ureal-customer';
+  if(options.actualPackageDisplayCopied)table['09_Web_Packages'][1][4]='Customer name';
+  if(options.actualPackageLensDisplayCopied)table['09_Web_Packages'][2][6]='Customer contact';
+  if(options.actualEventNegativeStock)table['08_Web_Ready'][1][6]='-1';
+  if(options.actualPackageUnknownPrice)table['09_Web_Packages'][1][7]='999,999 real';
+  if(options.packageSyntheticIdWithOtherContent)table['09_Web_Packages'][1][10]='2';
   if(options.realEventInserted)table['08_Web_Ready'][1][0]='EVT-20261218-LIVE-CUSTOMER';
   if(options.realPackageInserted)table['09_Web_Packages'][1][0]='PKG-LIVE-REAL';
   if(options.packageWrongType)table['09_Web_Packages'][2][2]='phone_lens_200';
@@ -165,7 +177,19 @@ test('staging rejects identity, sharing, key, flag, sentinel and range failures 
     [{lastRow:251},request()],
     [{lastRow:4001},request()],
     [{realEventInserted:true},request()],
+    [{actualEventNameCopied:true},request()],
+    [{actualEventVenueCopied:true},request()],
+    [{actualEventNoteCopied:true},request()],
+    [{actualEventLineCopied:true},request()],
+    [{actualEventPosterCopied:true},request()],
+    [{actualEventNegativeStock:true},request()],
     [{realPackageInserted:true},request('09_Web_Packages','A4:N')],
+    [{actualPackageNoteCopied:true},request('09_Web_Packages','A4:N')],
+    [{actualPackageUseCaseCopied:true},request('09_Web_Packages','A4:N')],
+    [{actualPackageDisplayCopied:true},request('09_Web_Packages','A4:N')],
+    [{actualPackageLensDisplayCopied:true},request('09_Web_Packages','A4:N')],
+    [{actualPackageUnknownPrice:true},request('09_Web_Packages','A4:N')],
+    [{packageSyntheticIdWithOtherContent:true},request('09_Web_Packages','A4:N')],
     [{packageWrongType:true},request('09_Web_Packages','A4:N')],
     [{packageWrongLens:true},request('09_Web_Packages','A4:N')],
     [{incompatible400Lens:true},request('09_Web_Packages','A4:N')],
