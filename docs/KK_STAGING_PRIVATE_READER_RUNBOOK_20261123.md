@@ -19,8 +19,22 @@ The real owner-only synthetic Google Sheet ID and exact access details are held 
 
 * Accepts only POST action `privateCoreRead` with the staging sheet ID, valid read key, `08_Web_Ready!A4:K` or `09_Web_Packages!A4:N`.
 * Before every read, verifies `SpreadsheetApp.getActiveSpreadsheet().getId()`, exact private-only file ACL (no any-link, viewers or editors), the unique synthetic README sentinel, the dedicated enabled property and a distinct properly formatted read secret.
-* Validates the exact 11-column Events and 14-column Packages header schemas and bounded display values (maximum 4,000 rows). No arbitrary range, private booking tab, hidden sheet or mutation action is accepted. Failure returns one fixed generic JSON denial.
+* Validates exact 11-column Events and 14-column Packages header schemas and bounded display values (maximum worksheet row 250). Reads require at least one explicitly synthetic event/package row: IDs `EVT-YYYYMMDD-SYNTHETIC-*` and `PKG-STAGING-*`, no duplicate IDs. Rejects copied live IDs, unexpected package types, legacy `LENS_200` / `LENS_400` aliases, X300 + 400mm mismatch, arbitrary range, private booking tab, hidden sheet or mutation action. Failure returns one fixed generic JSON denial.
 * Successful JSON envelope matches the existing Vercel `server/core-sheet-apps-script-reader.js` expected response, including the original requested range, rows and source ID. An Apps Script ContentService redirect must be validated server-side; **never embed any read key in a redirect URL**.
+
+## Canonical package enums (synthetic fixtures only)
+
+The owner-private staging workbook's five **fabricated** storefront rows were reconciled against production **header and enum shape only**, with no customer or booking data transferred. Valid published combinations are:
+
+| Model | `package_type` | `lens_group` |
+| --- | --- | --- |
+| vivo X300 Pro | `phone_only` | `NONE` |
+| vivo X300 Pro + Lens 200mm | `phone_lens_bundle` | `ZEISS_2_35X` |
+| vivo X500 Pro Max | `phone_only` | `NONE` |
+| vivo X500 Pro Max + Lens 200mm | `phone_lens_bundle` | `ZEISS_2_35X` |
+| vivo X500 Pro Max + Lens 400mm | `phone_lens_bundle` | `ZEISS_400MM` |
+
+Do not use `phone_lens_200`, `phone_lens_400`, `LENS_200`, `LENS_400`, or `confirmed`/`cancelled` as source sheet event status in these fixtures. They do **not** match current canonical enums. The synthetic `01_Events.event_status` rows use `open` / `closed`. Synthetic prices are NOT production prices. These static rows are not inventory formulas or a live booking acceptance test.
 
 ## Acceptance matrix / HOLD
 
