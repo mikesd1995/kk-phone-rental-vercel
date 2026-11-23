@@ -304,14 +304,6 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
   const missingSender=!senderUserId;
   const invalidSender=readiness.ready && !LineIdentity.isUserId(senderUserId);
   const nonPrivateSender=readiness.ready && (!event.source || event.source.type!=='user');
-  if(NativeConsent.enabled(env) && readiness.ready && canonical){
-    // Validate timestamp, signed identity and canonical event ID BEFORE any
-    // Pending/outbox write. Consent issuance after mutation must never discover
-    // an expired or malformed event and strand a private owner notification.
-    NativeConsent.issue({bookingId:'BK-NATIVE-PREFLIGHT',
-      requestId:Intake.requestIdFromLineEvent(event),
-      userId:senderUserId,timestamp:event.timestamp},env);
-  }
   if(canonical && (!booking.nickname || invalidSender || nonPrivateSender)){
     const missingName=!booking.nickname;
     await replyFlex(event.replyToken,{
@@ -327,6 +319,15 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
     return {handled:true,booking_id:'',
       automation_status:invalidSender&&!missingSender&&!missingName&&!nonPrivateSender
         ? 'CUSTOMER_IDENTITY_INVALID' : 'CUSTOMER_DETAILS_REQUIRED'};
+  }
+
+  if(NativeConsent.enabled(env) && readiness.ready && canonical){
+    // Validate timestamp, signed identity and canonical event ID BEFORE any
+    // Pending/outbox write. Consent issuance after mutation must never discover
+    // an expired or malformed event and strand a private owner notification.
+    NativeConsent.issue({bookingId:'BK-NATIVE-PREFLIGHT',
+      requestId:Intake.requestIdFromLineEvent(event),
+      userId:senderUserId,timestamp:event.timestamp},env);
   }
 
   let pending=null;
