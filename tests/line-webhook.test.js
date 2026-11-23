@@ -482,3 +482,34 @@ test('LINE Reply API response status is preserved for redacted logging without r
   );
   assert.equal(bodyReads,0,'never consume untrusted LINE response bodies');
 });
+
+
+test('REPLY_ONLY Flex never claims a canonical booking exists without a Booking ID',()=>{
+  const {buildBookingFlex}=require('../server/line-booking-flex');
+  const message=buildBookingFlex({
+    event:{event_name:'Synthetic Event',event_date:'2026-12-01',venue:'Synthetic Hall'},
+    package:{package_name:'Synthetic Phone',price_display:'790 บาท'},
+    customer:{nickname:'Synthetic Customer'}
+  });
+  const card=JSON.stringify(message);
+  assert.equal(message.type,'flex');
+  assert.equal(message.contents.body.contents[0].text,'สอบถามการเช่า • ยังไม่บันทึกจอง');
+  assert.match(card,/ร้านได้รับข้อความสอบถามแล้ว/);
+  assert.match(card,/ยังไม่มีรายการจองในระบบ/);
+  assert.doesNotMatch(card,/ร้านได้รับคำขอเช่าแล้ว|รับคำขอเช่าแล้ว|Booking ID/);
+  assert.doesNotMatch(card,/KK-TERMS-2026-11-06|รับทราบนโยบายความเป็นส่วนตัว/);
+});
+test('canonical Pending Flex preserves recorded-booking acknowledgment only with Booking ID',()=>{
+  const {buildBookingFlex}=require('../server/line-booking-flex');
+  const message=buildBookingFlex({
+    event:{event_name:'Synthetic Event',event_date:'2026-12-01',venue:'Synthetic Hall'},
+    package:{package_name:'Synthetic Phone',price_display:'790 บาท'},
+    customer:{nickname:'Synthetic Customer'},
+    booking:{booking_id:'BK-SYNTHETIC-001'}
+  });
+  const card=JSON.stringify(message);
+  assert.equal(message.contents.body.contents[0].text,'คำขอเช่า • รอตรวจสอบคิว');
+  assert.match(card,/ร้านได้รับคำขอเช่าแล้ว/);
+  assert.match(card,/Booking ID  BK-SYNTHETIC-001/);
+  assert.doesNotMatch(card,/ยังไม่มีรายการจองในระบบ/);
+});
