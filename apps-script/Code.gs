@@ -3010,6 +3010,11 @@ function kkApiCreateLineBookingPending_(payload) {
     // This feature is independently OFF until its private schema and both
     // producer/consumer bindings are explicitly provisioned. Existing harnesses
     // extracting only the legacy writer retain their unchanged disabled path.
+    // Never add customer LINE identifiers / private notification receipts to a
+    // Core workbook shared with everyone. Read public ACL before any claim,
+    // outbox intent or Booking write. A failure must remain fail-closed.
+    if(typeof kkLineNativeConsentEnabled_==='function' && kkLineNativeConsentEnabled_())
+      kkLineNativeConsentRequirePrivateCore_();
     const initial = typeof kkLineInitialOutboxEnabled_ === 'function' && kkLineInitialOutboxEnabled_()
       ? kkLineInitialOutboxPrepare_(payload) : null;
     if(!initial && (payload.initial_notification || payload.initial_dispatch_key))throw new Error('LINE_INITIAL_OUTBOX_DISABLED');
@@ -3553,6 +3558,8 @@ function kkApiDecideLineBookingPendingDurable_(payload) {
     if (!bookingId || !['approve','reject'].includes(decision))
       throw new Error('LINE_OWNER_OUTBOX_DECISION_INVALID');
     // Fail before mutating Booking if the private outbox schema is absent/drifted.
+    if(typeof kkLineNativeConsentEnabled_==='function' && kkLineNativeConsentEnabled_())
+      kkLineNativeConsentRequirePrivateCore_();
     const ledger=kkLineOwnerOutboxSheet_();
     const canonical=kkLineOwnerOutboxCanonical_(bookingId);
     const status=String(canonical.current[2]||'').toLowerCase().trim();
@@ -3682,6 +3689,17 @@ function kkApiSettleLineBookingDecisionDelivery_(payload) {
 // LINE-native affirmative Terms receipt: attached to the existing canonical
 // Booking row under the same document lock. No second store, no LINE Login.
 // Disabled until the owner provisions and verifies the distinct dispatcher key.
+function kkLineNativeConsentRequirePrivateCore_(){
+  // DriveApp distinguishes a public file from owner-private/member-only file.
+  // Protecting or hiding tabs does not protect LINE IDs in a publicly shared
+  // workbook. Fail closed if access cannot be verified.
+  const ss=SpreadsheetApp.getActiveSpreadsheet();
+  if(!ss || typeof ss.getId!=='function')throw new Error('LINE_NATIVE_CONSENT_CORE_UNVERIFIED');
+  const file=DriveApp.getFileById(ss.getId());
+  const access=file.getSharingAccess();
+  if(access!==DriveApp.Access.PRIVATE)
+    throw new Error('LINE_NATIVE_CONSENT_PUBLIC_CORE_DENIED');
+}
 function kkLineNativeConsentEnabled_(){
   return String(PropertiesService.getScriptProperties().getProperty('KK_LINE_NATIVE_CONSENT_V1_ENABLED')||'')==='true';
 }
@@ -3712,6 +3730,9 @@ function kkApiLineNativeConsentReadiness_(payload){
   kkLineNativeConsentRequireDispatch_(payload);
   if(!kkLineInitialOutboxEnabled_() || !kkLineOwnerOutboxEnabled_())
     throw new Error('LINE_NATIVE_CONSENT_OUTBOX_NOT_READY');
+  // Successful capability metadata must also attest that the source sheet
+  // cannot be read anonymously. Otherwise a feature flag is not safe to run.
+  kkLineNativeConsentRequirePrivateCore_();
   return {native_consent_ready:true,native_consent_version:'KK_LINE_NATIVE_CONSENT_V1',
     terms_version:'KK-TERMS-2026-11-06'};
 }
@@ -3726,6 +3747,7 @@ function kkApiAcceptLineBookingTerms_(payload){
       !/^U[0-9a-f]{32}$/.test(userId) ||
       version!=='KK-TERMS-2026-11-06')
     throw new Error('LINE_NATIVE_CONSENT_INVALID_IDENTITIES');
+  kkLineNativeConsentRequirePrivateCore_();
   const lock=kkAcquireDocumentLock_('LINE native consent receipt',12000);
   try{
     const row=kkFindBookingRow_('',bookingId);
