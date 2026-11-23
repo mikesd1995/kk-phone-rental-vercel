@@ -74,6 +74,24 @@ function kkStagingOpenPrivateWorkbook_(props) {
 function kkStagingAssertSyntheticRows_(sheet, values) {
   const eventId = /^EVT-[0-9]{8}-SYNTHETIC-[A-Za-z0-9_-]{1,80}$/;
   const packageId = /^PKG-STAGING-[A-Za-z0-9_-]{1,80}$/;
+  // This is a frozen, PUBLIC-SAFE artificial dataset, not a generic PII reader.
+  // Synthetic IDs alone are insufficient: a real name/contact could be pasted
+  // into the note/template columns without changing the ID. All free-text
+  // values MUST equal the explicitly fabricated fixture contract.
+  const eventFixtures = {
+    'EVT-20261218-SYNTHETIC-01': ['STAGING MOCK EVENT ALPHA', '18/12/2026', 'show'],
+    'EVT-20261219-SYNTHETIC-02': ['STAGING MOCK EVENT BETA', '19/12/2026', 'hide']
+  };
+  const packageFixtures = {
+    'PKG-STAGING-01': ['VIVO_X300_PRO', 'phone_only', 'NONE', 'vivo X300 Pro', ''],
+    'PKG-STAGING-02': ['VIVO_X300_PRO', 'phone_lens_bundle', 'ZEISS_2_35X', 'vivo X300 Pro', '200 mm'],
+    'PKG-STAGING-03': ['VIVO_X500_PRO_MAX', 'phone_only', 'NONE', 'vivo X500 Pro Max', ''],
+    'PKG-STAGING-04': ['VIVO_X500_PRO_MAX', 'phone_lens_bundle', 'ZEISS_2_35X', 'vivo X500 Pro Max', '200 mm'],
+    'PKG-STAGING-05': ['VIVO_X500_PRO_MAX', 'phone_lens_bundle', 'ZEISS_400MM', 'vivo X500 Pro Max', '400 mm']
+  };
+  function boundedStock(value) {
+    return /^(0|[1-9]|10)$/.test(value);
+  }
   const observed = Object.create(null);
   let accepted = 0;
   for (let i = 1; i < values.length; i++) {
@@ -83,20 +101,29 @@ function kkStagingAssertSyntheticRows_(sheet, values) {
     if (!identity || observed[identity]) throw new Error('STAGING_DUPLICATE_OR_EMPTY_ID');
     observed[identity] = true;
     if (sheet === '08_Web_Ready') {
-      if (!eventId.test(identity)) throw new Error('STAGING_NON_SYNTHETIC_EVENT');
+      const expected = eventFixtures[identity];
+      if (!eventId.test(identity) || !expected ||
+          row[1] !== expected[0] || row[2] !== expected[1] ||
+          row[3] !== 'SANDBOX TEST HALL' || row[4] !== '' ||
+          row[5] !== 'SYNTHETIC ONLY — NOT REAL' ||
+          !boundedStock(row[6]) || !boundedStock(row[7]) ||
+          !['เปิดจอง','เต็ม'].includes(row[8]) ||
+          row[9] !== expected[2] || row[10] !== 'SYNTHETIC — DO NOT SEND')
+        throw new Error('STAGING_EVENT_CONTENT_NOT_SYNTHETIC');
     } else {
-      if (!packageId.test(identity) || !eventId.test(String(row[1] || '')))
-        throw new Error('STAGING_NON_SYNTHETIC_PACKAGE');
-      // Canonical 2026 package/lens enum contract, not decorative Lens 200/400
-      // labels; mismatched synthetic fixtures would yield false-green UI tests.
-      const model = row[3], kind = row[2], lens = row[5];
-      const phone = model === 'VIVO_X300_PRO' || model === 'VIVO_X500_PRO_MAX';
-      const combination = (kind === 'phone_only' && lens === 'NONE') ||
-        (kind === 'phone_lens_bundle' &&
-         (lens === 'ZEISS_2_35X' ||
-          (model === 'VIVO_X500_PRO_MAX' && lens === 'ZEISS_400MM')));
-      if (!phone || !combination)
-        throw new Error('STAGING_PACKAGE_ENUM_MISMATCH');
+      const expected = packageFixtures[identity];
+      if (!packageId.test(identity) || !expected ||
+          row[1] !== 'EVT-20261218-SYNTHETIC-01' ||
+          row[2] !== expected[1] || row[3] !== expected[0] ||
+          row[4] !== expected[3] || row[5] !== expected[2] ||
+          row[6] !== expected[4] ||
+          !/^(0|[1-9][0-9]{0,3})$/.test(row[7]) ||
+          !boundedStock(row[8]) ||
+          !['available','full','hidden'].includes(row[9]) ||
+          row[10] !== identity.slice(-2).replace(/^0/, '') ||
+          row[11] !== 'SYNTHETIC PRICES — NOT LIVE' ||
+          !boundedStock(row[12]) || row[13] !== 'TEST ONLY')
+        throw new Error('STAGING_PACKAGE_CONTENT_NOT_SYNTHETIC');
     }
     accepted++;
   }
