@@ -51,3 +51,39 @@ The existing cross-event same-day booking holds and lens availability calculatio
 - **Must pass before accepting the candidate as production safe:** source-authenticity and parity assessment; independent reviewer; targeted Node test and full applicable regression; exact-head CI and Preview readback; owner-approved Apps Script deployment with safe rollback, verified live formula generation from new event rows, no accidental price/owner-lock mutation.
 
 This file is a cross-chat, reviewable evidence log, **not** a claim that any blocked source deployment has been completed.
+
+
+## 2026-11-23 owner SOT correction — SUPERSEDES the old 28-Nov plan
+
+**Verified native live source:** `02_Assets!A12:G12` has `PHONE-004`,
+`VIVO_X500_PRO_MAX`, `available`, `rentable_now=TRUE`, and the owner-controlled
+notes `PUBLIC_BOOKING_START_2026-11-22`. The second phone was activated on
+**2026-11-22**, not 2026-11-28. Historic incident evidence above documents the
+older plan at the time and must not be treated as current authorization.
+
+**Verified public source sample:** the 2026-11-21 CAT EXPO X500 packages are
+`full` with zero remaining; the 2026-11-22 CAT EXPO X500 +200mm and phone-only
+packages show at most 2 phones, while the 400mm package shows at most the single
+400mm lens. Different package choices **share** the same 2 physical X500 handsets
+and must never be summed as independent capacity.
+
+**Source-only remediation in this Draft PR:** `kkFormulaPhoneRawCount_` now
+uses `phone004PublicStartYmd=20261122` in the model-specific and asset-ID-scoped
+deduction. Existing same-day Booking hold and lens criteria are untouched.
+`tests/x500-prestart-stock-generator.test.js` now checks the Nov 21 exclusion,
+Nov 22 inclusion, absence of the stale Nov 28 delay, and shared raw/clamped
+formula paths.
+
+**Health indicator reconciliation:** `10_Admin_Health_Check!A27:D27` must
+reflect the Nov 22 authorization; the old label/pre-28 predicate generates
+false CHECKs on otherwise eligible Nov 22–27 stock. Editing the health
+indicator is a separate, bounded spreadsheet operation with its own formula
+readback; never force a green indicator by editing customer bookings or
+`09_Web_Packages` generated inventory values.
+
+**Mandatory release hold still applies:** repository `apps-script/Code.gs`
+is not verified to equal the bound Production Apps Script (issue #9).
+No merge, Apps Script redeploy, customer booking, asset mutation, reservation
+transition, LINE provider operation or storefront release is implied by this
+candidate. Source equivalence, reviewer, exact-head CI, controlled rollout
+and authenticated acceptance remain required.
