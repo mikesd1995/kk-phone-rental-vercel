@@ -138,3 +138,44 @@ test('canonical Pending / owner durable decision writers invoke privacy gate bef
   assert.ok(pending.indexOf('kkLineNativeConsentRequirePrivateCore_()')<pending.indexOf('kkLineInitialOutboxPrepare_'));
   assert.ok(decision.indexOf('kkLineNativeConsentRequirePrivateCore_()')<decision.indexOf('kkLineOwnerOutboxFind_'));
 });
+
+
+test('native direct GAS decision entrypoint denies unsafe ACL and missing outboxes before any decision writer',()=>{
+  const start=source.indexOf('function kkApiDecideLineBookingPending_(');
+  const end=source.indexOf('\nfunction kkApiCreateBooking_',start);
+  assert.ok(start>=0 && end>start,'actual GAS decision dispatcher is found');
+  const decisionSource=source.slice(start,end);
+  const cases=[
+    {native:true,initial:true,owner:true,privateCore:false,blocked:'PRIVATE_DENIED'},
+    {native:true,initial:false,owner:true,privateCore:true,blocked:'LINE_NATIVE_CONSENT_OUTBOX_NOT_READY'},
+    {native:true,initial:true,owner:false,privateCore:true,blocked:'LINE_NATIVE_CONSENT_OUTBOX_NOT_READY'},
+    {native:true,initial:true,owner:true,privateCore:true,blocked:''},
+    {native:false,initial:false,owner:true,privateCore:false,blocked:''}
+  ];
+  for(const c of cases){
+    let decisions=0,privateChecks=0;
+    const context={
+      kkLineNativeConsentEnabled_:()=>c.native,
+      kkLineInitialOutboxEnabled_:()=>c.initial,
+      kkLineOwnerOutboxEnabled_:()=>c.owner,
+      kkLineNativeConsentRequirePrivateCore_:()=>{
+        privateChecks++;
+        if(!c.privateCore)throw new Error('PRIVATE_DENIED');
+      },
+      kkApiDecideLineBookingPendingDurable_:()=>{
+        decisions++;
+        return {booking_status:'confirmed'};
+      }
+    };
+    vm.runInNewContext(decisionSource+'\n;globalThis.decide=kkApiDecideLineBookingPending_;',context,{timeout:1000});
+    if(c.blocked){
+      assert.throws(()=>context.decide({booking_id:BID,decision:'approve'}),new RegExp(c.blocked));
+      assert.equal(decisions,0,'blocked route must never write any booking decision');
+    }else{
+      assert.equal(context.decide({booking_id:BID,decision:'approve'}).booking_status,'confirmed');
+      assert.equal(decisions,1);
+    }
+    assert.equal(privateChecks,c.native&&c.initial&&c.owner?1:0,
+      'private ACL checked only when native mode and both outboxes are enabled');
+  }
+});
