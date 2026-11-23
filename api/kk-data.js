@@ -421,11 +421,12 @@ module.exports = async function handler(req, res) {
   }
 
   if (!text) {
-    // Never attempt public GViz when the privacy cutover is armed, even if
-    // private authentication returned an error or an empty dataset.
-    if(corePrivateStrict){
-      res.setHeader('X-KK-Sheet-Source','core-private-unavailable');
-      return send(res,503,'Private Core reader is unavailable.');
+    // Both strict Core cutover and the historical public-feed private-only flag
+    // must prohibit public GViz fallback. An empty but successful private read
+    // is NOT proof that the public source may be queried anonymously.
+    if (requirePrivate) {
+      res.setHeader('X-KK-Sheet-Source', 'private-empty');
+      return send(res, 503, 'Private public-data reader returned no usable data.');
     }
     try {
       text = await readPublicGvizCsv(sheetId, sheet, range);
