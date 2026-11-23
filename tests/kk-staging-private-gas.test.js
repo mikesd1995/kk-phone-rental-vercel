@@ -29,8 +29,14 @@ const packageRows = [
   pkgHeaders,
   ['PKG-STAGING-01','EVT-20261218-SYNTHETIC-01','phone_only',
     'VIVO_X300_PRO','vivo X300 Pro','NONE','','790','1','available','1','','1',''],
-  ['PKG-STAGING-02','EVT-20261218-SYNTHETIC-01','phone_lens_200',
-    'VIVO_X300_PRO','vivo X300 Pro','LENS_200','200 mm','990','1','available','2','','1','']
+  ['PKG-STAGING-02','EVT-20261218-SYNTHETIC-01','phone_lens_bundle',
+    'VIVO_X300_PRO','vivo X300 Pro','ZEISS_2_35X','200 mm','990','1','available','2','','1',''],
+  ['PKG-STAGING-03','EVT-20261218-SYNTHETIC-01','phone_only',
+    'VIVO_X500_PRO_MAX','vivo X500 Pro Max','NONE','','1090','1','available','3','','1',''],
+  ['PKG-STAGING-04','EVT-20261218-SYNTHETIC-01','phone_lens_bundle',
+    'VIVO_X500_PRO_MAX','vivo X500 Pro Max','ZEISS_2_35X','200 mm','1290','1','available','4','','1',''],
+  ['PKG-STAGING-05','EVT-20261218-SYNTHETIC-01','phone_lens_bundle',
+    'VIVO_X500_PRO_MAX','vivo X500 Pro Max','ZEISS_400MM','400 mm','1490','1','available','5','','1','']
 ];
 const props = {
   KK_STAGING_SHEET_ID: SID,
@@ -45,9 +51,17 @@ function fixture(options={}){
   const propertyMap={...props,...(options.props||{})};
   const counters={sheetReads:0,readmeReads:0,driveChecks:0,mutationCalls:0};
   const table={
-    '08_Web_Ready':options.corruptHeader ? [['customer_phone',...eventHeaders.slice(1)],...eventRows.slice(1)] : eventRows,
-    '09_Web_Packages':packageRows
+    '08_Web_Ready':(options.corruptHeader ? [['customer_phone',...eventHeaders.slice(1)],...eventRows.slice(1)] : eventRows).map(row=>row.slice()),
+    '09_Web_Packages':packageRows.map(row=>row.slice())
   };
+  if(options.realEventInserted)table['08_Web_Ready'][1][0]='EVT-20261218-LIVE-CUSTOMER';
+  if(options.realPackageInserted)table['09_Web_Packages'][1][0]='PKG-LIVE-REAL';
+  if(options.packageWrongType)table['09_Web_Packages'][2][2]='phone_lens_200';
+  if(options.packageWrongLens)table['09_Web_Packages'][2][5]='LENS_200';
+  if(options.incompatible400Lens)table['09_Web_Packages'][2][5]='ZEISS_400MM';
+  if(options.duplicatePackageId)table['09_Web_Packages'][2][0]=table['09_Web_Packages'][1][0];
+  if(options.duplicateEventId)table['08_Web_Ready'][2][0]=table['08_Web_Ready'][1][0];
+  if(options.emptyEventRows)table['08_Web_Ready']=table['08_Web_Ready'].slice(0,1);
   const spreadsheet={
     getId:()=>options.activeId||SID,
     getSheetByName(name){
@@ -120,6 +134,14 @@ test('private owner-only staging serves exact synthetic event and package schema
   assert.equal(event.data.range,'A4:K');
   assert.deepEqual(Array.from(event.data.values[0]),eventHeaders);
   assert.deepEqual(Array.from(packs.data.values[0]),pkgHeaders);
+  assert.equal(packs.data.values.length,6,'five synthetic storefront packages');
+  assert.deepEqual(packs.data.values.slice(1).map(row=>[row[2],row[3],row[5]]),[
+    ['phone_only','VIVO_X300_PRO','NONE'],
+    ['phone_lens_bundle','VIVO_X300_PRO','ZEISS_2_35X'],
+    ['phone_only','VIVO_X500_PRO_MAX','NONE'],
+    ['phone_lens_bundle','VIVO_X500_PRO_MAX','ZEISS_2_35X'],
+    ['phone_lens_bundle','VIVO_X500_PRO_MAX','ZEISS_400MM']
+  ]);
   assert.equal(x.counters.sheetReads,2);
 });
 
@@ -140,7 +162,16 @@ test('staging rejects identity, sharing, key, flag, sentinel and range failures 
     [{}, request('00_Master_Booking','A4:X')],
     [{}, request('08_Web_Ready','A4:Z')],
     [{}, request('09_Web_Packages','A1:N')],
+    [{lastRow:251},request()],
     [{lastRow:4001},request()],
+    [{realEventInserted:true},request()],
+    [{realPackageInserted:true},request('09_Web_Packages','A4:N')],
+    [{packageWrongType:true},request('09_Web_Packages','A4:N')],
+    [{packageWrongLens:true},request('09_Web_Packages','A4:N')],
+    [{incompatible400Lens:true},request('09_Web_Packages','A4:N')],
+    [{duplicatePackageId:true},request('09_Web_Packages','A4:N')],
+    [{duplicateEventId:true},request()],
+    [{emptyEventRows:true},request()],
     [{corruptHeader:true},request()],
     [{throwRead:true},request()]
   ];
@@ -177,7 +208,6 @@ function fakeGoogleTransport(f){
     assert.equal(url,REDIRECT);
     assert.equal(init.method,'GET');
     assert.equal(init.redirect,'error');
-    const sourceRequest=JSON.parse(calls[0].body||'null');
     return {status:200,ok:true,url:REDIRECT,json:async()=>f.invoke(calls[0].request)};
   };
   // Preserve POST payload without ever putting it in the call log diagnostics.
