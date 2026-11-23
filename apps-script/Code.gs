@@ -3780,6 +3780,14 @@ function kkApiAcceptLineBookingTerms_(payload){
 }
 
 function kkApiDecideLineBookingPending_(payload) {
+  // GAS may be called directly through the admin action, bypassing Vercel's
+  // native preflight. Native decisions must never fall through to the legacy
+  // non-durable writer or mutate a broadly shared Core workbook.
+  if(typeof kkLineNativeConsentEnabled_==='function' && kkLineNativeConsentEnabled_()){
+    if(!kkLineInitialOutboxEnabled_() || !kkLineOwnerOutboxEnabled_())
+      throw new Error('LINE_NATIVE_CONSENT_OUTBOX_NOT_READY');
+    kkLineNativeConsentRequirePrivateCore_();
+  }
   if (kkLineOwnerOutboxEnabled_()) return kkApiDecideLineBookingPendingDurable_(payload);
   const lock = kkAcquireDocumentLock_('LINE owner booking decision', 12000);
   try {
