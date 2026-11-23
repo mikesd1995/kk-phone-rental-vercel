@@ -4,23 +4,29 @@ function clean(value, fallback='-') {
   const s=String(value == null ? '' : value).trim();
   return s || fallback;
 }
+// Limit source-driven text to keep the LINE Flex bubble valid when input data is
+// anomalously large. Code-point slicing avoids tearing emoji surrogate pairs.
+function cardText(value, fallback='-', maxCharacters=180) {
+  const s=clean(value,fallback).replace(/[\u0000-\u001F\u007F]/g,' ').trim();
+  return Array.from(s || fallback).slice(0,maxCharacters).join('');
+}
 function httpsImageUrl(value) {
   const s=String(value || '').trim();
-  if (!s) return '';
+  if (!s || s.length>2000) return '';
   try {
     const u=new URL(s);
-    return u.protocol === 'https:' ? u.href : '';
+    return u.protocol === 'https:' && !u.username && !u.password && u.href.length<=2000 ? u.href : '';
   } catch (_) { return ''; }
 }
 function buildBookingFlex({event={}, package:pkg={}, customer={}, booking={}}={}) {
   const image=httpsImageUrl(event.poster_image_url || event.poster_url || event.image_url);
-  const name=clean(event.event_name || event.name, 'KK Phone Rental');
-  const date=clean(event.event_date || event.date);
-  const venue=clean(event.venue);
-  const packageName=clean(pkg.package_name || pkg.model || pkg.name);
-  const price=clean(pkg.price_display || pkg.price);
-  const nickname=clean(customer.nickname || customer.name, '');
-  const pickup=clean(customer.pickup_time || customer.pickup || customer.time, '');
+  const name=cardText(event.event_name || event.name, 'KK Phone Rental',180);
+  const date=cardText(event.event_date || event.date,'-',80);
+  const venue=cardText(event.venue,'-',160);
+  const packageName=cardText(pkg.package_name || pkg.model || pkg.name,'-',160);
+  const price=cardText(pkg.price_display || pkg.price,'-',64);
+  const nickname=cardText(customer.nickname || customer.name,'',100);
+  const pickup=cardText(customer.pickup_time || customer.pickup || customer.time,'',100);
   const bookingId=clean(booking.booking_id, '');
   const rows=[
     {type:'text',text:'วันที่  '+date,size:'sm',wrap:true},
