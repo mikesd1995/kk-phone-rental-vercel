@@ -217,3 +217,46 @@ test('Apps Script owner decision is a separate atomic pending-only action',()=>{
   assert.match(body,/customerContact = String\(current\[5\]/);
   assert.match(body,/String\(persisted\[5\]/);
 });
+
+
+test('owner Confirm before native customer consent replies WAITING and never pushes customer or mutates Booking again',async()=>{
+  const e=env(),bookingId='BK-SYNTHETIC-CONSENT-1';
+  const data=Approval.decisionData('approve',bookingId,e);
+  const upstream=[],provider=[];
+  const responseFn=async(url,options)=>{
+    const request=JSON.parse(options.body);
+    if(String(url).startsWith('https://script.google.com/')){
+      upstream.push(request);
+      return response({ok:true,booking_id:bookingId,booking_status:'pending',
+        terms_confirmation_required:true,idempotent_replay:true});
+    }
+    provider.push({url,request});
+    return response({ok:true});
+  };
+  const result=await Approval.processOwnerPostback({
+    type:'postback',replyToken:'synthetic-owner-reply',source:{type:'user',userId:OWNER},
+    postback:{data}
+  },e,responseFn);
+  assert.equal(result.handled,true);
+  assert.equal(result.status,'WAITING_CUSTOMER_CONSENT');
+  assert.equal(result.customer_notifications,0);
+  assert.equal(upstream.length,1);
+  assert.equal(upstream[0].action,'decideLineBookingPending');
+  assert.equal(provider.filter(x=>x.url.includes('/push')).length,0);
+  assert.equal(provider.filter(x=>x.url.includes('/reply')).length,1);
+  assert.match(provider[0].request.messages[0].text,/ต้องกดยอมรับเงื่อนไข/);
+});
+test('malformed consent-required GAS receipt cannot acknowledge owner as safely blocked',async()=>{
+  const e=env(),bookingId='BK-SYNTHETIC-CONSENT-2';
+  let sendCount=0;
+  await assert.rejects(()=>Approval.processOwnerPostback({
+    type:'postback',replyToken:'synthetic-owner-reply',source:{type:'user',userId:OWNER},
+    postback:{data:Approval.decisionData('approve',bookingId,e)}
+  },e,async(url)=>{
+    if(String(url).startsWith('https://script.google.com/'))
+      return response({ok:true,booking_id:bookingId,booking_status:'confirmed',
+        terms_confirmation_required:true,idempotent_replay:false});
+    sendCount++;return response({ok:true});
+  }),{code:'LINE_NATIVE_CONSENT_READBACK_FAILED'});
+  assert.equal(sendCount,0);
+});
