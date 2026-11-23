@@ -260,3 +260,29 @@ test('malformed consent-required GAS receipt cannot acknowledge owner as safely 
   }),{code:'LINE_NATIVE_CONSENT_READBACK_FAILED'});
   assert.equal(sendCount,0);
 });
+
+
+test('owner signed Confirm cannot reach canonical decision when deployed GAS native version is stale',async()=>{
+  const e={...env(),
+    KK_LINE_NATIVE_CONSENT_V1_ENABLED:'true',
+    KK_LINE_INITIAL_OUTBOX_V1_ENABLED:'true',
+    KK_LINE_OWNER_OUTBOX_V1_ENABLED:'true',
+    KK_LINE_NATIVE_CONSENT_DISPATCH_SECRET:'native_distinct_dispatch_secret_synthetic_2026',
+    KK_LINE_INITIAL_OUTBOX_DISPATCH_SECRET:'initial_distinct_dispatch_secret_synthetic_2026',
+    KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET:'owner_distinct_dispatch_secret_synthetic_2026'
+  };
+  const actions=[];let providerSends=0;
+  await assert.rejects(()=>Approval.processOwnerPostback({
+    type:'postback',replyToken:'OWNER_REPLY',
+    source:{type:'user',userId:OWNER},
+    postback:{data:Approval.decisionData('approve','BK-NATIVE-OLD-GAS',e)}
+  },e,async(url,opt)=>{
+    if(String(url).startsWith('https://script.google.com/')){
+      actions.push(JSON.parse(opt.body).action);
+      return response({ok:false,error_code:'OLD_GAS_VERSION'});
+    }
+    providerSends++;return response({ok:true});
+  }),{code:'LINE_BOOKING_UPSTREAM_FAILED'});
+  assert.deepEqual(actions,['lineNativeConsentReadiness']);
+  assert.equal(providerSends,0);
+});
