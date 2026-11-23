@@ -18,6 +18,8 @@ function fixture(overrides={}){
     '13:00','','unpaid',0,'','','',0,note];
   const props={
     KK_LINE_NATIVE_CONSENT_V1_ENABLED:'true',
+    KK_LINE_INITIAL_OUTBOX_V1_ENABLED:'true',
+    KK_LINE_OWNER_OUTBOX_V1_ENABLED:'true',
     KK_LINE_NATIVE_CONSENT_DISPATCH_SECRET:KEY,
     KK_ADMIN_API_KEY:'admin_other_secret',
     KK_LINE_INITIAL_OUTBOX_DISPATCH_SECRET:'initial_other_secret_0123456789',
@@ -38,6 +40,8 @@ function fixture(overrides={}){
     kkAcquireDocumentLock_(){return {releaseLock(){releases++}}},
     kkFindBookingRow_(_sh,id){assert.equal(id,BID);return 5},
     kkSheet_(){return spreadsheet},
+    kkLineInitialOutboxEnabled_(){return props.KK_LINE_INITIAL_OUTBOX_V1_ENABLED==='true'},
+    kkLineOwnerOutboxEnabled_(){return props.KK_LINE_OWNER_OUTBOX_V1_ENABLED==='true'},
     kkBookingRequestIdFromNote_(value){
       const m=String(value).match(/line:[a-f0-9]{48}/);return m?m[0]:'';
     },
@@ -46,9 +50,9 @@ function fixture(overrides={}){
     console
   };
   vm.runInNewContext(consentSource+
-    '\n;globalThis.native={accept:kkApiAcceptLineBookingTerms_,approvalReady:kkLineNativeConsentApprovalReady_};',
+    '\n;globalThis.native={accept:kkApiAcceptLineBookingTerms_,approvalReady:kkLineNativeConsentApprovalReady_,readiness:kkApiLineNativeConsentReadiness_};',
     context,{timeout:1000});
-  return {accept:context.native.accept,approvalReady:context.native.approvalReady,row,props,
+  return {accept:context.native.accept,approvalReady:context.native.approvalReady,readiness:context.native.readiness,row,props,
     stats(){return {writes,flushes,releases}},
     payload(patch={}){return {booking_id:BID,request_id:RID,source_user_id:USER,
       terms_version:'KK-TERMS-2026-11-06',native_consent_dispatch_key:KEY,...patch}}};
@@ -88,4 +92,22 @@ test('GAS owner approval only enables Confirm after authenticated receipt; Rejec
   assert.equal(h.approvalReady(h.row[19],'approve'),true);
   h.props.KK_LINE_NATIVE_CONSENT_V1_ENABLED='false';
   assert.equal(h.approvalReady('','approve'),true,'prior deployments stay unmodified until gated enablement');
+});
+
+
+test('deployed native GAS readiness requires the exact enabled writer, distinct dispatcher and both canonical outboxes',()=>{
+  const h=fixture();
+  const ready=h.readiness(h.payload());
+  assert.equal(ready.native_consent_ready,true);
+  assert.equal(ready.native_consent_version,'KK_LINE_NATIVE_CONSENT_V1');
+  assert.equal(ready.terms_version,'KK-TERMS-2026-11-06');
+  assert.equal(h.stats().writes,0);
+  for(const key of ['KK_LINE_NATIVE_CONSENT_V1_ENABLED',
+      'KK_LINE_INITIAL_OUTBOX_V1_ENABLED','KK_LINE_OWNER_OUTBOX_V1_ENABLED']){
+    const x=fixture();x.props[key]='false';
+    assert.throws(()=>x.readiness(x.payload()),/DISABLED|NOT_READY/);
+    assert.equal(x.stats().writes,0);
+  }
+  assert.throws(()=>h.readiness(h.payload({native_consent_dispatch_key:'forged'})));
+  assert.equal(h.stats().writes,0);
 });
