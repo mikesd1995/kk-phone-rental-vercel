@@ -36,3 +36,20 @@ If one named test does not exist, select the current exact tests via `npm run co
 - Event visibility booking-date policy separately verified on live Chrome 390px and 1440px, 12/12 expected cards, 0 extras; 46 unrelated events hidden+owner-locked, two Happy BUSDAY exceptions, 0 production customer writes. Evidence #713.
 - Private security P0 remains #738; old PR #739 is diverged and draft (137 ahead/97 behind versus current main on 2026-11-21). **Do not merge #739 blindly.**
 - This branch is intentionally a minimal rebase-free change against current main to avoid carrying stale booking, LINE, pricing, visual or release diffs.
+
+## 2026-11-23 additional fail-closed provider boundary hardening
+
+**New regression discovered:** The server's `verifiedRange()` previously accepted any syntactically valid A1 range on any alphanumeric sheet name, even if not in the 19 explicit owner-reviewed `RANGE_SPECS`. The owner Apps Script transport has its own 19-pair allowlist, but the legacy service-account transport could pass out-of-contract Core ranges to its provider. This was an unactivated latent permission-breadth defect; no demonstrated customer leak.
+
+**Minimal diff on existing Draft PR #881:**
+- `server/core-sheet-private-reader.js` now builds an exact sheet + range Set directly from the **existing shared 19-range contract**, rejects unknown/expanded/shifted ranges with the existing opaque `CORE_PRIVATE_RANGE_INVALID` before **either** Apps Script or service-account I/O. No second independently maintained list; trimming/validation still precedes key lookup.
+- `tests/core-sheet-privacy-cutover.test.js` verifies all 19 accepted pairs, six syntactically valid but unauthorized probes, and asserts both `readCsv` and `readValues` never call the provider for forbidden ranges.
+- `.github/workflows/core-private-range-ci.yml` triggers on these provider-boundary changes, checks exact checkout SHA, runs focused privacy tests, `npm run check`, and full Node suite. No secrets, deploy, data or permissions writes in CI.
+
+**Real current owner-only evidence (not application-side private transport):**
+- Authenticated Google source-read probes for 19/19 range prefixes succeeded. This establishes schema/data presence, **not** an active Apps Script key flow.
+- Core rollback snapshot in the owner-only private Drive folder has 32/32 tabs with matching grid dimensions. Independently compared header plus first three data rows from 13/13 operational tabs; values matched. The copy is **not** a proven functional database rollback.
+- Vercel production env NAME-ONLY read: dedicated `KK_CORE_PRIVATE_READ_KEY`, `KK_CORE_PRIVATE_TRANSPORT`, `KK_CORE_SHEET_REQUIRE_PRIVATE` absent. Core source still `anyone/reader`.
+- Existing GAS Project authority/equivalence #9 and independent reviewer have not been proved. **Do not revoke source Core Anyone ACL or merge the Draft** before all actual private transport, wrong-key/independent read-vs-write key, Admin/Booking/LINE E2E and rollback safety gates pass.
+
+**No production/release/secret/booking data/ACL modification in this Draft.** The source fix is intended to be read and accepted on its exact commit, independently of runtime cutover.
