@@ -328,6 +328,9 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
     NativeConsent.issue({bookingId:'BK-NATIVE-PREFLIGHT',
       requestId:Intake.requestIdFromLineEvent(event),
       userId:senderUserId,timestamp:event.timestamp},env);
+    // A Preview flag cannot enable native consent against an old GAS version.
+    // Fail BEFORE createLineBookingPending and its private delivery intents.
+    await NativeConsent.preflightGas(env,fetchImpl,OwnerApproval.appsScriptCall);
   }
 
   let pending=null;
