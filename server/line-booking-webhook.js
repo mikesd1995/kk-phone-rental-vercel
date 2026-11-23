@@ -15,6 +15,7 @@ const Deadline = require('./line-booking-deadline');
 const InitialOutbox = require('./line-initial-durable-outbox');
 const TestAdmission = require('./kk-line-booking-test-admission');
 const TestTarget = require('./kk-line-booking-test-target');
+const NativeConsent = require('./line-booking-native-consent');
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 const PUBLIC_DATA_BASE = 'https://kk-phone-rental.vercel.app/api/kk-data';
@@ -210,7 +211,11 @@ function safeLineReplyDiagnostic(err){
     LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED:'OWNER_APPROVAL',
     LINE_CUSTOMER_CONTACT_READBACK_REQUIRED:'OWNER_APPROVAL',
     LINE_SEND_FAILED:'LINE_PUSH_OR_REPLY',
-    LINE_SEND_TRANSPORT_FAILED:'LINE_PUSH_OR_REPLY'
+    LINE_SEND_TRANSPORT_FAILED:'LINE_PUSH_OR_REPLY',
+    LINE_NATIVE_CONSENT_NOT_READY:'NATIVE_CONSENT_CONFIGURATION',
+    LINE_NATIVE_CONSENT_TIME_INVALID:'NATIVE_CONSENT_VALIDATION',
+    LINE_NATIVE_CONSENT_TOKEN_TOO_LONG:'NATIVE_CONSENT_VALIDATION',
+    LINE_NATIVE_CONSENT_READBACK_FAILED:'NATIVE_CONSENT_READBACK'
   };
   const code=err&&typeof err.code==='string'?err.code:'';
   if(Object.prototype.hasOwnProperty.call(SAFE_INTERNAL_FAILURES,code)){
@@ -247,6 +252,10 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
   if(!event || event.type!=='message' || !event.replyToken || !event.message || event.message.type!=='text') return {handled:false};
   const booking=parseBookingText(event.message.text);
   if(!booking) return {handled:false};
+  if(NativeConsent.enabled(env) &&
+     (options.signatureVerified!==true || !NativeConsent.ready(env)))
+    throw Object.assign(new Error('Signed native consent prerequisites unavailable'),
+      {code:'LINE_NATIVE_CONSENT_NOT_READY'});
   TestTarget.assertDurable(env,target);
   TestTarget.scopedEvent(event,target); // Missing original ID cannot gain a derived identity.
   // One event-local WebReady fetch. Do not cache across customer requests.
@@ -351,14 +360,21 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
       pending=await OwnerApproval.createPendingBooking(event,booking,canonical,env,fetchImpl,{initialContext});
       if(InitialOutbox.enabled(env)){
         const frozen=InitialOutbox.parseContext(pending.initial_outbox.context_json,pending.initial_outbox.context_hash);
+        const customerCard=buildBookingFlex({event:frozen,package:frozen,
+          customer:frozen,booking:{booking_id:pending.booking_id}});
+        if(NativeConsent.enabled(env) && frozen.terms_status!=='VERIFIED_LINE_IDENTITY_TERMS_ACCEPTED'){
+          customerCard.contents.footer=NativeConsent.consentFooter(NativeConsent.issue({
+            bookingId:pending.booking_id,requestId:pending.initial_outbox.request_id,
+            userId:senderUserId,timestamp:event.timestamp
+          },env));
+        }
         return InitialOutbox.deliver({envelope:pending.initial_outbox,replyToken:event.replyToken,
           expected:{bookingId:pending.booking_id,requestId:pending.request_id,
             contextHash:InitialOutbox.hash(initialContext),ownerTarget:OwnerApproval.ownerTargetId(env),customer:senderUserId},
           messages:{
             OWNER_APPROVAL_PUSH:OwnerApproval.ownerApprovalMessage({...frozen,booking_id:pending.booking_id,
               request_id:pending.initial_outbox.request_id},env),
-            CUSTOMER_PENDING_REPLY:buildBookingFlex({event:frozen,package:frozen,
-              customer:frozen,booking:{booking_id:pending.booking_id}})
+            CUSTOMER_PENDING_REPLY:customerCard
           }
         },{appsScriptCall:p=>OwnerApproval.appsScriptCall(p,env,fetchImpl),
           lineToken:env.LINE_CHANNEL_ACCESS_TOKEN,dispatchSecret:InitialOutbox.configuration(env),fetchImpl});
@@ -444,6 +460,11 @@ module.exports=async function handler(req,res){
     for(const event of events){
       const ownerDecision=await OwnerApproval.processOwnerPostback(event,process.env,transport);
       if(ownerDecision.handled) continue;
+      const nativeConsent=await NativeConsent.processPostback(event,process.env,transport,{
+        signatureVerified:true,appsScriptCall:OwnerApproval.appsScriptCall,
+        reply:OwnerApproval.replyMessage
+      });
+      if(nativeConsent.handled) continue;
       await processEvent(event,process.env,transport,{signatureVerified:true});
     }
     await inboxPromise;
