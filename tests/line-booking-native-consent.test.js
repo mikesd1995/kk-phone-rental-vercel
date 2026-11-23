@@ -136,3 +136,49 @@ test('canonical GAS accepts same LINE customer only under document lock and bloc
   assert.match(source,/terms_confirmation_required:true,idempotent_replay:true/);
   assert.doesNotMatch(body,/createSheet\(|insertSheet\(|createBooking\(/);
 });
+
+
+test('native GAS readiness preflight rejects an old or mismatched deployment before any Booking write',async()=>{
+  const e=env(),calls=[];
+  const accepted=await Native.preflightGas(e,async()=>{},async payload=>{
+    calls.push(payload);return {data:{
+      native_consent_ready:true,
+      native_consent_version:'KK_LINE_NATIVE_CONSENT_V1',
+      terms_version:'KK-TERMS-2026-11-06'
+    }};
+  });
+  assert.equal(accepted.ready,true);
+  assert.deepEqual(Object.keys(calls[0]).sort(),['action','native_consent_dispatch_key']);
+  assert.equal(calls[0].action,'lineNativeConsentReadiness');
+  for(const result of [
+    {data:{native_consent_ready:false,native_consent_version:'KK_LINE_NATIVE_CONSENT_V1',terms_version:'KK-TERMS-2026-11-06'}},
+    {data:{native_consent_ready:true,native_consent_version:'OLDER_GAS',terms_version:'KK-TERMS-2026-11-06'}},
+    {data:{native_consent_ready:true,native_consent_version:'KK_LINE_NATIVE_CONSENT_V1',terms_version:'UNKNOWN_TERMS'}}
+  ])await assert.rejects(
+    ()=>Native.preflightGas(e,async()=>{},async()=>result),
+    {code:'LINE_NATIVE_CONSENT_READBACK_FAILED'}
+  );
+});
+test('native GAS version mismatch blocks Pending before canonical writer or owner Push',async()=>{
+  const Webhook=require('../server/line-booking-webhook')._test;
+  const e=env(),actions=[],now=Date.now();
+  const event={type:'message',replyToken:'SYNTHETIC_REPLY',
+    webhookEventId:'SYNTHETIC_NATIVE_PREWRITE',timestamp:now,
+    source:{type:'user',userId:CUSTOMER},message:{type:'text',
+      text:'สนใจเช่า Phone\nงาน: Synthetic Event\nวันที่: 18/12/2026\nสถานที่: Synthetic Hall\nชื่อเล่น: Synthetic Customer'}};
+  const web='event_id,event_name,event_date_text,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count\nEVT-TEST,Synthetic Event,18/12/2026,Synthetic Hall,,show,เปิดจอง,1';
+  const packages='package_id,event_id,package_type,model_display,price,available_count,package_status\nTPL-PHONE,EVT-TEST,phone_only,Phone,790,1,available';
+  const fetchImpl=async(url,opts)=>{
+    const name=String(url);
+    if(name.includes('08_Web_Ready'))return {ok:true,status:200,text:async()=>web};
+    if(name.includes('09_Web_Packages'))return {ok:true,status:200,text:async()=>packages};
+    if(name.includes('script.google.com')){
+      actions.push(JSON.parse(opts.body).action);
+      return {ok:true,status:200,text:async()=>JSON.stringify({ok:false,error_code:'OLD_DEPLOYED_VERSION'})};
+    }
+    throw Error('unexpected provider call before canonical native readiness');
+  };
+  await assert.rejects(()=>Webhook.processEvent(event,e,fetchImpl,{signatureVerified:true}),
+    {code:'LINE_BOOKING_UPSTREAM_FAILED'});
+  assert.deepEqual(actions,['lineNativeConsentReadiness']);
+});
