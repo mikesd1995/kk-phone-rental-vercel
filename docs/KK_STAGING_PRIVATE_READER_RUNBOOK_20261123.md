@@ -36,6 +36,10 @@ The owner-private staging workbook's five **fabricated** storefront rows were re
 
 Do not use `phone_lens_200`, `phone_lens_400`, `LENS_200`, `LENS_400`, or `confirmed`/`cancelled` as source sheet event status in these fixtures. They do **not** match current canonical enums. The synthetic `01_Events.event_status` rows use `open` / `closed`. Synthetic prices are NOT production prices. These static rows are not inventory formulas or a live booking acceptance test.
 
+**Synthetic CONTENT gate (not just synthetic IDs):** A row labeled `EVT-*-SYNTHETIC-*` or `PKG-STAGING-*` is NOT sufficient evidence that its contents are fake. The isolated GAS reader additionally matches two exact fabricated event identities/names/dates, fixed `SANDBOX TEST HALL` venue, empty poster, synthetic-only note and message, bounded stock counts, and all five fixed package IDs, model/lens display strings, `SYNTHETIC PRICES — NOT LIVE` note, `TEST ONLY` use case, nonnegative bounded prices and stock. If any field is replaced with real customer text, the WHOLE read fails closed before responding with rows. No live booking/contact, identity, poster URL or internal note may ever be copied into this fixture. Changes to synthetic fixture identity or fixed labels require a reviewed source-and-test change; do not loosen checks solely to obtain a green response.
+
+Google Sheets connector displayed-value reads can represent an empty cell as `null`, whereas Apps Script `getDisplayValues()` returns `''`. Test provider output using the actual bound GAS readback after deployment; the connector parity read is not proof that a deployed Web App returns that data.
+
 ## Acceptance matrix / HOLD
 
 | Test | Must show |
