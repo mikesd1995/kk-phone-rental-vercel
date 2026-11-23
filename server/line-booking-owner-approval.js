@@ -199,7 +199,9 @@ function ownerApprovalMessage(ctx={},env=process.env){
   const version=TermsEvidence.VERSION;
   const lineAck=text(ctx.terms_status)==='LINE_MESSAGE_CONFIRMED' && text(ctx.terms_version)===version;
   const identityAck=text(ctx.terms_status)==='VERIFIED_LINE_IDENTITY_TERMS_ACCEPTED' && text(ctx.terms_version)===version;
+  const nativeConsent=env.KK_LINE_NATIVE_CONSENT_V1_ENABLED==='true';
   const termsLabel=identityAck?'✅ ยอมรับเงื่อนไขแล้ว (ยืนยัน LINE User ID จากหลักฐานหลังบ้าน · '+version+')':
+    nativeConsent?'⏳ รอลูกค้ากดยอมรับเงื่อนไขใน LINE ก่อน Confirm; ระบบจะตรวจหลักฐานเมื่อกด':
     lineAck?'✅ พบข้อความยอมรับเงื่อนไขใน LINE ('+version+')':
     '⚠️ ยังไม่พบข้อความยอมรับเงื่อนไข — ขอคำยืนยันทาง LINE ก่อนอนุมัติ';
   return {
@@ -218,7 +220,7 @@ function ownerApprovalMessage(ctx={},env=process.env){
         {type:'text',text:'ลูกค้า  '+customer,size:'sm',wrap:true,margin:'md'},
         {type:'text',text:contactLabel,size:'sm',wrap:true},
         {type:'text',text:'เวลารับ  '+pickup,size:'sm',wrap:true},
-        {type:'text',text:termsLabel,size:'xs',wrap:true,color:(lineAck||identityAck)?'#18794E':'#B45309'}
+        {type:'text',text:termsLabel,size:'xs',wrap:true,color:(identityAck||(!nativeConsent&&lineAck))?'#18794E':'#B45309'}
       ]},
       footer:{type:'box',layout:'horizontal',spacing:'sm',contents:[
         {type:'button',style:'primary',action:{type:'postback',label:'Confirm',data:approve,displayText:'Confirm '+bookingId}},
