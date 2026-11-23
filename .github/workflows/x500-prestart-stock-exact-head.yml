@@ -1,6 +1,15 @@
 name: X500 Stock Eligibility Exact-HEAD Regression
 
 on:
+  # Draft PR workflows may not trigger until the file exists on the base.
+  # Push-scoped CI runs on this exact non-production safety branch only.
+  push:
+    branches:
+      - fix/x500-prestart-stock-generator-20261121
+    paths:
+      - 'apps-script/Code.gs'
+      - 'tests/x500-prestart-stock-generator.test.js'
+      - '.github/workflows/x500-prestart-stock-exact-head.yml'
   pull_request:
     branches: [main]
     paths:
