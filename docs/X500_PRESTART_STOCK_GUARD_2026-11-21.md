@@ -87,3 +87,30 @@ No merge, Apps Script redeploy, customer booking, asset mutation, reservation
 transition, LINE provider operation or storefront release is implied by this
 candidate. Source equivalence, reviewer, exact-head CI, controlled rollout
 and authenticated acceptance remain required.
+
+
+## 2026-11-23 verified live health repair
+
+Owner-authorized **monitoring-only** change in the existing native source workbook,
+`10_Admin_Health_Check!A27:B27,D27`, leaving `C27` intact:
+- Before: label said pre-28-Nov; `B27=36` and `C27=CHECK`, all 36
+  matches in the 22–26 Nov window under the now-superseded stock rule.
+- New: on 21 Nov the cap is 1 PHONE-003; from 22 Nov the cap is
+  2 physical X500 phones. A result is flagged only if a published
+  X500 package exceeds the **applicable per-date physical handset cap**.
+  Phone-only, 200mm and 400mm packages remain alternative allocations
+  against one common phone pool; the 400mm lens count remains independently 1.
+- Live full-range read of `09_Web_Packages!B5:J3112` counted
+  **3,108 package rows**, 36 false positives under the old predicate, and
+  **0** violations against corrected date-specific cap.
+- Native post-write readback: `B27=0` and `C27=OK`; source asset
+  `02_Assets!F12` still `PUBLIC_BOOKING_START_2026-11-22`.
+  The publicly available 22-Nov CAT EXPO packages continue to show
+  `X500+200mm=2`, `X500+400mm=1`, phone-only `=2`.
+- No change to any customer, booking, event, prices, owner locks,
+  package inventory output, Apps Script deployment or Production Vercel.
+
+**Caveat:** This is a non-blocking health detection formula, not a
+transactional reservation, nor a signed Booking/LINE acceptance. If the
+asset availability date or stock count changes again, source generator
+and monitoring invariant must be changed together, with re-verification.
