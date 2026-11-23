@@ -64,7 +64,7 @@ test('real GAS source writes Terms acceptance in canonical Booking note under do
   assert.deepEqual(h.stats(),{writes:1,flushes:1,releases:2});
 });
 test('real GAS acceptance rejects foreign LINE actors, wrong request, revoked flag and reused dispatch keys',()=>{
-  for(const changed of [
+  for(const [caseIndex,changed] of [
     h=>h.payload({source_user_id:'U'+'1'.repeat(32)}),
     h=>h.payload({request_id:'line:'+'a'.repeat(48)}),
     h=>h.payload({terms_version:'KK-TERMS-EXPIRED'}),
@@ -72,12 +72,11 @@ test('real GAS acceptance rejects foreign LINE actors, wrong request, revoked fl
     h=>{h.props.KK_LINE_NATIVE_CONSENT_V1_ENABLED='false';return h.payload()},
     h=>{h.props.KK_LINE_NATIVE_CONSENT_DISPATCH_SECRET=h.props.KK_ADMIN_API_KEY;return h.payload()},
     h=>{h.row[2]='confirmed';return h.payload()}
-  ]){
+  ].entries()){
     const h=fixture();assert.throws(()=>h.accept(changed(h)));
     assert.equal(h.stats().writes,0);
-    assert.equal(h.stats().releases,[3,6].includes(
-      [ // per-case no-op placeholder for explicit checker consistency
-      ].length)?1:h.stats().releases);
+    assert.equal(h.stats().releases,[0,1,6].includes(caseIndex)?1:0,
+      'all acquired locks must release; early authorization rejects never acquire');
   }
 });
 test('GAS owner approval only enables Confirm after authenticated receipt; Reject remains possible',()=>{
