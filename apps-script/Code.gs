@@ -3556,12 +3556,6 @@ function kkApiDecideLineBookingPendingDurable_(payload) {
     const canonical=kkLineOwnerOutboxCanonical_(bookingId);
     const status=String(canonical.current[2]||'').toLowerCase().trim();
     const target=decision==='approve'?'confirmed':'cancelled';
-    if(!kkLineNativeConsentApprovalReady_(canonical.current[19],decision)){
-      // No canonical mutation, no owner outbox INTENT and no provider send.
-      return {booking_id:bookingId,decision:decision,booking_status:'pending',
-        terms_confirmation_required:true,idempotent_replay:true,
-        outbox_mode:KK_LINE_OWNER_OUTBOX_VERSION_,outbox_id:'',outbox_state:'CONSENT_REQUIRED'};
-    }
     const outboxId=kkLineOwnerOutboxId_(bookingId);
     let record=kkLineOwnerOutboxFind_(ledger,outboxId);
     if (record) kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId,canonical.contact,canonical.requestId);
@@ -3575,6 +3569,12 @@ function kkApiDecideLineBookingPendingDurable_(payload) {
       return kkLineOwnerOutboxEnvelope_(bookingId,decision,canonical,record,true);
     }
     if (status!=='pending') throw new Error('LINE_OWNER_OUTBOX_BOOKING_ALREADY_DECIDED');
+    if(!kkLineNativeConsentApprovalReady_(canonical.current[19],decision)){
+      // No canonical mutation, no owner outbox INTENT and no provider send.
+      return {booking_id:bookingId,decision:decision,booking_status:'pending',
+        terms_confirmation_required:true,idempotent_replay:true,
+        outbox_mode:KK_LINE_OWNER_OUTBOX_VERSION_,outbox_id:'',outbox_state:'CONSENT_REQUIRED'};
+    }
     if (record && record.cells[3]!=='INTENT')
       throw new Error('LINE_OWNER_OUTBOX_PENDING_STATE_CONFLICT');
     if (!record) {
@@ -3771,10 +3771,6 @@ function kkApiDecideLineBookingPending_(payload) {
 
     const currentStatus = String(current[2] || '').toLowerCase().trim();
     const targetStatus = decision === 'approve' ? 'confirmed' : 'cancelled';
-    if(!kkLineNativeConsentApprovalReady_(current[19],decision)){
-      return {booking_id:bookingId,decision:decision,booking_status:'pending',
-        terms_confirmation_required:true,idempotent_replay:true};
-    }
     if (currentStatus === targetStatus) {
       return {
         row_number: row,
@@ -3790,6 +3786,10 @@ function kkApiDecideLineBookingPending_(payload) {
     }
     if (currentStatus !== 'pending') {
       throw new Error('LINE pending booking already decided: ' + bookingId + ' / status=' + currentStatus);
+    }
+    if(!kkLineNativeConsentApprovalReady_(current[19],decision)){
+      return {booking_id:bookingId,decision:decision,booking_status:'pending',
+        terms_confirmation_required:true,idempotent_replay:true};
     }
 
     const next = current.slice();
