@@ -16,6 +16,7 @@ const InitialOutbox = require('./line-initial-durable-outbox');
 const TestAdmission = require('./kk-line-booking-test-admission');
 const TestTarget = require('./kk-line-booking-test-target');
 const NativeConsent = require('./line-booking-native-consent');
+const Intake = require('./line-booking-intake');
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 const PUBLIC_DATA_BASE = 'https://kk-phone-rental.vercel.app/api/kk-data';
@@ -303,6 +304,14 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
   const missingSender=!senderUserId;
   const invalidSender=readiness.ready && !LineIdentity.isUserId(senderUserId);
   const nonPrivateSender=readiness.ready && (!event.source || event.source.type!=='user');
+  if(NativeConsent.enabled(env) && readiness.ready && canonical){
+    // Validate timestamp, signed identity and canonical event ID BEFORE any
+    // Pending/outbox write. Consent issuance after mutation must never discover
+    // an expired or malformed event and strand a private owner notification.
+    NativeConsent.issue({bookingId:'BK-NATIVE-PREFLIGHT',
+      requestId:Intake.requestIdFromLineEvent(event),
+      userId:senderUserId,timestamp:event.timestamp},env);
+  }
   if(canonical && (!booking.nickname || invalidSender || nonPrivateSender)){
     const missingName=!booking.nickname;
     await replyFlex(event.replyToken,{
