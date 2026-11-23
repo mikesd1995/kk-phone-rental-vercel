@@ -281,6 +281,9 @@ async function processEvent(event, env=process.env, fetchImpl=fetch, options={})
   booking.poster_image_url=poster;
 
   const readiness=OwnerApproval.automationReadiness(env);
+  if(NativeConsent.enabled(env)&&!readiness.ready)
+    throw Object.assign(new Error('Canonical owner approval bindings unavailable'),
+      {code:'LINE_NATIVE_CONSENT_NOT_READY'});
   if(InitialOutbox.enabled(env)&&options.signatureVerified!==true){
     throw Object.assign(new Error('Verified initial notification event required'),
       {code:'LINE_INITIAL_OUTBOX_VERIFIED_EVENT_REQUIRED'});
