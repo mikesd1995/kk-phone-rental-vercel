@@ -4,7 +4,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const freshness=require('../api/lib/crm-freshness');
+const freshness=require('../server/crm-freshness');
 
 function manifest(lastSyncedAt,syncState='OK'){
   return [

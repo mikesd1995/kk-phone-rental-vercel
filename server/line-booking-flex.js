@@ -32,23 +32,28 @@ function buildBookingFlex({event={}, package:pkg={}, customer={}, booking={}}={}
   if(bookingId) rows.push({type:'text',text:'Booking ID  '+bookingId,size:'sm',weight:'bold',wrap:true,margin:'md'});
   if(nickname) rows.push({type:'text',text:'ชื่อผู้จอง  '+nickname,size:'sm',wrap:true,margin:'md'});
   if(pickup) rows.push({type:'text',text:'เวลารับอุปกรณ์  '+pickup,size:'sm',wrap:true});
+  // A LINE Reply is not a booking write. Only the canonical Booking ID readback
+  // permits the customer-facing card to say that a request was recorded.
+  const recorded=Boolean(bookingId);
   rows.push(
     {type:'separator',margin:'md'},
-    {type:'text',text:'ร้านได้รับคำขอเช่าแล้ว',weight:'bold',size:'sm',wrap:true,margin:'md'},
-    {type:'text',text:'กรุณารอร้านตรวจสอบคิวและยืนยันการจองอีกครั้ง',size:'xs',wrap:true,color:'#666666'}
+    {type:'text',text:recorded?'ร้านได้รับคำขอเช่าแล้ว':'ร้านได้รับข้อความสอบถามแล้ว',weight:'bold',size:'sm',wrap:true,margin:'md'},
+    {type:'text',text:recorded
+      ?'กรุณารอร้านตรวจสอบคิวและยืนยันการจองอีกครั้ง'
+      :'ยังไม่มีรายการจองในระบบ กรุณาติดต่อร้านเพื่อยืนยันคำขอเช่า',size:'xs',wrap:true,color:'#666666'}
   );
   const contents={
     type:'bubble',
     body:{
       type:'box',layout:'vertical',spacing:'sm',
       contents:[
-        {type:'text',text:'คำขอเช่า • รอตรวจสอบคิว',weight:'bold',size:'sm',color:'#666666',wrap:true},
+        {type:'text',text:recorded?'คำขอเช่า • รอตรวจสอบคิว':'สอบถามการเช่า • ยังไม่บันทึกจอง',weight:'bold',size:'sm',color:'#666666',wrap:true},
         {type:'text',text:name,weight:'bold',size:'xl',wrap:true,margin:'sm'},
         ...rows
       ]
     }
   };
   if(image) contents.hero={type:'image',url:image,size:'full',aspectRatio:'20:13',aspectMode:'cover'};
-  return {type:'flex',altText:('รับคำขอเช่าแล้ว • '+name).slice(0,400),contents};
+  return {type:'flex',altText:((recorded?'รับคำขอเช่าแล้ว • ':'ได้รับข้อความสอบถาม • ')+name).slice(0,400),contents};
 }
 module.exports={buildBookingFlex,httpsImageUrl};

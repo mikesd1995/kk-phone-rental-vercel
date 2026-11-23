@@ -7,8 +7,11 @@ on:
       - 'server/line-booking-webhook.js'
       - 'server/line-booking-intake.js'
       - 'server/line-booking-owner-approval.js'
+      - 'server/line-booking-deadline.js'
+      - 'server/kk-line-messaging-api.js'
       - 'apps-script/Code.gs'
       - 'tests/line-booking-*.test.js'
+      - 'tests/line-identity-owner-outbox-integration.test.js'
       - 'tests/line-webhook*.test.js'
       - 'tests/same-day-inventory-date-normalization.test.js'
       - '.github/workflows/booking-e2e-acceptance.yml'
@@ -47,12 +50,17 @@ jobs:
           node --check server/line-booking-webhook.js
           node --check server/line-booking-intake.js
           node --check server/line-booking-owner-approval.js
+          node --check server/line-booking-deadline.js
           node --check api/line-webhook.js
 
       - name: Booking E2E targeted regression
         run: |
           node --test \
             tests/line-booking-owner-approval.test.js \
+            tests/line-booking-owner-approval-replay-failclosed.test.js \
+            tests/line-booking-owner-approval-upstream-privacy.test.js \
+            tests/line-booking-network-deadline.test.js \
+            tests/line-identity-owner-outbox-integration.test.js \
             tests/line-booking-locked-intake-v4.test.js \
             tests/line-booking-intake.test.js \
             tests/line-booking-inbox-tee.test.js \

@@ -4,6 +4,9 @@
 window.KK_CONFIG = {
   appVersion:    "v16.7.0_CRM_PRO_PHASE3_9_5_4_BOOKING_STOCK_RESERVATION_FIX",
   expectedAdminApiVersion: "v16.6.2_LINE_AUDITED",
+  // Public opt-in only. Enable on a separately approved isolated carrier after
+  // its LINE Login, callback, session/consent and server flags are verified.
+  customerLoginEnabled: false,
   siteUrl:       "https://kk-phone-rental.vercel.app/",
 
   webSheetName:  "08_Web_Ready",

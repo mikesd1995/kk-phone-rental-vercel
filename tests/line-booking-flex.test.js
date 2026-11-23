@@ -29,7 +29,7 @@ test('builder has no send side effect or credential dependency',()=>{
 });
 
 test('confirmation UX clearly states request is pending shop review and avoids misleading calendar emoji',()=>{
- const m=buildBookingFlex({...base,event:{...base.event,poster_image_url:'https://example.com/poster.jpg'}});
+ const m=buildBookingFlex({...base,event:{...base.event,poster_image_url:'https://example.com/poster.jpg'},booking:{booking_id:'BK-SYNTHETIC-RECORDED'}});
  const s=JSON.stringify(m);
  assert.match(s,/คำขอเช่า • รอตรวจสอบคิว/);
  assert.match(s,/ร้านได้รับคำขอเช่าแล้ว/);
