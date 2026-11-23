@@ -324,6 +324,20 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     err.code='LINE_OWNER_DECISION_BOOKING_ID_MISMATCH';
     throw err;
   }
+  if(data.terms_confirmation_required===true){
+    if(decision!=='approve' || text(data.booking_status)!=='pending' ||
+       data.idempotent_replay!==true){
+      throw Object.assign(new Error('Native consent wait readback mismatch'),
+        {code:'LINE_NATIVE_CONSENT_READBACK_FAILED'});
+    }
+    if(event.replyToken){
+      await replyMessage(event.replyToken,{
+        type:'text',text:'⏳ ยังยืนยันการจองไม่ได้ ลูกค้าต้องกดยอมรับเงื่อนไขใน LINE ก่อน กรุณาลอง Confirm อีกครั้งหลังลูกค้ายืนยันค่ะ'
+      },env,fetchImpl);
+    }
+    return {handled:true,status:'WAITING_CUSTOMER_CONSENT',booking_id:parsed.booking_id,
+      customer_notifications:0,owner_notifications:0};
+  }
   // Current locked Apps Script writer returns the requested decision in
   // readback. A conflicting value blocks sends even if status looks plausible.
   // Missing value remains compatible with older deployment contracts.
