@@ -3731,7 +3731,8 @@ function kkApiAcceptLineBookingTerms_(payload){
     const replay=kkLineNativeConsentAccepted_(note);
     if(!replay){
       if(note.length>1200)throw new Error('LINE_NATIVE_CONSENT_NOTE_CAPACITY');
-      sh.getRange(row,20).setValue(note+' | '+kkLineNativeConsentMarker_());
+      sh.getRange(row,20).setValue(note+' | '+kkLineNativeConsentMarker_()+
+        ' | TERMS_AT:'+new Date().toISOString());
       SpreadsheetApp.flush();
     }
     const after=sh.getRange(row,1,1,20).getValues()[0];
