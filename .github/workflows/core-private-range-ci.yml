@@ -5,6 +5,7 @@ on:
     paths:
       - 'server/core-private-range-contract.js'
       - 'server/core-sheet-private-reader.js'
+      - 'docs/KK_CORE_PRIVATE_SCHEMA_ORDER_GATE_20261121.md'
       - 'scripts/core-private-cutover-preflight.cjs'
       - 'tests/core-private-cutover-preflight.test.js'
       - 'tests/core-apps-script-private-reader.test.js'
@@ -14,6 +15,7 @@ on:
     paths:
       - 'server/core-private-range-contract.js'
       - 'server/core-sheet-private-reader.js'
+      - 'docs/KK_CORE_PRIVATE_SCHEMA_ORDER_GATE_20261121.md'
       - 'scripts/core-private-cutover-preflight.cjs'
       - 'tests/core-private-cutover-preflight.test.js'
       - 'tests/core-apps-script-private-reader.test.js'
