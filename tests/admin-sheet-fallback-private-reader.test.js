@@ -63,9 +63,16 @@ test('strict Apps Script cache never reuses prior owner read-key snapshot after 
    KK_CORE_PRIVATE_TRANSPORT:'apps-script',
    KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/test_script/exec',
    KK_ADMIN_API_KEY:adminKey,KK_CORE_PRIVATE_READ_KEY:key1};
- const headers=Object.values(F.SPECS).reduce((m,c)=>{m[c.sheet]=c.header;return m;},{});
+ const {RANGE_SPECS}=require('../server/core-private-range-contract.js');
  let reads=0;
- appReader.readValues=async x=>{reads++;return [[headers[x.sheet]||'id']];};
+ appReader.readValues=async x=>{
+   reads++;
+   const exact=RANGE_SPECS.find(s=>s.sheet===x.sheet&&s.range===x.range);
+   assert.ok(exact,'unexpected private Admin range');
+   // Runtime schema validation needs the complete positional header, not only
+   // the former one-column cache fixture. Keep all 11 datasets synthetic.
+   return [Array.from(exact.orderedHeaders)];
+ };
  F.clearSnapshotCache();
  try{
    const first=await F.buildSnapshot({env,sheetId:env.GOOGLE_SHEET_ID,fetchImpl:noopFetch,cacheTtlMs:60000});
