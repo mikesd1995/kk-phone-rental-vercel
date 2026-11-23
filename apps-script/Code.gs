@@ -1772,6 +1772,7 @@ function doPost(e) {
       case 'createBooking': result = kkApiCreateBooking_(payload); break;
       case 'createLineBookingPending': result = kkApiCreateLineBookingPending_(payload); break;
       case 'acceptLineBookingTerms': result = kkApiAcceptLineBookingTerms_(payload); break;
+      case 'lineNativeConsentReadiness': result = kkApiLineNativeConsentReadiness_(payload); break;
       case 'decideLineBookingPending': result = kkApiDecideLineBookingPending_(payload); break;
       case 'lineOwnerOutboxReadiness': result = kkApiLineOwnerOutboxReadiness_(payload); break;
       case 'claimLineBookingDecisionDelivery': result = kkApiClaimLineBookingDecisionDelivery_(payload); break;
@@ -1789,7 +1790,7 @@ function doPost(e) {
       kkAuditLog_(action, {booking_id:payload.booking_id}, {
         booking_id:result.booking_id,outbox_id:result.outbox_id,state:result.state
       },startedAt);
-    } else if (action === 'acceptLineBookingTerms' ||
+    } else if (action === 'acceptLineBookingTerms' || action === 'lineNativeConsentReadiness' ||
         (action === 'decideLineBookingPending' && result && result.terms_confirmation_required===true)) {
       // Never log a customer LINE ID, recipient or private dispatcher credential.
       kkAuditLog_(action,{booking_id:payload.booking_id},{
@@ -1812,7 +1813,7 @@ function doPost(e) {
       if(keyOk)kkErrorLog_(action,{booking_id:String(payload.booking_id||'').trim()},safeError,startedAt);
       return kkApiJson_(Object.assign({admin_api_version:KK_ADMIN_VERSION},kkApiFail_(safeError)));
     }
-    if (keyOk && action === 'acceptLineBookingTerms') {
+    if (keyOk && (action === 'acceptLineBookingTerms' || action === 'lineNativeConsentReadiness')) {
       kkErrorLog_(action,{booking_id:String(payload.booking_id||'').trim()},
         new Error('LINE_NATIVE_CONSENT_ACTION_FAILED'),startedAt);
     } else if (keyOk && (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery')) {
@@ -3704,6 +3705,15 @@ function kkLineNativeConsentRequireDispatch_(payload){
   let difference=secret.length^supplied.length;
   for(let i=0;i<secret.length;i++)difference|=secret.charCodeAt(i)^(supplied.charCodeAt(i)||0);
   if(difference!==0)throw new Error('LINE_NATIVE_CONSENT_DISPATCH_DENIED');
+}
+function kkApiLineNativeConsentReadiness_(payload){
+  // A Vercel-side flag is not proof the deployed canonical writer enforces the
+  // same Terms gate. Signed test admission must read this exact version first.
+  kkLineNativeConsentRequireDispatch_(payload);
+  if(!kkLineInitialOutboxEnabled_() || !kkLineOwnerOutboxEnabled_())
+    throw new Error('LINE_NATIVE_CONSENT_OUTBOX_NOT_READY');
+  return {native_consent_ready:true,native_consent_version:'KK_LINE_NATIVE_CONSENT_V1',
+    terms_version:'KK-TERMS-2026-11-06'};
 }
 function kkApiAcceptLineBookingTerms_(payload){
   kkLineNativeConsentRequireDispatch_(payload);
