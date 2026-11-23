@@ -76,6 +76,22 @@ function parse(data,event,env={},now=Date.now()){
   return {booking_id:parts[1],request_id:parts[2],user_id:userId,
     terms_version:Terms.VERSION,issued_at:issuedAt};
 }
+async function preflightGas(env=process.env,fetchImpl=fetch,appsScriptCall){
+  if(!ready(env)||typeof appsScriptCall!=='function')
+    throw Object.assign(new Error('Native consent writer unavailable'),
+      {code:'LINE_NATIVE_CONSENT_NOT_READY'});
+  const result=await appsScriptCall({
+    action:'lineNativeConsentReadiness',
+    native_consent_dispatch_key:dispatchKey(env)
+  },env,fetchImpl);
+  const proof=result&&result.data||result||{};
+  if(proof.native_consent_ready!==true ||
+     str(proof.native_consent_version)!=='KK_LINE_NATIVE_CONSENT_V1' ||
+     str(proof.terms_version)!==Terms.VERSION)
+    throw Object.assign(new Error('Deployed native consent writer mismatch'),
+      {code:'LINE_NATIVE_CONSENT_READBACK_FAILED'});
+  return {ready:true};
+}
 function consentFooter(data){
   return {type:'box',layout:'vertical',spacing:'xs',contents:[
     {type:'text',text:'กรุณายืนยันการยอมรับเงื่อนไขก่อนร้านอนุมัติการจอง',size:'xs',
@@ -115,4 +131,4 @@ async function processPostback(event,env=process.env,fetchImpl=fetch,
   return {handled:true,status:proof.idempotent_replay?'ALREADY_ACCEPTED':'ACCEPTED',
     booking_id:accepted.booking_id};
 }
-module.exports={PREFIX,CONSENT_ACTION,enabled,dispatchKey,ready,issue,parse,consentFooter,processPostback};
+module.exports={PREFIX,CONSENT_ACTION,enabled,dispatchKey,ready,issue,parse,preflightGas,consentFooter,processPostback};
