@@ -53,8 +53,8 @@ test('signed consent token is per-booking, per-request, per-LINE user and time-b
   assert.match(t,/^kkc1\|BK-SYNTHETIC-2026-001\|line:[a-f0-9]{48}\|[0-9]{13}\|[A-Za-z0-9_-]{32}$/);
   assert.equal(Native.parse(t,event(t,STRANGER),e,NOW),null);
   assert.equal(Native.parse(t,{...userEvent,source:{type:'group',userId:CUSTOMER}},e,NOW),null);
-  assert.equal(Native.parse(t,event(t.replace(BID,BID+'x')),e,NOW),null);
-  assert.equal(Native.parse(t,event(t.replace(RID,'line:'+'e'.repeat(48))),e,NOW),null);
+  assert.equal(Native.parse(t.replace(BID,BID+'x'),event(t.replace(BID,BID+'x')),e,NOW),null);
+  assert.equal(Native.parse(t.replace(RID,'line:'+'e'.repeat(48)),event(t.replace(RID,'line:'+'e'.repeat(48))),e,NOW),null);
   assert.equal(Native.parse(t,userEvent,{...e,LINE_CHANNEL_SECRET:'rotated-secret'},NOW),null);
   assert.equal(Native.parse(t,userEvent,e,NOW+7*86400000+1),null);
   assert.throws(()=>Native.issue({bookingId:BID,requestId:RID,userId:CUSTOMER,
