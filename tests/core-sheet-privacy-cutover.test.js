@@ -169,7 +169,10 @@ test('Core security source contract includes private Health endpoint and forbids
   const browser=fs.readFileSync(path.join(__dirname,'../script.js'),'utf8');
   assert.match(health,/CorePrivacy\.enabled\(env\)/);
   assert.match(health,/CorePrivacy\.readValues\(/);
-  assert.match(proxy,/if\(corePrivateStrict\)\{/);
+  // The unified strict gate covers BOTH Core-private cutover and the legacy
+  // public-feed private-only flag; checking only the former misses the latter.
+  assert.match(proxy,/if\s*\(requirePrivate\)\s*\{/);
+  assert.match(proxy,/const requirePrivate = corePrivateStrict \|\| isTrue\(process\.env\.KK_PUBLIC_SHEET_REQUIRE_PRIVATE\)/);
   assert.doesNotMatch(browser,/12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU/);
 });
 
