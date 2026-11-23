@@ -10,6 +10,7 @@ on:
       - 'tests/core-private-cutover-preflight.test.js'
       - 'tests/core-apps-script-private-reader.test.js'
       - 'tests/core-sheet-privacy-cutover.test.js'
+      - 'tests/admin-sheet-fallback-private-reader.test.js'
       - '.github/workflows/core-private-range-ci.yml'
   push:
     paths:
@@ -20,6 +21,7 @@ on:
       - 'tests/core-private-cutover-preflight.test.js'
       - 'tests/core-apps-script-private-reader.test.js'
       - 'tests/core-sheet-privacy-cutover.test.js'
+      - 'tests/admin-sheet-fallback-private-reader.test.js'
       - '.github/workflows/core-private-range-ci.yml'
 
 permissions:
