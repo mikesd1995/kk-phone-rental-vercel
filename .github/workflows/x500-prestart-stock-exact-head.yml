@@ -1,0 +1,56 @@
+name: X500 Stock Eligibility Exact-HEAD Regression
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps-script/Code.gs'
+      - 'tests/x500-prestart-stock-generator.test.js'
+      - '.github/workflows/x500-prestart-stock-exact-head.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: x500-stock-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stock-eligibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact PR HEAD without retained credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check immutable source SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          echo "STOCK_TESTED_HEAD=$EXPECTED_SHA"
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Regression — booked phones, second-phone start date, shared lens/handset pool
+        run: node --test tests/x500-prestart-stock-generator.test.js
+
+      - name: Install locked dependencies without lifecycle side effects
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Static repository check
+        run: npm run check
+
+      - name: Full Node regression
+        run: npm test
