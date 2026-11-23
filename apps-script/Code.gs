@@ -1789,10 +1789,12 @@ function doPost(e) {
       kkAuditLog_(action, {booking_id:payload.booking_id}, {
         booking_id:result.booking_id,outbox_id:result.outbox_id,state:result.state
       },startedAt);
-    } else if (action === 'acceptLineBookingTerms') {
+    } else if (action === 'acceptLineBookingTerms' ||
+        (action === 'decideLineBookingPending' && result && result.terms_confirmation_required===true)) {
       // Never log a customer LINE ID, recipient or private dispatcher credential.
       kkAuditLog_(action,{booking_id:payload.booking_id},{
-        booking_id:result.booking_id,terms_confirmed:result.terms_confirmed,
+        booking_id:result.booking_id,terms_confirmed:result.terms_confirmed===true,
+        terms_confirmation_required:result.terms_confirmation_required===true,
         idempotent_replay:result.idempotent_replay
       },startedAt);
     } else if (action === 'lineOwnerOutboxReadiness' || action === 'claimLineBookingDecisionDelivery' || action === 'settleLineBookingDecisionDelivery' ||
@@ -3554,7 +3556,12 @@ function kkApiDecideLineBookingPendingDurable_(payload) {
     const canonical=kkLineOwnerOutboxCanonical_(bookingId);
     const status=String(canonical.current[2]||'').toLowerCase().trim();
     const target=decision==='approve'?'confirmed':'cancelled';
-    kkLineNativeConsentRequireApproval_(canonical.current[19],decision);
+    if(!kkLineNativeConsentApprovalReady_(canonical.current[19],decision)){
+      // No canonical mutation, no owner outbox INTENT and no provider send.
+      return {booking_id:bookingId,decision:decision,booking_status:'pending',
+        terms_confirmation_required:true,idempotent_replay:true,
+        outbox_mode:KK_LINE_OWNER_OUTBOX_VERSION_,outbox_id:'',outbox_state:'CONSENT_REQUIRED'};
+    }
     const outboxId=kkLineOwnerOutboxId_(bookingId);
     let record=kkLineOwnerOutboxFind_(ledger,outboxId);
     if (record) kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId,canonical.contact,canonical.requestId);
@@ -3681,9 +3688,8 @@ function kkLineNativeConsentMarker_(){return 'TERMS_ACK_BACKEND:KK-TERMS-2026-11
 function kkLineNativeConsentAccepted_(note){
   return String(note||'').split(' | ').indexOf(kkLineNativeConsentMarker_())>=0;
 }
-function kkLineNativeConsentRequireApproval_(note,decision){
-  if(kkLineNativeConsentEnabled_() && decision==='approve' && !kkLineNativeConsentAccepted_(note))
-    throw new Error('LINE_NATIVE_CONSENT_REQUIRED_BEFORE_APPROVAL');
+function kkLineNativeConsentApprovalReady_(note,decision){
+  return !kkLineNativeConsentEnabled_() || decision!=='approve' || kkLineNativeConsentAccepted_(note);
 }
 function kkLineNativeConsentRequireDispatch_(payload){
   if(!kkLineNativeConsentEnabled_())throw new Error('LINE_NATIVE_CONSENT_DISABLED');
@@ -3765,7 +3771,10 @@ function kkApiDecideLineBookingPending_(payload) {
 
     const currentStatus = String(current[2] || '').toLowerCase().trim();
     const targetStatus = decision === 'approve' ? 'confirmed' : 'cancelled';
-    kkLineNativeConsentRequireApproval_(current[19],decision);
+    if(!kkLineNativeConsentApprovalReady_(current[19],decision)){
+      return {booking_id:bookingId,decision:decision,booking_status:'pending',
+        terms_confirmation_required:true,idempotent_replay:true};
+    }
     if (currentStatus === targetStatus) {
       return {
         row_number: row,
