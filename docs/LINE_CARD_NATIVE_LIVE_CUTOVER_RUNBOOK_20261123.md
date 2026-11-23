@@ -33,6 +33,13 @@
 
 ## 3. Outbox schema เดิม — สร้างเฉพาะเมื่อ staging target ผ่าน inventory/backup/ACL
 
+> **P0 SECURITY HOLD (ตรวจสิทธิ์จริง 2026-11-23):** canonical Production Google Workbook มี Google Drive permission `anyone:reader` และ Vercel ยังคงมี fallback อ่าน Google GViz สาธารณะ แม้หน้าเว็บตั้ง `api-only`. ห้ามติดตั้ง outbox สองแท็บใน Workbook นี้ ณ สภาพปัจจุบัน เพราะ LINE IDs, ข้อมูลลูกค้า และ notification context ใน A:N / A:K จะเปิดอ่านตามสิทธิ์ไฟล์ทั้งหมด. Hide/Protect tab **ไม่ใช่สิทธิ์แยก**. อย่าเพิ่งปิด public reader โดยไม่ยืนยัน private transport; อาจทำหน้าเว็บ/ราคา/งานไม่ทำงาน.
+>
+> โค้ด GAS รุ่นใหม่มี **`kkLineNativeConsentRequirePrivateCore_`** บังคับตรวจ DriveApp sharing=`PRIVATE` ใน `lineNativeConsentReadiness`, `acceptLineBookingTerms`, การสร้าง Pending และการกด owner decision ก่อน write; ค่าที่เปิดอ่านสาธารณะ, domain-wide หรืออ่าน ACL ไม่ได้จะ **fail closed**. นี้เป็น safety guard ไม่ได้แก้การเปิดเผยข้อมูลที่มีอยู่ก่อน และไม่ใช่การรับรอง private reader.
+>
+> ก่อนเปิดใช้งานต้องทำ **private-reader migration** ของเว็บ/หลังบ้านแบบมี rollback: ตรวจ callback/fallback ทั้งหมดและ credential scope, ตั้ง private authenticated Server reader ที่อ่านเฉพาะ public views (`08_Web_Ready` / `09_Web_Packages`) และเช็ก parity กับ Production/Cache; ค่อยลบ `anyone:reader` ในจังหวะ controlled cutover; อ่านกลับ ACL ว่า private จริง และพิสูจน์หน้าเว็บ/ราคา/โปสเตอร์/จองยังไม่ผิด ก่อน provisioning Outbox. อีกทางเลือกคือย้าย Outbox/Consent ไป **owner-private workbook** ที่ GAS จัดการภายใต้ ScriptLock และ transaction/outbox proofs ที่รีวิวใหม่ทั้งหมด — ไม่ใช่แค่เพิ่มแท็บข้ามไฟล์แบบไร้ Lock.
+
+
 สคริปต์ **ไม่มี auto installer**, อย่ารัน generic sheet repair, อย่าสร้าง parallel ledger, และอย่าเขียนลง `00_Master_Booking` Production เพื่อทดสอบ
 
 **`20_Line_Initial_Outbox` — A1:N1, ชื่อ/ลำดับตรง 14 คอลัมน์:**
@@ -94,7 +101,7 @@ outbox_id | booking_id | decision | state | retry_key | provider_message_id | re
 
 ## 6. Production cutover และ rollback
 
-**Production gate ต้องผ่านทุกข้อพร้อมกัน:** exact-HEAD 8/8 CI; approved diff + independent review; staging UAT receipts ครบ; owner identity confirmed; GAS deployed source/headers/ACL verified; secrets exact matches; LINE provider delivery tested; Owner Locks/booking conflicts/stock preserved; rollback evidence
+**Production gate ต้องผ่านทุกข้อพร้อมกัน:** canonical workbook private ACL และ server-only public-feed transport/parity ที่ไม่พึ่ง GViz public; exact-HEAD 8/8 CI; approved diff + independent review; staging UAT receipts ครบ; owner identity confirmed; GAS deployed source/headers/ACL verified; secrets exact matches; LINE provider delivery tested; Owner Locks/booking conflicts/stock preserved; rollback evidence
 
 1. Freeze owner-lock/booking inventory, original Vercel production deployment/commit, original GAS version and Script Properties values, workbook/schema snapshot; มี authorized operator สำหรับ rollback
 2. Merge เฉพาะหลัง review ที่ exact SHA และ owner acceptance; deploy coordinated GAS + Vercel with verified credential/target binding. อย่าแก้ Production webhook เป็น Preview URL
@@ -102,6 +109,6 @@ outbox_id | booking_id | decision | state | retry_key | provider_message_id | re
 4. ถ้าส่งไม่สำเร็จ ให้ปิด native/automation flags และย้อน deployments ตาม manifest/backup; **ห้ามลบหรือ reset initial/decision outbox**, ห้าม retry `UNCERTAIN` แบบ blind, ห้ามสร้าง Booking ทดแทน event เดิม
 5. ยืนยัน Production readback, provider delivery และไม่มี duplicate/PII/Booking drift แล้วจึงปิด Issue #861
 
-**สถานะที่ตรวจครั้งล่าสุด 23 พ.ย. 2026:** PR #875 SOURCE CHECKS 8/8 ผ่าน; Preview READY; Production ยังอยู่ `ad69ffa...` ไม่ใช่ candidate. Production workbook 32 tabs **ไม่มี Outbox สองแท็บ**, owner LINE ID/verification และ matching native GAS deployed UAT ยังไม่มีหลักฐาน, independent approval 0, historical LINE Reply errors ยังไม่รู้ provider root cause. **สถานะ = RELEASE HOLD / NOT LIVE**, อย่าเขียนว่า DONE
+**สถานะที่ตรวจครั้งล่าสุด 23 พ.ย. 2026:** PR #875 SOURCE CHECKS 8/8 ผ่าน; Preview READY; Production ยังอยู่ `ad69ffa...` ไม่ใช่ candidate. Production workbook 32 tabs **ไม่มี Outbox สองแท็บ และมี Anyone/Reader ACL ที่ต้องแก้ก่อนติดตั้งข้อมูลส่วนตัว**, owner LINE ID/verification และ matching native GAS deployed UAT ยังไม่มีหลักฐาน, independent approval 0, historical LINE Reply errors ยังไม่รู้ provider root cause. **สถานะ = RELEASE HOLD / NOT LIVE**, อย่าเขียนว่า DONE
 
 **Source ของสถานะและการเปลี่ยนแปลง:** Issue #861 `https://github.com/mikesd1995/kk-phone-rental-vercel/issues/861`, PR #875 `https://github.com/mikesd1995/kk-phone-rental-vercel/pull/875`. เอกสารนี้เป็น Runbook ไม่ได้รันขั้นตอน Provisioning, รับสิทธิ์ผู้ใช้, GAS Deploy หรือ Live Provider UAT ด้วยตัวเอง
