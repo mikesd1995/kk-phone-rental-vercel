@@ -52,3 +52,28 @@ Follow-up after the initial atomic scope refresh:
 - Added a **push trigger restricted to the existing PR #721 Draft branch** on its offline test/helper paths because the `kk-poster-acl-offline.yml` workflow is *absent on default/main*. A PR-only workflow authored only on the head branch did not produce exact-current-head CI. GitHub Actions runs on `push` to this Draft branch must check out `github.sha`, not `main`; this should not mutate Drive/Sheets/Booking/Production.
 - The workflow explicitly checks exact Git SHA, runs Node syntax and unit tests without npm install, and has no secrets/permission-write steps. Record actual hosted result separately; **do not presume success until the run reports SUCCESS on the new exact SHA**.
 - This fix changes no Drive ACL, poster URL, owner locks, bookings, prices or data.
+
+
+## 23 Nov 2026 — fresh complete ACL census and draft-only regeneration
+
+**Supersedes 28 Oct 89/49/38 as a CURRENT scope.** The historical narrative above is retained as prior evidence, not an authorization to execute a stale script.
+
+### Live source-of-truth
+- Scope: Core `01_Events` joined by exact event ID with `08_Web_Ready`, only `show` / `show_full` event dates in Oct–Dec **2026**. This includes past event cards still marked visible in native data; it is not equivalent to a forward-only browser view or to every 2027 poster.
+- **143 Oct–Dec visible event-day cards** (Oct 36, Nov 46, Dec 61), **55 Drive thumbnail references**, **44 sorted unique current poster file IDs**.
+- Bounded live source join: **0 duplicate WebReady IDs, 0 visible Core orphans, 0 image URL mismatches, 0 event date mismatches**.
+- Read current Drive metadata directly for **all 44/44 unique IDs** in three bounded batches. Every item exists as an `image/jpeg` or `image/png`, has current `anyone/writer` plus owner and belongs directly to one of the two pinned Poster parent folders. **Zero non-image, zero 404, zero out-of-scope direct parent**.
+- Old pinned 38-image manifest now requires **11 additions** and **5 removals** to become the exact present 44-image allowlist. Removed IDs are NOT safe to delete or automatically rewrite; they are held as historical security scope.
+
+### Source-only remediation, no Drive write
+- Refreshed `ops/drive-security/kk-poster-acl-owner-review-20261013.gs` from 38 IDs + 89/49 to the exact verified 44 IDs + **143/55**; unchanged max **25 image-only permission changes per separate owner-fingerprint approval**, zero folder/archival writes, no triggers. Unknown future drift remains fail-closed.
+- `ops/drive-security/kk-poster-acl-READONLY-preflight-20261014.gs` is still a byte-identical copy of the owner's preflight prefix, contains **no `setSharing`**, no apply entrypoint or trigger.
+- Refreshed `ops/drive-security/kk-poster-acl-owner-review-20261013.test.cjs` synthetic fixtures to 143/55/44, mocked 47 image files + 4 folders (51 nodes total), approval batches 25+19, historical 209-image synthetic case, and all negative drift / private historical / ownership guards.
+- CI result must be read back for the exact final SHA; a green test does **not** grant permission to execute owner apply.
+
+### Outstanding P0 gates and rollback
+1. Require independent review of exactly which 44 IDs, the latest native source, all files/folders, and potential inherited permission behavior. Owner authenticated dry-run must inventory **every** descendant and produce a fresh exact metadata SHA-256 fingerprint.
+2. Only after separately reviewed fingerprint and owner approval may the owner-controlled Apps Script downgrade up to 25 **active image** permissions to `ANYONE_WITH_LINK / VIEW` per run; exact role readback plus signed-out browser poster rendering must follow each operation.
+3. Do **not** modify parent folders or 209 historical image synthetic scope via this active-only script; their real inventory and ACL must be independently rechecked and remediated. P0 [#718](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/718) remains OPEN.
+4. The connected Google Drive action set here exposes metadata and sharing invitations, **not an API action to update/delete an existing Anyone ACL**. No live rights were changed in this session, no credentials collected, no owner Dry Run represented as executed.
+5. Rollback of this branch-only change is confined to the source/test/doc commits; Production storefront, Core data, booking, customer, LINE and all Drive ACLs were untouched.
