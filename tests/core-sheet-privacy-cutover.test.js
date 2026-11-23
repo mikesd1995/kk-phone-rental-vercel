@@ -87,6 +87,30 @@ test('exact private Core allowlist is enforced for all 19 Core pairs before prov
   }
 });
 
+test('validates immutable Booking header order for every actual runtime Core read',async()=>{
+  const {RANGE_SPECS}=require('../server/core-private-range-contract.js');
+  const spec=RANGE_SPECS.find(s=>s.dataset==='bookings');
+  assert.ok(spec);
+  const original=privateSheets.readValues;
+  const canonical=Array.from(spec.orderedHeaders);
+  let calls=0;
+  try{
+    privateSheets.readValues=async()=>{calls++;return [canonical,['SYNTHETIC_BOOKING_ID','SYNTHETIC_PRIVATE_CONTACT']];};
+    const query={sheetId:authorized.GOOGLE_SHEET_ID,sheet:spec.sheet,range:spec.range,env:authorized};
+    const csv=await Core.readCsv(query);
+    const values=await Core.readValues(query);
+    assert.equal(values[0][5],canonical[5]);
+    assert.match(csv,/booking_id,created_at,booking_status/);
+    assert.equal(calls,2);
+    const shifted=canonical.slice();[shifted[5],shifted[6]]=[shifted[6],shifted[5]];
+    privateSheets.readValues=async()=>[shifted,['SECRET_PII_SHOULD_NOT_LEAK']];
+    for(const call of [()=>Core.readCsv(query),()=>Core.readValues(query)]){
+      await assert.rejects(call(),e=>e.code==='CORE_PRIVATE_SCHEMA_INVALID'&&
+        !/SECRET_PII|customer_phone|customer_contact/.test(e.message));
+    }
+  }finally{privateSheets.readValues=original;}
+});
+
 test('strict /api/kk-data responds 503 with NO public GViz when service-account credential is absent',async()=>{
   const old=global.fetch;
   let network=0;global.fetch=async()=>{network++;throw new Error('public network must never be contacted');};
@@ -102,9 +126,9 @@ test('strict /api/kk-data responds 503 with NO public GViz when service-account 
   }finally{global.fetch=old;}
 });
 test('strict /api/kk-data uses ONLY authenticated Core reader when CRM Sheet ID differs',async()=>{
-  const old=privateSheets.readValuesCsv,fetchOld=global.fetch;
+  const old=privateSheets.readValues,fetchOld=global.fetch;
   const reads=[];global.fetch=async()=>{throw new Error('GViz must not be used');};
-  privateSheets.readValuesCsv=async args=>{reads.push(args);return publicCsv;};
+  privateSheets.readValues=async args=>{reads.push(args);return publicCsv.split('\n').map(row=>row.split(','));};
   try{
     await envChange(authorized,async()=>{
       const response=res();await publicProxy(request,response);
@@ -117,12 +141,12 @@ test('strict /api/kk-data uses ONLY authenticated Core reader when CRM Sheet ID 
       assert.doesNotMatch(response.body,/OWNER_LOCKED_INTERNAL_ONLY|customer_phone|booking_id/);
       assert.doesNotMatch(JSON.stringify(response.headers),/test-core-sheet-id|reader@example/);
     });
-  }finally{privateSheets.readValuesCsv=old;global.fetch=fetchOld;}
+  }finally{privateSheets.readValues=old;global.fetch=fetchOld;}
 });
 test('strict mode never silently falls back to public if private read fails',async()=>{
-  const old=privateSheets.readValuesCsv,fetchOld=global.fetch;
+  const old=privateSheets.readValues,fetchOld=global.fetch;
   let network=0;global.fetch=async()=>{network++;throw new Error('public forbidden');};
-  privateSheets.readValuesCsv=async()=>{const e=new Error('simulated private outage');e.code='SIMULATED_PRIVATE_FAILURE';throw e;};
+  privateSheets.readValues=async()=>{const e=new Error('simulated private outage');e.code='SIMULATED_PRIVATE_FAILURE';throw e;};
   try{
     await envChange(authorized,async()=>{
       const response=res();await publicProxy(request,response);
@@ -131,7 +155,7 @@ test('strict mode never silently falls back to public if private read fails',asy
       assert.equal(network,0);
       assert.doesNotMatch(response.body,/simulated private outage|test-key/);
     });
-  }finally{privateSheets.readValuesCsv=old;global.fetch=fetchOld;}
+  }finally{privateSheets.readValues=old;global.fetch=fetchOld;}
 });
 test('Admin snapshot fallback inherits Core private requirement, including cache/read guard',async()=>{
   let network=0;
