@@ -4,7 +4,12 @@
 // Opt-in only: KK_CORE_SHEET_REQUIRE_PRIVATE=1 after strict owner acceptance.
 const privateSheets=require('../api/lib/private-google-sheets.js');
 const AppsScriptReader=require('./core-sheet-apps-script-reader.js');
+const {RANGE_SPECS}=require('./core-private-range-contract.js');
 const FLAG='KK_CORE_SHEET_REQUIRE_PRIVATE';
+// Exact allowed Core read pairs, shared with owner-bound Apps Script acceptance.
+// Syntactically valid but out-of-contract ranges (especially extra Booking/PII
+// columns) must never reach ANY provider, including legacy service accounts.
+const CORE_READ_RANGE_ALLOWLIST=new Set(RANGE_SPECS.map(s=>s.sheet+'!'+s.range));
 
 function enabled(env=process.env){
   return ['1','true','yes','on'].includes(String(env[FLAG]||'').trim().toLowerCase());
@@ -40,7 +45,9 @@ function verifiedRange(sheet,range){
   if(!/^[A-Za-z0-9_]+$/.test(tab)||!/^[A-Z]+[1-9]\d*:[A-Z]+\d*$|^[A-Z]+[1-9]\d*:[A-Z]+$|^[A-Z]+:[A-Z]+\d*$|^[A-Z]+:[A-Z]+$/.test(a1)){
     throw fail('CORE_PRIVATE_RANGE_INVALID');
   }
-  return tab+'!'+a1;
+  const exactPair=tab+'!'+a1;
+  if(!CORE_READ_RANGE_ALLOWLIST.has(exactPair))throw fail('CORE_PRIVATE_RANGE_INVALID');
+  return exactPair;
 }
 async function readCsv({sheetId,sheet,range,env=process.env}={}){
   const sid=requireExplicitPrivateSource(sheetId,env);
