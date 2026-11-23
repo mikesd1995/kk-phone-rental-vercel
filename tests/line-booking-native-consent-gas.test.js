@@ -58,6 +58,7 @@ test('real GAS source writes Terms acceptance in canonical Booking note under do
   assert.equal(first.terms_confirmed,true);assert.equal(first.booking_id,BID);
   assert.equal(first.booking_status,'pending');assert.equal(first.idempotent_replay,false);
   assert.match(h.row[19],/TERMS_ACK_BACKEND:KK-TERMS-2026-11-06/);
+  assert.match(h.row[19],/TERMS_AT:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z/);
   assert.deepEqual(h.stats(),{writes:1,flushes:1,releases:1});
   const replay=h.accept(h.payload());
   assert.equal(replay.idempotent_replay,true);
