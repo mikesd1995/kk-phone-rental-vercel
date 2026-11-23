@@ -71,8 +71,9 @@ test('fresh owner decision: provider push failure cannot ACK owner or log respon
   if(url.startsWith('https://script.google.com/'))return response(canonical('approve','BK-PUSH-REJECT'));
   return response(SECRET_MARKER,503);
  }),err=>err.code==='LINE_SEND_FAILED'&&err.status===503&&!err.message.includes(SECRET_MARKER));
- assert.equal(calls.length,2);
+ assert.equal(calls.length,3); // canonical + two bounded push attempts
  assert.match(calls[1],/\/push$/);
+ assert.match(calls[2],/\/push$/); // no owner reply after rejected push
 });
 test('fresh reject: provider push failure cannot ACK owner',async()=>{
  const calls=[];
@@ -81,8 +82,9 @@ test('fresh reject: provider push failure cannot ACK owner',async()=>{
   if(url.startsWith('https://script.google.com/'))return response(canonical('reject','BK-REJECT'));
   return response(SECRET_MARKER,500);
  }),err=>err.code==='LINE_SEND_FAILED'&&err.status===500);
- assert.equal(calls.length,2);
+ assert.equal(calls.length,3); // canonical + two bounded push attempts
  assert.match(calls[1],/\/push$/);
+ assert.match(calls[2],/\/push$/); // no owner reply after rejected push
 });
 test('canonical writer decision mismatch cannot trigger customer or owner message',async()=>{
  const calls=[];
@@ -164,6 +166,7 @@ test('owner decision suppresses owner reply on thrown customer LINE transport er
   if(url.startsWith('https://script.google.com/'))return response(canonical('approve','BK-TRANSPORT-FAIL'));
   throw Error('line socket failed '+SECRET_MARKER);
  }),err=>err.code==='LINE_SEND_TRANSPORT_FAILED'&&!err.message.includes(SECRET_MARKER));
- assert.equal(calls.length,2);
+ assert.equal(calls.length,3); // canonical + two bounded push attempts
  assert.match(calls[1],/\/push$/);
+ assert.match(calls[2],/\/push$/); // no owner reply after rejected push
 });

@@ -1,0 +1,33 @@
+name: LINE owner delivery safety regression
+on:
+  pull_request:
+    paths:
+      - 'server/line-booking-owner-approval.js'
+      - 'tests/line-owner-delivery-failure-regression-20261111.test.js'
+      - 'tests/line-booking-owner-approval-upstream-privacy.test.js'
+      - 'docs/LINE_DELIVERY_SAFETY_REGRESSION_20261111.md'
+      - '.github/workflows/line-owner-delivery-safety.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  delivery-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact owner delivery safety tests
+        run: node --test tests/line-owner-delivery-failure-regression-20261111.test.js
+      - name: Existing upstream privacy and owner decision regressions
+        run: node --test tests/line-booking-owner-approval-upstream-privacy.test.js
+      - name: Syntax checks
+        run: |
+          node --check server/line-booking-owner-approval.js
+          node --check tests/line-owner-delivery-failure-regression-20261111.test.js
+          node --check tests/line-booking-owner-approval-upstream-privacy.test.js

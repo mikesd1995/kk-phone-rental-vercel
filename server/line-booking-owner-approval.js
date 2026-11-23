@@ -159,12 +159,15 @@ function ownerApprovalMessage(ctx={},env=process.env){
     }
   };
 }
-async function sendLine(url,body,token,fetchImpl=fetch){
+async function sendLine(url,body,token,fetchImpl=fetch,retryKey=''){
+  // LINE retry keys work with push only, never with reply tokens.
+  const headers={Authorization:'Bearer '+text(token),'Content-Type':'application/json'};
+  if(retryKey && url===LINE_PUSH_URL) headers['X-Line-Retry-Key']=retryKey;
   let r;
   try{
     r=await fetchImpl(url,{
       method:'POST',
-      headers:{Authorization:'Bearer '+text(token),'Content-Type':'application/json'},
+      headers,
       body:JSON.stringify(body)
     });
   }catch(_){
@@ -174,6 +177,14 @@ async function sendLine(url,body,token,fetchImpl=fetch){
     throw err;
   }
   if(!r.ok){
+    // LINE documents HTTP 409 with an accepted request ID as a successful
+    // earlier acceptance of the SAME push request/retry key (valid 24 hours).
+    // Any other 409 is an error; never inspect/log provider response bodies.
+    if(retryKey && url===LINE_PUSH_URL && r.status===409 &&
+       r.headers && typeof r.headers.get==='function' &&
+       text(r.headers.get('x-line-accepted-request-id'))){
+      return {ok:true,accepted_replay:true};
+    }
     // Provider response text can reflect private recipient/message details.
     // Keep a fixed diagnostic and HTTP status; do not log upstream body.
     const err=new Error('LINE send failed');
@@ -183,8 +194,8 @@ async function sendLine(url,body,token,fetchImpl=fetch){
   }
   return {ok:true};
 }
-function pushMessage(to,message,env=process.env,fetchImpl=fetch){
-  return sendLine(LINE_PUSH_URL,{to,messages:[message]},env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
+function pushMessage(to,message,env=process.env,fetchImpl=fetch,retryKey=''){
+  return sendLine(LINE_PUSH_URL,{to,messages:[message]},env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl,retryKey);
 }
 function replyMessage(replyToken,message,env=process.env,fetchImpl=fetch){
   return sendLine(LINE_REPLY_URL,{replyToken,messages:[message]},env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
@@ -201,6 +212,42 @@ function customerDecisionMessage(decision,bookingId){
 }
 function ownerDecisionMessage(decision,bookingId){
   return {type:'text',text:(decision==='approve'?'✅ Confirmed ':'❌ Rejected ')+bookingId};
+}
+// A deterministic, recipient-bound UUID keeps LINE provider retry-key semantics
+// identical across the two attempts of one canonical decision. HMAC avoids
+// exposing raw booking or LINE recipient identifiers in the request header.
+function ownerDecisionRetryKey(decision,bookingId,recipient,env=process.env){
+  const secret=approvalSecret(env);
+  if(!secret || !bookingId || !recipient || !['approve','reject'].includes(decision)){
+    const err=new Error('Owner decision retry key inputs incomplete');
+    err.code='LINE_OWNER_DECISION_RETRY_KEY_UNAVAILABLE';
+    throw err;
+  }
+  const digest=crypto.createHmac('sha256',secret)
+    .update([VERSION,'customer-decision-push',decision,bookingId,recipient].join('|'),'utf8')
+    .digest();
+  const bytes=Buffer.from(digest.subarray(0,16));
+  bytes[6]=(bytes[6]&0x0f)|0x40;
+  bytes[8]=(bytes[8]&0x3f)|0x80;
+  const hex=bytes.toString('hex');
+  return [hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20)].join('-');
+}
+async function pushOwnerDecisionWithRetry(to,decision,bookingId,env=process.env,fetchImpl=fetch){
+  // Two attempts, one stable retry key and an unchanged payload. A transport
+  // timeout or 5xx may have been accepted upstream: a new key could duplicate.
+  // Do not retry 4xx/429. Do not retry canonical booking decisions here.
+  const key=ownerDecisionRetryKey(decision,bookingId,to,env);
+  const message=customerDecisionMessage(decision,bookingId);
+  for(let attempt=0;attempt<2;attempt++){
+    try{
+      return await pushMessage(to,message,env,fetchImpl,key);
+    }catch(err){
+      const transient=err && (err.code==='LINE_SEND_TRANSPORT_FAILED' ||
+        (err.code==='LINE_SEND_FAILED' && Number.isInteger(err.status) && err.status>=500));
+      if(attempt!==0 || !transient) throw err;
+      await new Promise(resolve=>setTimeout(resolve,250));
+    }
+  }
 }
 async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
   if(!event||event.type!=='postback'||!event.postback) return {handled:false};
@@ -260,7 +307,7 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
   // Customer delivery must finish before telling the owner the notification was sent.
   // This does not make the flow exactly-once: durable outbox/receipt is still required
   // to recover a committed decision after provider failure.
-  await pushMessage(customerUserId,customerDecisionMessage(decision,parsed.booking_id),env,fetchImpl);
+  await pushOwnerDecisionWithRetry(customerUserId,decision,parsed.booking_id,env,fetchImpl);
   if(event.replyToken){
     await replyMessage(event.replyToken,ownerDecisionMessage(decision,parsed.booking_id),env,fetchImpl);
   }
