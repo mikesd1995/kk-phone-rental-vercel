@@ -69,6 +69,40 @@ function kkStagingOpenPrivateWorkbook_(props) {
   return workbook;
 }
 
+// Synthetic-only invariant. An accidental paste of real Core rows into an
+// otherwise private staging file must NEVER become an unauthenticated feed.
+function kkStagingAssertSyntheticRows_(sheet, values) {
+  const eventId = /^EVT-[0-9]{8}-SYNTHETIC-[A-Za-z0-9_-]{1,80}$/;
+  const packageId = /^PKG-STAGING-[A-Za-z0-9_-]{1,80}$/;
+  const observed = Object.create(null);
+  let accepted = 0;
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (row.every(function(cell) { return !cell.trim(); })) continue;
+    const identity = String(row[0] || '');
+    if (!identity || observed[identity]) throw new Error('STAGING_DUPLICATE_OR_EMPTY_ID');
+    observed[identity] = true;
+    if (sheet === '08_Web_Ready') {
+      if (!eventId.test(identity)) throw new Error('STAGING_NON_SYNTHETIC_EVENT');
+    } else {
+      if (!packageId.test(identity) || !eventId.test(String(row[1] || '')))
+        throw new Error('STAGING_NON_SYNTHETIC_PACKAGE');
+      // Canonical 2026 package/lens enum contract, not decorative Lens 200/400
+      // labels; mismatched synthetic fixtures would yield false-green UI tests.
+      const model = row[3], kind = row[2], lens = row[5];
+      const phone = model === 'VIVO_X300_PRO' || model === 'VIVO_X500_PRO_MAX';
+      const combination = (kind === 'phone_only' && lens === 'NONE') ||
+        (kind === 'phone_lens_bundle' &&
+         (lens === 'ZEISS_2_35X' ||
+          (model === 'VIVO_X500_PRO_MAX' && lens === 'ZEISS_400MM')));
+      if (!phone || !combination)
+        throw new Error('STAGING_PACKAGE_ENUM_MISMATCH');
+    }
+    accepted++;
+  }
+  if (accepted === 0) throw new Error('STAGING_NO_SYNTHETIC_ROWS');
+}
+
 function kkStagingRead_(payload, props) {
   if (!payload || payload.action !== 'privateCoreRead' ||
       !kkStagingIsValidKey_(payload.readKey, props))
@@ -86,7 +120,7 @@ function kkStagingRead_(payload, props) {
   const source = workbook.getSheetByName(payload.sheet);
   if (!source) throw new Error('STAGING_TAB_MISSING');
   const last = source.getLastRow();
-  if (!Number.isSafeInteger(last) || last < 4 || last > 4000)
+  if (!Number.isSafeInteger(last) || last < 5 || last > 250)
     throw new Error('STAGING_ROW_LIMIT');
 
   const lastColumn = schema.range === 'A4:K' ? 'K' : 'N';
@@ -98,6 +132,7 @@ function kkStagingRead_(payload, props) {
   const actualHeaders = values[0].map(value => value.trim().toLowerCase());
   if (JSON.stringify(actualHeaders) !== JSON.stringify(schema.headers))
     throw new Error('STAGING_HEADER_MISMATCH');
+  kkStagingAssertSyntheticRows_(payload.sheet, values);
 
   return {ok:true,data:{spreadsheet_id:workbook.getId(),sheet:payload.sheet,
     range:payload.range,values:values}};
