@@ -10,6 +10,7 @@ on:
       - 'ops/drive-security/kk-poster-acl-owner-review-20261013.gs'
       - 'ops/drive-security/kk-poster-acl-READONLY-preflight-20261014.gs'
       - 'ops/drive-security/kk-poster-acl-owner-review-20261013.test.cjs'
+      - 'docs/KK_SECURITY_P0_ACL_SCOPE_REFRESH_20261028.md'
       - '.github/workflows/kk-poster-acl-offline.yml'
   pull_request:
     paths:
