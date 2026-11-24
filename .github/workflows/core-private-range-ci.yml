@@ -1,0 +1,75 @@
+name: Core Private Reader Schema Safety
+
+on:
+  pull_request:
+    paths:
+      - 'server/core-private-range-contract.js'
+      - 'server/admin-sheet-fallback.js'
+      - 'tests/core-private-range-contract.test.js'
+      - 'server/core-sheet-private-reader.js'
+      - 'server/core-sheet-apps-script-reader.js'
+      - 'tests/core-apps-script-untrusted-error.test.js'
+      - 'docs/KK_CORE_PRIVATE_SCHEMA_ORDER_GATE_20261121.md'
+      - 'scripts/core-private-cutover-preflight.cjs'
+      - 'tests/core-private-cutover-preflight.test.js'
+      - 'tests/core-apps-script-private-reader.test.js'
+      - 'tests/core-sheet-privacy-cutover.test.js'
+      - 'tests/admin-sheet-fallback-private-reader.test.js'
+      - '.github/workflows/core-private-range-ci.yml'
+  push:
+    branches: [fix/core-private-schema-order-gate-20261121]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-private-range-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-head-security-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout event SHA without retained credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Verify immutable head
+        shell: bash
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED"
+          printf 'EXACT_HEAD=%s\n' "$EXPECTED"
+
+      - name: Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install lockfile dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Privacy preflight and authentication tests
+        run: node --test tests/core-private-cutover-preflight.test.js tests/core-apps-script-private-reader.test.js tests/core-apps-script-untrusted-error.test.js tests/core-sheet-privacy-cutover.test.js tests/core-private-range-contract.test.js tests/admin-sheet-fallback-private-reader.test.js tests/core-read-only-key-isolation.test.js
+
+      - name: Static syntax check
+        run: npm run check
+
+      - name: Full repository regression and poster ACL policy
+        run: npm test
+
+      - name: Continuous invariant source gate
+        run: npm run audit:invariants
+
+      - name: Assert no provider keys or mutation authorization
+        run: |
+          test -z "${KK_CORE_PRIVATE_READ_KEY:-}"
+          test -z "${KK_ADMIN_API_KEY:-}"

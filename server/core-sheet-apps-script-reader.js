@@ -24,6 +24,40 @@ function scriptState(env=process.env){
 // exceptions must never be trusted even when they forge a matching prefix.
 const ownedErrors=new WeakSet();
 function err(code){const x=new Error(code);x.code=code;ownedErrors.add(x);return x;}
+// Bound the actual HTTP response before parsing, not merely its row count.
+const MAX_PRIVATE_JSON_BYTES=8*1024*1024;
+async function readBoundedJson(response){
+  const length=Number(response.headers&&response.headers.get&&response.headers.get('content-length'));
+  if(Number.isFinite(length)&&length>MAX_PRIVATE_JSON_BYTES){
+    if(response.body&&typeof response.body.cancel==='function')
+      Promise.resolve(response.body.cancel()).catch(()=>{});
+    throw err('CORE_APPS_SCRIPT_RESPONSE_INVALID');
+  }
+  const stream=response.body;
+  // Synthetic injected adapters may expose only json(); actual Node fetch has a stream.
+  if(!stream||typeof stream.getReader!=='function'){
+    const object=await response.json();
+    if(Buffer.byteLength(JSON.stringify(object),'utf8')>MAX_PRIVATE_JSON_BYTES)
+      throw err('CORE_APPS_SCRIPT_RESPONSE_INVALID');
+    return object;
+  }
+  const reader=stream.getReader();
+  let bytes=0;
+  const chunks=[];
+  try{
+    while(true){
+      const part=await reader.read();
+      if(part.done)break;
+      if(!(part.value instanceof Uint8Array)||part.value.byteLength>MAX_PRIVATE_JSON_BYTES-bytes){
+        Promise.resolve(reader.cancel()).catch(()=>{});
+        throw err('CORE_APPS_SCRIPT_RESPONSE_INVALID');
+      }
+      bytes+=part.value.byteLength;
+      chunks.push(Buffer.from(part.value));
+    }
+  }finally{reader.releaseLock();}
+  return JSON.parse(Buffer.concat(chunks,bytes).toString('utf8'));
+}
 async function readValues({sheetId,sheet,range,env=process.env,fetchImpl=global.fetch}={}){
   const state=scriptState(env);
   if(!state.configured)throw err('CORE_APPS_SCRIPT_NOT_CONFIGURED');
@@ -59,7 +93,10 @@ async function readValues({sheetId,sheet,range,env=process.env,fetchImpl=global.
           throw err('CORE_APPS_SCRIPT_BAD_REDIRECT');
     }
     if(!response.ok)throw err('CORE_APPS_SCRIPT_HTTP_FAILURE');
-    const body=await response.json().catch(()=>null);
+    const body=await readBoundedJson(response).catch(e=>{
+      if(ownedErrors.has(e)||e&&e.name==='AbortError')throw e;
+      return null;
+    });
     const p=body&&body.data;
     if(!body||body.ok!==true||!p||String(p.spreadsheet_id||'')!==canonical||
         String(p.sheet||'')!==String(sheet)||String(p.range||'')!==String(range)||
