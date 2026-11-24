@@ -105,8 +105,12 @@ function kkSafeStringify_(value, maxLen) {
 }
 
 function kkEnsurePhase1Sheets() {
-  kkEnsureCrmArchiveSheets_();
-  kkEnsureAdminLogSheets_();
+  const lock = kkAcquireDocumentLock_('owner setup sheets', 12000);
+  try {
+    kkEnsureCrmArchiveSheets_();
+    kkEnsureAdminLogSheets_();
+    SpreadsheetApp.flush();
+  } finally { lock.releaseLock(); }
   kkSafeAlert_('Phase 1 sheets are ready:\n- ' + KK.adminAuditLog + '\n- ' + KK.adminErrorLog);
 }
 
@@ -126,13 +130,18 @@ function kkEnsureAdminLogSheets_() {
 
 // PERFORMANCE FIX: O(1) Append instead of slow appendRow()
 function kkAppendRowSafe_(sheetName, row) {
+  let lock;
   try {
+    lock = kkAcquireDocumentLock_('append audit/error log', 12000);
     kkEnsureAdminLogSheets_();
     const sh = kkCanonicalWorkbook_().getSheetByName(sheetName);
     const targetRow = Math.max(sh.getLastRow() + 1, 2);
     sh.getRange(targetRow, 1, 1, row.length).setValues([row]);
+    SpreadsheetApp.flush();
   } catch (logErr) {
     Logger.log('Could not write to ' + sheetName + ': ' + (logErr && logErr.message ? logErr.message : logErr));
+  } finally {
+    if (lock) lock.releaseLock();
   }
 }
 
@@ -221,7 +230,6 @@ function kkPhase1Diagnostics_(payload) {
 }
 
 function kkShowPhase1Health() {
-  kkEnsureAdminLogSheets_();
   const d = kkPhase1Diagnostics_({});
   kkSafeAlert_(
     'KK Phone Rental Phase 1 Health\n\n' +
@@ -244,6 +252,8 @@ function kkShowPhase1Health() {
 // the same canonical Sheet. Script Properties are owner-controlled, not HTTP input.
 function kkCanonicalRuntimeBinding_() {
   const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('KK_CANONICAL_RUNTIME_ENABLED') !== '1')
+    throw new Error('CANONICAL_RUNTIME_DISABLED');
   const id = String(props.getProperty('KK_CANONICAL_WORKBOOK_ID') || '').trim();
   const scriptId = String(ScriptApp.getScriptId() || '').trim();
   const binding = String(props.getProperty('KK_CANONICAL_VERIFIED_BINDING') || '');
@@ -266,6 +276,8 @@ function kkCanonicalWorkbook_() {
 // by doPost. Do not infer or copy a binding from a different project.
 function kkBindCanonicalWorkbookFromEditor() {
   const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('KK_CANONICAL_RUNTIME_ENABLED') !== '0')
+    throw new Error('CANONICAL_BIND_REQUIRES_DISABLED');
   const id = String(props.getProperty('KK_CANONICAL_WORKBOOK_ID') || '').trim();
   const scriptId = String(ScriptApp.getScriptId() || '').trim();
   const active = SpreadsheetApp.getActiveSpreadsheet();
@@ -282,8 +294,11 @@ function kkBindCanonicalWorkbookFromEditor() {
   // Carry forward only the exact previously installed lens marker, never run
   // formula repair while binding. Missing/stale evidence requires owner review.
   const documentProps = PropertiesService.getDocumentProperties();
-  if (documentProps && documentProps.getProperty('KK_LENS_COMPAT_PATCH_VERSION') === KK_LENS_COMPAT_PATCH_VERSION)
-    props.setProperty('KK_LENS_COMPAT_PATCH_VERSION', KK_LENS_COMPAT_PATCH_VERSION);
+  if (!existing) {
+    if (documentProps && documentProps.getProperty('KK_LENS_COMPAT_PATCH_VERSION') === KK_LENS_COMPAT_PATCH_VERSION)
+      props.setProperty('KK_LENS_COMPAT_PATCH_VERSION', KK_LENS_COMPAT_PATCH_VERSION);
+    else props.deleteProperty('KK_LENS_COMPAT_PATCH_VERSION');
+  }
   props.setProperty('KK_CANONICAL_VERIFIED_BINDING', binding);
   return {ok:true,binding_verified:true};
 }
@@ -328,6 +343,8 @@ function kkGetValues_(sheetName, startRow, startCol, numCols) {
 }
 
 function kkSetupNamedRanges() {
+  const lock = kkAcquireDocumentLock_('owner setup named ranges', 12000);
+  try {
   const ss = kkCanonicalWorkbook_();
   KK_NAMED_RANGES.forEach(cfg => {
     ss.getNamedRanges()
@@ -1313,9 +1330,13 @@ function kkEnsureLensCompatibilityPatchInstalled_(forceOwnerRepair) {
   const props = PropertiesService.getScriptProperties();
   if (!forceOwnerRepair && props.getProperty('KK_LENS_COMPAT_PATCH_VERSION') === KK_LENS_COMPAT_PATCH_VERSION) return false;
   const lock = kkTryDocumentLock_('lens compatibility owner repair', 3000);
-  if (!lock) return false;
+  if (!lock) {
+    if (forceOwnerRepair) throw new Error('LENS_COMPAT_REPAIR_LOCK_BUSY');
+    return false;
+  }
   try {
     if (!forceOwnerRepair && props.getProperty('KK_LENS_COMPAT_PATCH_VERSION') === KK_LENS_COMPAT_PATCH_VERSION) return false;
+    props.deleteProperty('KK_LENS_COMPAT_PATCH_VERSION');
     kkEnsureZeissLensModelMaster_();
     kkRetireG2AssetsAndPackages_();
     kkRepairLensCompatibilityFormulas_();
@@ -1809,7 +1830,7 @@ function doPost(e) {
     action = String(payload.action || '').trim();
     if(action==='privateCoreRead') kkApiRequirePrivateReadKey_(payload);
     else kkApiRequireKey_(payload);
-    kkCanonicalRuntimeBinding_();
+    kkCanonicalWorkbook_();
     keyOk = true;
     let result;
 
