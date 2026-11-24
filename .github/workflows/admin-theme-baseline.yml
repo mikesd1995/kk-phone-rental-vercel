@@ -2,7 +2,7 @@ name: Admin CRM theme and customer metric acceptance
 on:
   pull_request:
     branches: [main]
-    paths: ['.github/workflows/admin-theme-acceptance.yml']
+    paths: ['admin/**','tests/admin-customer-metrics-scope.test.js','.github/workflows/admin-theme-baseline.yml']
 permissions:
   contents: read
 jobs:
