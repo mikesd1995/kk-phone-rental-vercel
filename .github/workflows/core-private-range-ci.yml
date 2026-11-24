@@ -5,6 +5,8 @@ on:
     paths:
       - 'server/core-private-range-contract.js'
       - 'server/core-sheet-private-reader.js'
+      - 'server/core-sheet-apps-script-reader.js'
+      - 'tests/core-apps-script-untrusted-error.test.js'
       - 'docs/KK_CORE_PRIVATE_SCHEMA_ORDER_GATE_20261121.md'
       - 'scripts/core-private-cutover-preflight.cjs'
       - 'tests/core-private-cutover-preflight.test.js'
@@ -16,6 +18,8 @@ on:
     paths:
       - 'server/core-private-range-contract.js'
       - 'server/core-sheet-private-reader.js'
+      - 'server/core-sheet-apps-script-reader.js'
+      - 'tests/core-apps-script-untrusted-error.test.js'
       - 'docs/KK_CORE_PRIVATE_SCHEMA_ORDER_GATE_20261121.md'
       - 'scripts/core-private-cutover-preflight.cjs'
       - 'tests/core-private-cutover-preflight.test.js'
@@ -62,7 +66,7 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Privacy preflight and authentication tests
-        run: node --test tests/core-private-cutover-preflight.test.js tests/core-apps-script-private-reader.test.js tests/core-sheet-privacy-cutover.test.js
+        run: node --test tests/core-private-cutover-preflight.test.js tests/core-apps-script-private-reader.test.js tests/core-apps-script-untrusted-error.test.js tests/core-sheet-privacy-cutover.test.js
 
       - name: Static syntax check
         run: npm run check

@@ -19,7 +19,9 @@ function state(env=process.env){
   const credentialsReady=!!privateSheets.credentialsFromEnv(env);
   // Never infer service-account from missing config. Owner selected Apps Script;
   // explicitly selected service-account remains legacy compatibility only.
-  const transport=String(env.KK_CORE_PRIVATE_TRANSPORT||'none').trim();
+  // Unknown configuration is untrusted and must never appear in diagnostics.
+  const candidate=String(env.KK_CORE_PRIVATE_TRANSPORT||'none').trim();
+  const transport=['none','apps-script','service-account'].includes(candidate)?candidate:'invalid';
   const appsScriptReady=transport==='apps-script'&&AppsScriptReader.scriptState(env).configured;
   const transportReady=transport==='apps-script'?appsScriptReady:transport==='service-account'?credentialsReady:false;
   return {
@@ -36,7 +38,7 @@ function requireExplicitPrivateSource(sheetId,env=process.env){
   if(!s.strict)throw fail('CORE_PRIVATE_CUTOVER_NOT_ENABLED');
   if(!s.explicitSheetId)throw fail('CORE_PRIVATE_SHEET_ID_NOT_CONFIGURED');
   if(String(sheetId||'').trim()!==s.sheetId)throw fail('CORE_PRIVATE_SHEET_ID_MISMATCH');
-  if(!s.transportReady)throw fail(s.transport==='none'?'CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED':s.transport==='apps-script'?'CORE_APPS_SCRIPT_NOT_CONFIGURED':'CORE_PRIVATE_CREDENTIALS_NOT_CONFIGURED');
+  if(!s.transportReady)throw fail(s.transport==='none'?'CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED':s.transport==='invalid'?'CORE_PRIVATE_TRANSPORT_INVALID':s.transport==='apps-script'?'CORE_APPS_SCRIPT_NOT_CONFIGURED':'CORE_PRIVATE_CREDENTIALS_NOT_CONFIGURED');
   return s.sheetId;
 }
 function verifiedRange(sheet,range){

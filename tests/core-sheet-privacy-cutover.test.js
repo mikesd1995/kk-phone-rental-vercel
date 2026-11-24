@@ -237,3 +237,19 @@ test('missing transport never silently selects a service account despite present
    e=>e.code==='CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED');
  assert.equal(Core.state(authorized).transport,'service-account');
 });
+test('invalid private transport is redacted and never authorizes provider reads',async()=>{
+ const marker='SYNTHETIC_PRIVATE_TRANSPORT_TOKEN';
+ const env={...authorized,KK_CORE_PRIVATE_TRANSPORT:marker};
+ const preflight=require('../scripts/core-private-cutover-preflight.cjs');
+ const state=Core.state(env);let calls=0;
+ assert.equal(state.transport,'invalid');assert.equal(state.configured,false);
+ assert.equal(state.transportReady,false);assert.equal(state.authMode,'none');
+ assert.doesNotMatch(JSON.stringify(state),/SYNTHETIC_PRIVATE_TRANSPORT_TOKEN/);
+ assert.throws(()=>Core.requireExplicitPrivateSource(env.GOOGLE_SHEET_ID,env),
+  e=>e.code==='CORE_PRIVATE_TRANSPORT_INVALID');
+ const result=await preflight.probe({env,reader:async()=>{calls++;throw Error('MUST_NOT_READ');}});
+ assert.equal(result.transport,'invalid');assert.equal(result.status,'NOT_READY');
+ assert.equal(result.datasets_checked,0);assert.equal(calls,0);
+ assert.doesNotMatch(JSON.stringify(result),/SYNTHETIC_PRIVATE_TRANSPORT_TOKEN/);
+ assert.equal(preflight.classify({code:'CORE_PRIVATE_TRANSPORT_INVALID'}),'CORE_PRIVATE_TRANSPORT_INVALID');
+});
