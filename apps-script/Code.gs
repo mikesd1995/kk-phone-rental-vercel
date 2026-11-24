@@ -345,15 +345,17 @@ function kkGetValues_(sheetName, startRow, startCol, numCols) {
 function kkSetupNamedRanges() {
   const lock = kkAcquireDocumentLock_('owner setup named ranges', 12000);
   try {
-  const ss = kkCanonicalWorkbook_();
-  KK_NAMED_RANGES.forEach(cfg => {
-    ss.getNamedRanges()
-      .filter(nr => nr.getName() === cfg.name)
-      .forEach(nr => nr.remove());
-    ss.setNamedRange(cfg.name, kkSheet_(cfg.sheet).getRange(cfg.a1));
-  });
-  kkEnsureCrmArchiveSheets_();
-  kkEnsureAdminLogSheets_();
+    const ss = kkCanonicalWorkbook_();
+    KK_NAMED_RANGES.forEach(cfg => {
+      ss.getNamedRanges()
+        .filter(nr => nr.getName() === cfg.name)
+        .forEach(nr => nr.remove());
+      ss.setNamedRange(cfg.name, kkSheet_(cfg.sheet).getRange(cfg.a1));
+    });
+    kkEnsureCrmArchiveSheets_();
+    kkEnsureAdminLogSheets_();
+    SpreadsheetApp.flush();
+  } finally { lock.releaseLock(); }
   kkSafeAlert_('Named ranges have been created/repaired: ' + KK_NAMED_RANGES.length + '\nArchive/customer/log sheets checked.');
 }
 
