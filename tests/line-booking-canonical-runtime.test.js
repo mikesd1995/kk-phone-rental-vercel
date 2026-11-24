@@ -176,3 +176,62 @@ test('canonical source keeps editor binding isolated and no nested auto-repair o
   const dispatch=source.slice(source.indexOf('function doPost('),source.indexOf('function doGet('));
   assert.doesNotMatch(dispatch,/case 'kkBindCanonicalWorkbookFromEditor'/);
 });
+
+test('actual template allocation distinguishes all five rental packages and refuses ambiguous historical rows',()=>{
+  const {context:c}=fixture();
+  const rows=[
+    ['TPL-X300-PHONE','VIVO_X300_PRO','phone_only','NONE',590,'X300',null,true],
+    ['TPL-X300-200','VIVO_X300_PRO','phone_lens_bundle','ZEISS_2_35X',790,'X300 200mm',null,true],
+    ['TPL-X500-PHONE','VIVO_X500_PRO_MAX','phone_only','NONE',1090,'X500',null,true],
+    ['TPL-X500-200','VIVO_X500_PRO_MAX','phone_lens_bundle','ZEISS_2_35X',1290,'X500 200mm',null,true],
+    ['TPL-X500-400','VIVO_X500_PRO_MAX','phone_lens_bundle','ZEISS_400MM',1590,'X500 400mm',null,true]
+  ];
+  c.kkGetValues_=()=>rows;
+  const calls=[];
+  c.kkFindAvailableAsset_=(kind,group)=>{calls.push([kind,group]);return kind+'-'+group;};
+  for(const [id,model,type,lens,price] of rows){
+    calls.length=0;
+    const booking=Array(20).fill('');
+    booking[8]=type;
+    booking[19]=c.kkBookingNoteWithTemplate_('synthetic',id,price);
+    c.kkAssignMissingAssetsForPreparedBooking_(booking,'confirmed','2026-12-11');
+    assert.deepEqual(calls,[],'confirmation never allocates');
+    c.kkAssignMissingAssetsForPreparedBooking_(booking,'prepared','2026-12-11');
+    assert.equal(booking[9],'phone-'+model);
+    assert.equal(booking[10],lens==='NONE'?'':'lens-'+lens);
+    assert.equal(c.kkBookingQuotedPriceFromNote_(booking[19]),price);
+  }
+  for(const type of ['phone_only','phone_lens_bundle']){
+    const legacy=Array(20).fill('');legacy[8]=type;
+    assert.throws(()=>c.kkAssignMissingAssetsForPreparedBooking_(legacy,'prepared','2026-12-11'),/TEMPLATE_OWNER_REVIEW_REQUIRED/);
+    assert.equal(legacy[9],'');
+  }
+  const bad=Array(20).fill('');bad[8]='phone_only';
+  bad[19]=c.kkBookingNoteWithTemplate_('synthetic','TPL-X500-400',1590);
+  assert.throws(()=>c.kkAssignMissingAssetsForPreparedBooking_(bad,'prepared','2026-12-11'),/template\/type mismatch/);
+});
+
+test('locked strict Web Package lookup rejects missing or duplicate template before bookability filtering',()=>{
+  const {context:c}=fixture();
+  const row={package_id:'EVT-SYNTHETIC-TPL-X500-PHONE',event_id:'EVT-SYNTHETIC',
+    price:1090,available_count:1,package_status:'available',
+    package_type:'phone_only',model_group:'VIVO_X500_PRO_MAX',lens_group:'NONE'};
+  c.kkApiWebPackageRows_=()=>[row];
+  const exact=c.kkAssertWebPackageBookable_('EVT-SYNTHETIC','TPL-X500-PHONE',true);
+  assert.equal(exact.price,1090);
+  const spec={package_type:'phone_only',model_group:'VIVO_X500_PRO_MAX',lens_group:'NONE'};
+  assert.equal(c.kkLineVerifiedQuote_(exact,spec,'1,090 บาท'),1090);
+  assert.throws(()=>c.kkLineVerifiedQuote_(exact,spec,'1,290 บาท'),/QUOTE_CHANGED/);
+  c.kkApiWebPackageRows_=()=>[row,{...row,available_count:0,package_status:'hidden'}];
+  assert.throws(()=>c.kkAssertWebPackageBookable_('EVT-SYNTHETIC','TPL-X500-PHONE',true),/ambiguous/);
+  c.kkApiWebPackageRows_=()=>[];
+  assert.throws(()=>c.kkAssertWebPackageBookable_('EVT-SYNTHETIC','TPL-X500-PHONE',true),/ambiguous/);
+});
+
+test('booking price formula honors locked quote before historical price lookup without writing live formulas',()=>{
+  const {context:c}=fixture();
+  const formula=c.kkFormulaBookingPrice_(47);
+  assert.match(formula,/REGEXEXTRACT\(T47,"\\\[KK_QUOTE:/);
+  assert.match(formula,/SUMIFS\('09_Web_Packages'/);
+  assert.ok(formula.indexOf('KK_QUOTE')<formula.indexOf('SUMIFS'));
+});
