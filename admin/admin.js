@@ -27,7 +27,7 @@
   const signedSession = typeof window!=="undefined" && window.KK_ADMIN_SIGNED_SESSION===true;
   const state = {
     pin: safeSessionGet("kk_admin_pin") || (signedSession ? "__SESSION__" : ""),
-    data: null, loading: false, posterWarning: "", selectedCustomerKey: "", editBookingId: "",
+    data: null, customerArchive: null, loading: false, posterWarning: "", selectedCustomerKey: "", editBookingId: "",
     actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "",
     reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "",
     pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false,
@@ -680,7 +680,7 @@
     const groups=new Map();
     (bookings||[]).forEach(b=>{
       const id=String(b && b.booking_id||"").trim();
-      if(!id) return;
+      if(!id || !normalizeBookingStatus(b.booking_status)) return;
       if(!groups.has(id)) groups.set(id,[]);
       groups.get(id).push(b);
     });
@@ -725,9 +725,49 @@
   function bookingMatchesCustomer(b, customer){
     return !!(b && customer && customer.customer_key && bookingCustomerKey(b)===String(customer.customer_key));
   }
+  function crmMasterProjection(rows){
+    return (rows||[]).filter(b=>String(b.booking_id||"").trim()&&normalizeBookingStatus(b.booking_status)).map(b=>JSON.stringify([String(b.booking_id).trim(),String(b.event_id||"").trim(),normalizeBookingStatus(b.booking_status)])).sort();
+  }
+  function reconcileCustomerArchive(snapshot, projection){
+    if(!snapshot || !projection || !Array.isArray(projection.master) || !Array.isArray(projection.archive)) return null;
+    const master=snapshot.bookings||[];
+    if(JSON.stringify(crmMasterProjection(master))!==JSON.stringify(crmMasterProjection(projection.master))) return null;
+    const active=master.filter(b=>String(b.booking_id||"").trim()&&normalizeBookingStatus(b.booking_status));
+    if(customerMetricBookings(active).length!==active.length) return null;
+    const archive=projection.archive;
+    if(archive.some(b=>!b||b.archived!==true||!String(b.booking_id||"").trim()||!normalizeBookingStatus(b.booking_status))) return null;
+    if(customerMetricBookings(archive).length!==archive.length) return null;
+    const byId=new Map(active.map(b=>[String(b.booking_id).trim(),b]));
+    const result=[];
+    for(const b of archive){
+      const current=byId.get(String(b.booking_id).trim());
+      if(current){
+        // Same verified booking can exist in both tables during cleanup.
+        // Any conflicting historical ID needs owner reconciliation, not guessing.
+        if(String(current.event_id||"").trim()!==String(b.event_id||"").trim()||bookingCustomerKey(current)!==bookingCustomerKey(b)||normalizeBookingStatus(current.booking_status)!==normalizeBookingStatus(b.booking_status))return null;
+        continue;
+      }
+      result.push(b);
+    }
+    return result;
+  }
+  function crmArchiveReady(){return Array.isArray(state.customerArchive);}
+  function crmBookingRows(){
+    return ((state.data||{}).bookings||[]).concat(crmArchiveReady()?state.customerArchive:[]);
+  }
   function customerBookings(customer){
-    const d=state.data||{};
-    return sortedBookings(customerMetricBookings(d.bookings).filter(b=>bookingMatchesCustomer(b, customer)));
+    return sortedBookings(customerMetricBookings(crmBookingRows()).filter(b=>bookingMatchesCustomer(b, customer)));
+  }
+  async function loadCustomerArchive(snapshot){
+    try{
+      const res=await fetch("/api/kk-admin?action=customerHistory",{method:"GET",headers:{"X-Admin-Pin":state.pin},cache:"no-store"});
+      if(!res.ok)throw Error("CRM_HISTORY_UNAVAILABLE");
+      const body=await res.json();
+      const archive=body.ok===true?reconcileCustomerArchive(snapshot,body.data):null;
+      if(state.data!==snapshot||snapshotState.stale)return;
+      state.customerArchive=archive;
+      if(archive!==null)render();
+    }catch(_){/* Keep labeled master-only metrics; do not block Admin operational refresh. */}
   }
   function findBookingByRow(rowNumber){
     const row=String(rowNumber||'').trim();
@@ -922,7 +962,7 @@
     const analytics=customerAnalytics(customer, bookings);
     const trust=trustProfile(analytics);
     const issues=customerQualityIssues(customer, bookings, analytics);
-    if(customerMetricBookings((state.data||{}).bookings).length!==((state.data||{}).bookings||[]).length) issues.push({type:"warn",text:"พบ Booking ID ซ้ำหรือขาด ID ใน Master; ไม่นำรายการกำกวมมาคำนวณ"});
+    if(!crmArchiveReady()) issues.push({type:"warn",text:"ยังไม่ยืนยันประวัติ Archive · แสดงเฉพาะ Master ไม่ใช่ยอดตลอดอายุลูกค้า"});
     detailName.textContent=customer.customer_name || "ไม่ระบุชื่อ";
     if(detailMeta) detailMeta.textContent=[customer.customer_phone, customer.customer_contact].filter(Boolean).join(" / ") || "ไม่มีเบอร์หรือ LINE ในระบบ";
     if(profile){
@@ -931,17 +971,16 @@
         <div class="crm-profile-main">
           <div class="crm-profile-line"><strong>${esc(customer.customer_name||'ไม่ระบุชื่อ')}</strong><span class="trust-badge ${esc(trust.cls)}">${esc(trust.level)} · ${esc(trust.score)}/100</span></div>
           <div class="crm-contact-line">${esc([customer.customer_phone,customer.customer_contact].filter(Boolean).join(' · ') || 'ยังไม่มีข้อมูลติดต่อ')}</div>
-          <div class="crm-note-line">${esc(trust.note)}</div><div class="crm-note-line">Trust Score จาก Master เท่านั้น · ประวัติย้อนหลังยังไม่ผ่านการกระทบยอด</div>
+          <div class="crm-note-line">${esc(trust.note)}</div><div class="crm-note-line">${crmArchiveReady()?"Trust Score จาก Master + Archive ที่กระทบยอดแล้ว":"Trust Score จาก Master เท่านั้น · ประวัติย้อนหลังยังไม่ผ่านการกระทบยอด"}</div>
         </div>
       </div>`;
     }
     checklist.innerHTML=[
-      [analytics.completed_count,"เช่าสำเร็จใน Master"],
-      [analytics.booking_count,"Booking ใน Master (ID ไม่ซ้ำ)"],
+      [analytics.completed_count,crmArchiveReady()?"เช่าสำเร็จรวม":"เช่าสำเร็จใน Master"],
+      [analytics.booking_count,crmArchiveReady()?"Booking รวม (ID ไม่ซ้ำ)":"Booking ใน Master (ID ไม่ซ้ำ)"],
       [analytics.active_count,"Active ตอนนี้"],
       [analytics.cancelled_count,"ยกเลิก"],
       [analytics.no_show_count,"ไม่มาตามนัด"],
-      [customer.archive_reported_count===null?"ไม่ทราบ":customer.archive_reported_count,"ยอด Archive เดิม (ยังไม่กระทบยอด)"],
       [money(analytics.total_revenue),"มูลค่าคิวที่นับในรายงาน"],
       [fmtDate(analytics.last_event_date)||"-","ล่าสุด"]
     ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
@@ -951,7 +990,7 @@
       </div>`;
     }
     if(timeline){
-      timeline.innerHTML=`<div class="section-title-row"><h3>Customer Timeline</h3><small>เฉพาะ Master Booking ที่มี ID ไม่ซ้ำ · ไม่รวม Archive</small></div><div class="timeline">${lifecycleTimeline(bookings)}</div>`;
+      timeline.innerHTML=`<div class="section-title-row"><h3>Customer Timeline</h3><small>${crmArchiveReady()?"Master + Archive · แสดง 12 รายการล่าสุด":"เฉพาะ Master Booking ที่มี ID ไม่ซ้ำ · ไม่รวม Archive"}</small></div><div class="timeline">${lifecycleTimeline(bookings)}</div>`;
     }
     table(tableEl,[
       {label:"วันที่งาน",render:r=>esc(fmtDate(r.event_date))},
@@ -962,7 +1001,7 @@
       {label:"Booking",render:r=>{ const st=String(r.booking_status||'').toLowerCase(); const cls=['cancelled','no_show'].includes(st)?'bad':(['returned','uploaded','completed'].includes(st)?'ok':'warn'); return `<span class="pill ${cls}">${esc(bookingLifecycleLabel(r.booking_status))}</span>`; }},
       {label:"Payment",render:r=>`<span class="pill ${String(r.payment_status).toLowerCase()==='paid'?'ok':'bad'}">${esc(r.payment_status||'')}</span>`},
       {label:"รับแล้ว",render:r=>esc(money(r.amount_received||0))},
-      {label:"Action",render:r=>`<div class="inline-actions"><button class="mini-btn" type="button" data-edit-booking-row="${esc(r.row_number||'')}">แก้</button><button class="mini-btn" type="button" data-copy-line="summary" data-row="${esc(r.row_number||'')}">LINE</button></div>`}
+      {label:"Action",render:r=>r.archived?'<span class="pill">Archive · อ่านอย่างเดียว</span>':`<div class="inline-actions"><button class="mini-btn" type="button" data-edit-booking-row="${esc(r.row_number||'')}">แก้</button><button class="mini-btn" type="button" data-copy-line="summary" data-row="${esc(r.row_number||'')}">LINE</button></div>`}
     ], bookings);
   }
 
@@ -2700,7 +2739,7 @@
     const actionRows=buildActionRows(d);
     const shownActionRows=filterActionRows(actionRows);
     renderActionToolbar(actionRows);
-    const customerHistory=customerHistoryRows(bookings, customers);
+    const customerHistory=customerHistoryRows(crmBookingRows(), crmArchiveReady()?[]:customers);
     const openEvents=openEventRowsAll.length;
     const phones=assets.filter(a=>a.asset_type==="phone" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
     const lenses=assets.filter(a=>a.asset_type==="lens" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
@@ -2817,7 +2856,7 @@
     table($("#customerStatsTable"),[
       {label:"ลูกค้า",key:"customer_name"},
       {label:"ติดต่อ",render:r=>esc([r.customer_contact,r.customer_phone].filter(Boolean).join(" / "))},
-      {label:"เช่าสำเร็จใน Master",render:r=>esc(r.rental_count||0)},
+      {label:crmArchiveReady()?"เช่าสำเร็จรวม":"เช่าสำเร็จใน Master",render:r=>esc(r.rental_count||0)},
       {label:"เช่าล่าสุด",render:r=>esc(fmtDate(r.last_rental_date))},
       {label:"งานล่าสุด",key:"last_event_name"},
       {label:"CRM",render:r=>`<button class="mini-btn" type="button" data-customer-key="${esc(r.customer_key)}">ดูประวัติ</button>`}
@@ -2831,7 +2870,7 @@
     table($("#customersTable"),[
       {label:"ลูกค้า",key:"customer_name"},
       {label:"เบอร์/LINE",render:r=>esc([r.customer_phone,r.customer_contact].filter(Boolean).join(" / "))},
-      {label:"เช่าสำเร็จใน Master",render:r=>`<strong>${esc(r.rental_count||0)}</strong> ครั้ง`},
+      {label:crmArchiveReady()?"เช่าสำเร็จรวม":"เช่าสำเร็จใน Master",render:r=>`<strong>${esc(r.rental_count||0)}</strong> ครั้ง`},
       {label:"เช่าล่าสุด",render:r=>esc(fmtDate(r.last_rental_date))},
       {label:"งานล่าสุด",key:"last_event_name"},
       {label:"ดู",render:r=>`<button class="mini-btn${String(state.selectedCustomerKey)===String(r.customer_key)?' active':''}" type="button" data-customer-key="${esc(r.customer_key)}">ดูประวัติ</button>`}
@@ -2960,6 +2999,7 @@
       snapshotState.health=health;
       if(!health.ok) throw new Error("Snapshot rejected: "+health.issues.join("; "));
       state.data=data.data;
+      state.customerArchive=null;
       snapshotState.stale=false;
       snapshotState.error="";
       snapshotState.goodAt=snapshotState.checkedAt;
@@ -2968,6 +3008,7 @@
       renderSnapshotStatus();
       render();
       loadRentalAnalytics();
+      void loadCustomerArchive(state.data);
       const backendVersion = state.data.admin_api_version || (state.data.phase1_diagnostics && state.data.phase1_diagnostics.admin_api_version) || "";
       if(state.data.phase1_diagnostics?.fallback_mode!==true && backendVersion && backendVersion !== EXPECTED_BACKEND_VERSION){
         showNotice("Version ไม่ตรงกัน: Admin UI "+KK_ADMIN_UI_VERSION+" / Expected Apps Script "+EXPECTED_BACKEND_VERSION+" แต่ Apps Script จริงคือ "+backendVersion, "bad");
