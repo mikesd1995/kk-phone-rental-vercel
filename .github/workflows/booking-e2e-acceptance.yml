@@ -58,6 +58,7 @@ jobs:
           node --check server/line-booking-deadline.js
           node --check api/line-webhook.js
           node --check < apps-script/staging/Code.gs
+          node --check < apps-script/Code.gs
 
       - name: Booking E2E targeted regression
         run: |
@@ -65,6 +66,7 @@ jobs:
             tests/line-booking-flex.test.js \
             tests/line-card-provider-bounds.test.js \
             tests/kk-staging-private-gas.test.js \
+            tests/line-booking-canonical-runtime.test.js \
             tests/line-booking-owner-approval.test.js \
             tests/line-booking-owner-approval-replay-failclosed.test.js \
             tests/line-booking-owner-approval-upstream-privacy.test.js \
