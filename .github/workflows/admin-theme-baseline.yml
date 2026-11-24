@@ -1,17 +1,20 @@
 name: Admin theme baseline UX preflight
 on:
-  push:
-    branches: [feat/admin-dark-theme-887]
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/admin-theme-baseline.yml']
 permissions:
   contents: read
 jobs:
   baseline:
+    if: github.head_ref == 'feat/admin-dark-theme-887'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: '20'
