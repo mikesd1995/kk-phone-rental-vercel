@@ -133,8 +133,8 @@ function simulateScriptRead({property='1',id='private-core-example',lastRow=6}={
  const spreadsheet={getId:()=>id,getSheetByName:name=>name==='08_Web_Ready'?{
    getLastRow:()=>lastRow,getRange:a1=>({getDisplayValues:()=>[['event_id','event_name'],['EVT-1','Concert']]})
  }:null};
- const factory=Function('PropertiesService','SpreadsheetApp',acl[0]+'\n'+fn[0]+'\nreturn kkApiPrivateCoreRead_;');
- return factory(scriptProps,{getActive:()=>spreadsheet});
+ const factory=Function('PropertiesService','kkCanonicalWorkbook_',acl[0]+'\n'+fn[0]+'\nreturn kkApiPrivateCoreRead_;');
+ return factory(scriptProps,()=>spreadsheet);
 }
 test('Apps Script function itself rejects disabled service, spoofed workbook and arbitrary range',()=>{
  const input={coreSheetId:'private-core-example',sheet:'08_Web_Ready',range:'A4:K'};
