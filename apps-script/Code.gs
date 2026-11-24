@@ -3678,6 +3678,24 @@ function kkLineOwnerOutboxCanonical_(bookingId) {
     throw new Error('LINE_OWNER_OUTBOX_CANONICAL_BOOKING_UNVERIFIED');
   const contact=String(current[5]||'').trim();
   if (!kkLineOwnerOutboxIsUser_(contact)) throw new Error('LINE_OWNER_OUTBOX_CUSTOMER_CONTACT_UNVERIFIED');
+  // Revalidate the admission pin at decision/claim/settlement, even if the
+  // initial card was delivered earlier. A spreadsheet edit cannot silently
+  // substitute another template/quote. Unmarked historical rows retain the
+  // prior exact identity rules; a marked row without its claim is uncertain.
+  const raw=PropertiesService.getScriptProperties().getProperty(kkLineBookingRequestKey_(requestId));
+  let claim=null;
+  if(raw){
+    try{claim=JSON.parse(raw);}catch(_){throw new Error('LINE_OWNER_OUTBOX_ADMISSION_CLAIM_INVALID');}
+    if(!claim||typeof claim!=='object')throw new Error('LINE_OWNER_OUTBOX_ADMISSION_CLAIM_INVALID');
+  }
+  const marked=/\[KK_(?:TEMPLATE|QUOTE):/.test(String(current[19]||''));
+  if((marked||claim&&claim.template_binding_version==='KK_TEMPLATE_BINDING_V1') &&
+     (!claim||claim.template_binding_version!=='KK_TEMPLATE_BINDING_V1'||claim.status!=='OK'||
+      claim.booking_id!==bookingId||claim.request_id!==requestId||
+      String(claim.event_id||'').trim()!==String(current[3]||'').trim()||
+      (claim.initial_customer_contact&&claim.initial_customer_contact!==contact)||
+      !kkBookingBindingMatches_(current,claim)))
+    throw new Error('LINE_OWNER_OUTBOX_CANONICAL_TEMPLATE_OR_QUOTE_MISMATCH');
   return {row: row,sh: sh,current: current,contact: contact,requestId: requestId};
 }
 function kkLineOwnerOutboxEnvelope_(bookingId,decision,canonical,record,replay) {
