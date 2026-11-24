@@ -1,16 +1,28 @@
 # KK Phone Rental — LINE Card แบบ LINE OA-native: คู่มือ Cutover และตรวจรับจริง
 
-**สถานะ ณ 23 พ.ย. 2026: SOURCE READY / RELEASE HOLD — ยังไม่ใช่ Production DONE**  
+**สถานะ ณ 24 พ.ย. 2026: CANONICAL RUNTIME CANDIDATE / RELEASE HOLD — ยังไม่ใช่ Production DONE**  
 **Owner request:** เว็บไซต์เปิด LINE OA พร้อมข้อความจอง → ลูกค้ากด Send → API สร้าง `00_Master_Booking` = `pending` → ส่งการ์ดลูกค้า/ร้าน → ร้านกด Confirm/Reject → แจ้งผลกลับลูกค้า  
 **Canonical code:** PR #875 `feat/line-booking-release-candidate-20261112`; ตรวจ SHA และ exact-HEAD CI ใหม่ทุกครั้งก่อน release
 
 > **เอกสารนี้แทนที่ขั้นตอน LINE Login + Supabase customer-auth ของ `PR875_OWNER_RELEASE_GATES_TH_20261113.md` สำหรับเส้นทาง `KK_LINE_NATIVE_CONSENT_V1_ENABLED=true` เท่านั้น** ห้ามเปิดสองเส้นทางพร้อมกัน กฎ Source Owner Locks, Booking, ราคา, consent, outbox, ป้องกันส่งซ้ำ และ independent review ยังคงบังคับทุกข้อ
 
+## 0. Mandatory canonical GAS runtime migration (24 พ.ย. 2026)
+
+**Scope:** PR #886 stacks on #875 and includes a candidate correction for the deployed-Web-App runtime, not just the isolated staging reader. Review and reconcile the existing #883 package/model/quote candidate before a combined release. Do not deploy either PR directly to Production.
+
+* Google documents that bound active-parent methods are unavailable in Web App/API execution (https://developers.google.com/apps-script/guides/bound#special_methods), and DocumentLock returns null in Web Apps (https://developers.google.com/apps-script/reference/lock/lock-service#getDocumentLock). The candidate uses a pinned workbook resolver and ScriptLock for both existing mutation lock helpers. This serializes cooperating executions of the **same script project**, not other projects or manual/direct Sheet writers.
+* Inventory every actual deployed writer, bound project, installed trigger, old deployment URL, Sheets connector/Make writer, and manual admin workflow that touches Booking, stock, Owner Locks, Outbox or prices. Identify the authoritative writer. Keep separate staging and production workbook IDs, projects, credentials and triggers; never let two projects point at one canonical workbook.
+* Before provisioning the candidate, snapshot real booking/stock/price/formula/lock baselines and deployment/properties privately. Stop ingress and schedule/trigger/direct/manual writes, revoke old writer routes if required, and prove in-flight old DocumentLock and new ScriptLock executions cannot overlap. A runtime flag is not an instantaneous distributed drain; never flip it during an active write or assume an older script honors it.
+* In the separate, verified bound staging editor set `KK_CANONICAL_RUNTIME_ENABLED=0` and `KK_CANONICAL_WORKBOOK_ID` to its exact owner-approved workbook. Run `kkBindCanonicalWorkbookFromEditor` from that editor only. Verify current active parent, required tabs, current script ID and matching binding result. The helper records `KK_CANONICAL_VERIFIED_BINDING`; never copy the binding from another project or enter it via HTTP. An existing different binding is a hard stop.
+* On first binding only, an exact existing document-scoped lens marker can be carried to script properties. Do not manufacture readiness or automatically run legacy lens repairs. A missing/stale marker blocks the ordinary Booking create path pending reviewed owner migration. Legacy lens/price formula repair is explicit, not called during booking, and must not run on canonical data before #883 price/stock/formula compatibility and a rollback plan are validated. Preserve owner-approved prices.
+* Only after reviewed binding, isolation, ACL and source/version proof, enable `KK_CANONICAL_RUNTIME_ENABLED=1` in **staging**. Every HTTP action first authenticates and resolves the pinned workbook, and no active-document or DocumentLock fallback is allowed. Validate exact real /exec readback plus separate owner and customer flows. Ensure owner-maintenance setup, audit append, archive initialization, approval, outbox and admin operations contend on one script lock. Verify flush/readback, missing binding, wrong workbook/project, disabled runtime, missing schema, busy lock, failed repair, crash/replay and rollback. Do not infer real Google contention or carrier delivery from mocked tests.
+* Cutover/rollback requires a drained migration of **all** canonical writers/trigger paths together, not a switch of the LINE writer alone. A rollback to a DocumentLock version must again stop ingress, drain the new runtime, restore exact previous deployment, property and formula state as appropriate, and preserve all canonical bookings and delivery receipts. No blind resend of CLAIMED/UNCERTAIN and no auto formula repair.
+
 ## 1. วิธีทำงานที่ยืนยันใน Source (ไม่ใช่การตรวจรับ Live)
 
 1. ลูกค้าเลือกงาน/แพ็กเกจบนหน้าเว็บ → `script.js` สร้าง **LINE OA draft** โดยไม่ต่อท้ายข้อความ Terms/Privacy; ลูกค้า **ต้องกด Send ใน LINE เอง**
 2. `api/line-webhook.js` / `server/line-booking-webhook.js` ตรวจ `x-line-signature`, เฉพาะ private user chat, ตัวตน, เวลา, event/package ปัจจุบัน, ความพร้อม GAS/outbox/owner จริง *ก่อน* สร้าง Pending
-3. `createLineBookingPending` ใน **bound GAS ของ Workbook ที่ถูกต้อง** สร้าง Booking ID ภายใต้ Document Lock, ป้องกัน LINE webhook redelivery ด้วย Request ID; **ไม่กำหนดเครื่อง/เลนส์ ไม่เปลี่ยนการรับเงิน ไม่อนุมัติเอง**
+3. `createLineBookingPending` ใน **bound GAS ของ Workbook ที่ถูกต้อง** สร้าง Booking ID ภายใต้ ScriptLock เดียวของ canonical project, ป้องกัน LINE webhook redelivery ด้วย Request ID; **ไม่กำหนดเครื่อง/เลนส์ ไม่เปลี่ยนการรับเงิน ไม่อนุมัติเอง**
 4. Initial outbox บันทึก intents ของ `OWNER_APPROVAL_PUSH` และ `CUSTOMER_PENDING_REPLY`; ส่งเพียงหนึ่งครั้งหลัง claim/readback ตามสัญญาเดิม
 5. Pending Flex ลูกค้าแสดงปุ่ม **ยอมรับเงื่อนไข** และลิงก์อ่านเงื่อนไข `/terms/`. Native signed postback (`kkc1`) ผูก LINE user, Booking ID, original request, เวลา/อายุโทเคน, และ version; **signed user ID อย่างเดียวไม่ใช่ consent**
 6. GAS action `acceptLineBookingTerms` ต้องอ่าน Booking จริง `pending` + LINE user ID ตรง + Request ID ตรง ก่อนเขียน `TERMS_ACK_BACKEND:KK-TERMS-2026-11-06` และ `TERMS_AT:<UTC>` ใน note ของ **Booking row เดิม** ภายใต้ lock พร้อม exact readback; กดซ้ำไม่เขียนซ้ำ
@@ -69,6 +81,7 @@ outbox_id | booking_id | decision | state | retry_key | provider_message_id | re
 - Test isolation: `KK_LINE_BOOKING_TEST_MODE`, fixed approved origin/scope/window/event allowlist, test actor allowlist, separate `KK_LINE_APPROVAL_SECRET` ตาม `LINE_BOOKING_S2_SOURCE_ISOLATION_2026-11-17.md`. **อย่าเปิด/ขยายช่วงทดสอบโดยเดาขึ้นเอง**
 
 **Staging GAS Script Properties:**
+- Canonical runtime binding and maintenance/enablement sequence in section 0 are mandatory for #886; the standalone staging read-only script has its own different binding properties.
 - `KK_ADMIN_API_KEY` และ private dispatcher keys ทั้งสามข้างบนตามที่ source คาดหวัง (secret value ต้องตรงฝั่ง Vercel แต่ **ห้ามวางค่าใน GitHub/แชท**)
 - `KK_LINE_INITIAL_OUTBOX_V1_ENABLED=true`, `KK_LINE_OWNER_OUTBOX_V1_ENABLED=true`, `KK_LINE_NATIVE_CONSENT_V1_ENABLED=true`
 - owner-target/recipient สอดคล้องกับ signed test identity + exact initial outbox contract
