@@ -668,35 +668,50 @@
     const n=String(name||"").trim().toLowerCase().replace(/\s+/g," ");
     return n ? "name:"+n : "";
   }
+  // Master-only metrics; archive aggregates are not verified booking rows.
+  function bookingCustomerKey(b){
+    if(!b) return "";
+    const key=customerKeyFromRecord(b.customer_name,b.customer_contact,b.customer_phone);
+    if(key && !key.startsWith("name:")) return key;
+    const id=String(b.booking_id||"").trim();
+    return id ? "unverified-booking:"+id : "";
+  }
+  function customerMetricBookings(bookings){
+    const groups=new Map();
+    (bookings||[]).forEach(b=>{
+      const id=String(b && b.booking_id||"").trim();
+      if(!id) return;
+      if(!groups.has(id)) groups.set(id,[]);
+      groups.get(id).push(b);
+    });
+    // Fail closed on ambiguous duplicate booking IDs rather than selecting an arbitrary row.
+    return Array.from(groups.values()).filter(g=>g.length===1).map(g=>g[0]);
+  }
   function customerHistoryRows(bookings, customerStats){
     const map=new Map();
     function ensure(key){
-      if(!map.has(key)) map.set(key,{customer_key:key,customer_name:"",customer_contact:"",customer_phone:"",rental_count:0,first_rental_date:"",last_rental_date:"",last_event_name:"",last_booking_status:""});
+      if(!map.has(key)) map.set(key,{customer_key:key,customer_name:"",customer_contact:"",customer_phone:"",rental_count:0,archive_reported_count:null,first_rental_date:"",last_rental_date:"",last_event_name:"",last_booking_status:""});
       return map.get(key);
     }
     (customerStats||[]).forEach(c=>{
-      const key=String(c.customer_key||"").trim() || customerKeyFromRecord(c.customer_name,c.customer_contact,c.customer_phone);
-      if(!key) return;
+      const key=customerKeyFromRecord(c.customer_name,c.customer_contact,c.customer_phone) || String(c.customer_key||"").trim();
+      if(!key || key.startsWith("name:")) return;
       const item=ensure(key);
       item.customer_name=c.customer_name||item.customer_name;
       item.customer_contact=c.customer_contact||item.customer_contact;
       item.customer_phone=c.customer_phone||item.customer_phone;
-      item.rental_count+=toNum(c.rental_count);
-      item.first_rental_date=c.first_rental_date||item.first_rental_date;
-      item.last_rental_date=c.last_rental_date||item.last_rental_date;
-      item.last_event_name=c.last_event_name||item.last_event_name;
-      item.last_booking_status=c.last_booking_status||item.last_booking_status;
+      const count=Math.max(0,toNum(c.rental_count));
+      item.archive_reported_count=item.archive_reported_count===null?count:Math.max(item.archive_reported_count,count);
     });
-    (bookings||[]).forEach(b=>{
-      const st=String(b.booking_status||"").toLowerCase().trim();
-      if(["cancelled","no_show"].includes(st)) return;
-      const key=customerKeyFromRecord(b.customer_name,b.customer_contact,b.customer_phone);
+    customerMetricBookings(bookings).forEach(b=>{
+      const key=bookingCustomerKey(b);
       if(!key) return;
       const item=ensure(key);
       item.customer_name=b.customer_name||item.customer_name;
       item.customer_contact=b.customer_contact||item.customer_contact;
       item.customer_phone=b.customer_phone||item.customer_phone;
-      if(["picked_up","returned","uploaded","completed"].includes(st)) item.rental_count+=1;
+      if(!["returned","uploaded","completed"].includes(normalizeBookingStatus(b.booking_status))) return;
+      item.rental_count+=1;
       const rentalDate=b.event_date||b.created_at||"";
       if(rentalDate && (!item.first_rental_date || dateValue(rentalDate)<dateValue(item.first_rental_date))) item.first_rental_date=rentalDate;
       if(rentalDate && (!item.last_rental_date || dateValue(rentalDate)>=dateValue(item.last_rental_date))){
@@ -707,23 +722,12 @@
     });
     return Array.from(map.values()).sort((a,b)=>(toNum(b.rental_count)-toNum(a.rental_count)) || (dateValue(b.last_rental_date)-dateValue(a.last_rental_date)) || textValue(a.customer_name).localeCompare(textValue(b.customer_name),"th"));
   }
-  function bookingCustomerKey(b){
-    return customerKeyFromRecord(b && b.customer_name, b && b.customer_contact, b && b.customer_phone);
-  }
   function bookingMatchesCustomer(b, customer){
-    if(!b || !customer) return false;
-    const key=String(customer.customer_key||"");
-    if(key && bookingCustomerKey(b)===key) return true;
-    const p=String(customer.customer_phone||"").replace(/\D+/g,"");
-    if(p && String(b.customer_phone||"").replace(/\D+/g,"")===p) return true;
-    const c=String(customer.customer_contact||"").trim().toLowerCase();
-    if(c && String(b.customer_contact||"").trim().toLowerCase()===c) return true;
-    const n=String(customer.customer_name||"").trim().toLowerCase().replace(/\s+/g," ");
-    return !!n && String(b.customer_name||"").trim().toLowerCase().replace(/\s+/g," ")===n;
+    return !!(b && customer && customer.customer_key && bookingCustomerKey(b)===String(customer.customer_key));
   }
   function customerBookings(customer){
     const d=state.data||{};
-    return sortedBookings((d.bookings||[]).filter(b=>bookingMatchesCustomer(b, customer)));
+    return sortedBookings(customerMetricBookings(d.bookings).filter(b=>bookingMatchesCustomer(b, customer)));
   }
   function findBookingByRow(rowNumber){
     const row=String(rowNumber||'').trim();
@@ -774,14 +778,14 @@
     const rows=bookings||[];
     const activeStatuses=['pending','confirmed','picked_up','prepared'];
     const completedStatuses=['returned','uploaded','completed'];
-    const completed=rows.filter(b=>completedStatuses.includes(String(b.booking_status||'').toLowerCase()));
-    const active=rows.filter(b=>activeStatuses.includes(String(b.booking_status||'').toLowerCase()));
-    const cancelled=rows.filter(b=>String(b.booking_status||'').toLowerCase()==='cancelled');
+    const completed=rows.filter(b=>completedStatuses.includes(normalizeBookingStatus(b.booking_status)));
+    const active=rows.filter(b=>activeStatuses.includes(normalizeBookingStatus(b.booking_status)));
+    const cancelled=rows.filter(b=>normalizeBookingStatus(b.booking_status)==='cancelled');
     const reportableStatuses=new Set(['pending','confirmed','prepared','picked_up','returned','uploaded','completed']);
-    const reportable=rows.filter(b=>reportableStatuses.has(String(b.booking_status||'').toLowerCase()));
+    const reportable=rows.filter(b=>reportableStatuses.has(normalizeBookingStatus(b.booking_status)));
     const paid=reportable.filter(b=>String(b.payment_status||'').toLowerCase()==='paid');
-    const unpaidActive=active.filter(b=>String(b.booking_status||'').toLowerCase()==='picked_up' && isUnpaidPayment(b.payment_status));
-    const upcoming=rows.filter(b=>{ const d=daysFromToday(b.event_date); return d!==null && d>=0 && activeStatuses.includes(String(b.booking_status||'').toLowerCase()); });
+    const unpaidActive=active.filter(b=>normalizeBookingStatus(b.booking_status)==='picked_up' && isUnpaidPayment(b.payment_status));
+    const upcoming=rows.filter(b=>{ const d=daysFromToday(b.event_date); return d!==null && d>=0 && activeStatuses.includes(normalizeBookingStatus(b.booking_status)); });
     const missingContact=rows.filter(b=>!String(b.customer_phone||'').trim() && !String(b.customer_contact||'').trim());
     const missingPickup=upcoming.filter(b=>!String(b.pickup_time||'').trim());
     const missingAsset=upcoming.filter(b=>!String(b.phone_asset_id||'').trim() && /phone/i.test(String(b.package_type||'')));
@@ -791,7 +795,8 @@
     return {
       booking_count: rows.length,
       active_count: active.length,
-      completed_count: Math.max(completed.length, toNum(customer && customer.rental_count)),
+      completed_count: completed.length,
+      no_show_count: rows.filter(b=>normalizeBookingStatus(b.booking_status)==="no_show").length,
       cancelled_count: cancelled.length,
       paid_count: paid.length,
       unpaid_active_count: unpaidActive.length,
@@ -917,6 +922,7 @@
     const analytics=customerAnalytics(customer, bookings);
     const trust=trustProfile(analytics);
     const issues=customerQualityIssues(customer, bookings, analytics);
+    if(customerMetricBookings((state.data||{}).bookings).length!==((state.data||{}).bookings||[]).length) issues.push({type:"warn",text:"พบ Booking ID ซ้ำหรือขาด ID ใน Master; ไม่นำรายการกำกวมมาคำนวณ"});
     detailName.textContent=customer.customer_name || "ไม่ระบุชื่อ";
     if(detailMeta) detailMeta.textContent=[customer.customer_phone, customer.customer_contact].filter(Boolean).join(" / ") || "ไม่มีเบอร์หรือ LINE ในระบบ";
     if(profile){
@@ -925,15 +931,17 @@
         <div class="crm-profile-main">
           <div class="crm-profile-line"><strong>${esc(customer.customer_name||'ไม่ระบุชื่อ')}</strong><span class="trust-badge ${esc(trust.cls)}">${esc(trust.level)} · ${esc(trust.score)}/100</span></div>
           <div class="crm-contact-line">${esc([customer.customer_phone,customer.customer_contact].filter(Boolean).join(' · ') || 'ยังไม่มีข้อมูลติดต่อ')}</div>
-          <div class="crm-note-line">${esc(trust.note)}</div>
+          <div class="crm-note-line">${esc(trust.note)}</div><div class="crm-note-line">Trust Score จาก Master เท่านั้น · ประวัติย้อนหลังยังไม่ผ่านการกระทบยอด</div>
         </div>
       </div>`;
     }
     checklist.innerHTML=[
-      [analytics.completed_count,"เช่าสำเร็จ"],
-      [analytics.booking_count,"Booking ทั้งหมด"],
+      [analytics.completed_count,"เช่าสำเร็จใน Master"],
+      [analytics.booking_count,"Booking ใน Master (ID ไม่ซ้ำ)"],
       [analytics.active_count,"Active ตอนนี้"],
       [analytics.cancelled_count,"ยกเลิก"],
+      [analytics.no_show_count,"ไม่มาตามนัด"],
+      [customer.archive_reported_count===null?"ไม่ทราบ":customer.archive_reported_count,"ยอด Archive เดิม (ยังไม่กระทบยอด)"],
       [money(analytics.total_revenue),"มูลค่าคิวที่นับในรายงาน"],
       [fmtDate(analytics.last_event_date)||"-","ล่าสุด"]
     ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
@@ -943,7 +951,7 @@
       </div>`;
     }
     if(timeline){
-      timeline.innerHTML=`<div class="section-title-row"><h3>Customer Timeline</h3><small>เรียงจากล่าสุด ใช้ดูพฤติกรรมลูกค้าและงานที่ค้าง</small></div><div class="timeline">${lifecycleTimeline(bookings)}</div>`;
+      timeline.innerHTML=`<div class="section-title-row"><h3>Customer Timeline</h3><small>เฉพาะ Master Booking ที่มี ID ไม่ซ้ำ · ไม่รวม Archive</small></div><div class="timeline">${lifecycleTimeline(bookings)}</div>`;
     }
     table(tableEl,[
       {label:"วันที่งาน",render:r=>esc(fmtDate(r.event_date))},
@@ -2809,7 +2817,7 @@
     table($("#customerStatsTable"),[
       {label:"ลูกค้า",key:"customer_name"},
       {label:"ติดต่อ",render:r=>esc([r.customer_contact,r.customer_phone].filter(Boolean).join(" / "))},
-      {label:"เช่าแล้ว",render:r=>esc(r.rental_count||0)},
+      {label:"เช่าสำเร็จใน Master",render:r=>esc(r.rental_count||0)},
       {label:"เช่าล่าสุด",render:r=>esc(fmtDate(r.last_rental_date))},
       {label:"งานล่าสุด",key:"last_event_name"},
       {label:"CRM",render:r=>`<button class="mini-btn" type="button" data-customer-key="${esc(r.customer_key)}">ดูประวัติ</button>`}
@@ -2823,7 +2831,7 @@
     table($("#customersTable"),[
       {label:"ลูกค้า",key:"customer_name"},
       {label:"เบอร์/LINE",render:r=>esc([r.customer_phone,r.customer_contact].filter(Boolean).join(" / "))},
-      {label:"เช่าแล้ว",render:r=>`<strong>${esc(r.rental_count||0)}</strong> ครั้ง`},
+      {label:"เช่าสำเร็จใน Master",render:r=>`<strong>${esc(r.rental_count||0)}</strong> ครั้ง`},
       {label:"เช่าล่าสุด",render:r=>esc(fmtDate(r.last_rental_date))},
       {label:"งานล่าสุด",key:"last_event_name"},
       {label:"ดู",render:r=>`<button class="mini-btn${String(state.selectedCustomerKey)===String(r.customer_key)?' active':''}" type="button" data-customer-key="${esc(r.customer_key)}">ดูประวัติ</button>`}
