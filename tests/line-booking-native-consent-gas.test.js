@@ -17,6 +17,7 @@ function fixture(overrides={}){
   const row=[BID,new Date(),'pending','EVT-TEST','Synthetic',USER,'','LINE','phone_only','','',
     '13:00','','unpaid',0,'','','',0,note];
   const props={
+    KK_LENS_COMPAT_PATCH_VERSION:'v16.7.0_PHASE3_9_5_14_EXACT_MODEL_HOLDS_20261124',
     KK_LINE_NATIVE_CONSENT_V1_ENABLED:'true',
     KK_LINE_INITIAL_OUTBOX_V1_ENABLED:'true',
     KK_LINE_OWNER_OUTBOX_V1_ENABLED:'true',
@@ -36,6 +37,7 @@ function fixture(overrides={}){
     };
   }};
   const context={
+    KK_LENS_COMPAT_PATCH_VERSION:'v16.7.0_PHASE3_9_5_14_EXACT_MODEL_HOLDS_20261124',
     PropertiesService:{getScriptProperties(){return {getProperty(k){return props[k]||''}}}},
     kkAcquireDocumentLock_(){return {releaseLock(){releases++}}},
     kkFindBookingRow_(_sh,id){assert.equal(id,BID);return 5},
@@ -112,6 +114,11 @@ test('deployed native GAS readiness requires the exact enabled writer, distinct 
       'KK_LINE_INITIAL_OUTBOX_V1_ENABLED','KK_LINE_OWNER_OUTBOX_V1_ENABLED']){
     const x=fixture();x.props[key]='false';
     assert.throws(()=>x.readiness(x.payload()),/DISABLED|NOT_READY/);
+    assert.equal(x.stats().writes,0);
+  }
+  for(const marker of ['', 'legacy']){
+    const x=fixture();x.props.KK_LENS_COMPAT_PATCH_VERSION=marker;
+    assert.throws(()=>x.readiness(x.payload()),/LINE_STOCK_FORMULA_MIGRATION_NOT_READY/);
     assert.equal(x.stats().writes,0);
   }
   assert.throws(()=>h.readiness(h.payload({native_consent_dispatch_key:'forged'})));
