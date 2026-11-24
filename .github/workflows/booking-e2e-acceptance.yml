@@ -18,6 +18,7 @@ on:
       - 'tests/line-identity-owner-outbox-integration.test.js'
       - 'tests/line-webhook*.test.js'
       - 'tests/same-day-inventory-date-normalization.test.js'
+      - 'tests/x500-prestart-stock-generator.test.js'
       - '.github/workflows/booking-e2e-acceptance.yml'
   workflow_dispatch:
 
@@ -78,6 +79,7 @@ jobs:
             tests/line-webhook.test.js \
             tests/line-webhook-raw-body.test.js \
             tests/same-day-inventory-date-normalization.test.js \
+            tests/x500-prestart-stock-generator.test.js \
             tests/booking-id-primary-close-regression-20261002.test.js
 
       - name: Assert no provider or production acceptance side effects

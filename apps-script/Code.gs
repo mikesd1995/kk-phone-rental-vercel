@@ -755,7 +755,13 @@ function kkFormulaLensBookedCount_(rowNumber) {
 function kkFormulaPhoneRawCount_(rowNumber) {
   const r = rowNumber;
   const booked = kkFormulaActiveBookingCount_(`B${r}`, 'phone_only|phone_lens_bundle');
-  return `(COUNTIFS('02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,D${r},'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE)-${booked})`;
+  // PHONE-004 becomes publicly bookable on 2026-11-22 per the live
+  // 02_Assets!F12 PUBLIC_BOOKING_START_2026-11-22 owner-controlled record.
+  // Keep the event-day eligibility gate in the generator (not generated cells).
+  // Never deduct PHONE-003 or change same-day booking/lens holds.
+  const phone004PublicStartYmd = 20261122;
+  const preStart = `IF(AND(D${r}="VIVO_X500_PRO_MAX",IFERROR(VALUE(MID(B${r},5,8)),0)<${phone004PublicStartYmd}),COUNTIFS('02_Assets'!$A$5:$A$1000,"PHONE-004",'02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,"VIVO_X500_PRO_MAX",'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE),0)`;
+  return `(COUNTIFS('02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,D${r},'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE)-${preStart}-${booked})`;
 }
 
 function kkFormulaWebPackageAvailable_(rowNumber, rawMode) {
