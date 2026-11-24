@@ -13,7 +13,7 @@ function request(messageLines=[]){
  return ['สนใจเช่ามือถือ','🎫 งาน: DEMO EVENT','📅 วันที่: 06/11/2026','📍 สถานที่: DEMO VENUE','📱 รุ่น: vivo X300 Pro','💰 ราคา: 590 บาท','👤 ชื่อเล่น: Demo',...messageLines].join('\n');
 }
 
-test('booking and waitlist LINE drafts include exact current customer attestation and privacy acknowledgement',()=>{
+test('booking and waitlist LINE drafts omit automatic attestation while legal documents remain versioned',()=>{
  const source=fs.readFileSync(path.join(root,'script.js'),'utf8');
  const terms=fs.readFileSync(path.join(root,'terms/index.html'),'utf8');
  const privacy=fs.readFileSync(path.join(root,'privacy/index.html'),'utf8');
@@ -21,10 +21,15 @@ test('booking and waitlist LINE drafts include exact current customer attestatio
  assert.match(terms,/<meta name="kk-terms-version" content="KK-TERMS-2026-11-06">/);
  assert.match(terms,/<time datetime="2026-11-06">6 พฤศจิกายน 2569<\/time>/);
  assert.match(privacy,/ข้อความยืนยันการยอมรับเงื่อนไขการเช่าและรหัสฉบับ/);
- assert.equal(source.split(Evidence.ACK_LINE).length-1,2,'booking and waitlist must both contain the same statement');
- assert.equal(source.split(Evidence.PRIVACY_LINE).length-1,2,'booking and waitlist must acknowledge Privacy distinctly');
- assert.ok(source.indexOf(Evidence.ACK_LINE,source.indexOf('function buildBookingMsg'))<source.indexOf('function getBookingUrl'));
- assert.ok(source.indexOf(Evidence.ACK_LINE,source.indexOf('function buildWaitlistMsg'))<source.indexOf('function getWaitlistUrl'));
+ for(const [name,next] of [['buildBookingMsg','getBookingUrl'],['buildWaitlistMsg','getWaitlistUrl']]){
+   const start=source.indexOf('function '+name+'(');
+   const end=source.indexOf('function '+next+'(',start+1);
+   assert.ok(start>=0&&end>start,'expected non-empty '+name+' builder');
+   const draftSource=source.slice(start,end);
+   assert.equal(draftSource.includes(Evidence.ACK_LINE),false,name+' must not inject terms attestation');
+   assert.equal(draftSource.includes(Evidence.PRIVACY_LINE),false,name+' must not inject privacy acknowledgement');
+   assert.doesNotMatch(draftSource,/ยืนยันยอมรับเงื่อนไข|รับทราบนโยบายความเป็นส่วนตัว|KK-TERMS-|privacy\//);
+ }
 });
 
 test('only an exact customer-origin LINE statement for this terms version qualifies as message evidence',()=>{
