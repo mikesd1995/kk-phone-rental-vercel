@@ -890,7 +890,9 @@ function kkFormulaBookingPrice_(rowNumber) {
   const lensOnly = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H$1000,'09_Web_Packages'!$B$5:$B$1000,D${r},'09_Web_Packages'!$C$5:$C$1000,I${r},'09_Web_Packages'!$F$5:$F$1000,${lensCriteria}))`;
   const bundle = `MAX(SUMIFS('09_Web_Packages'!$H$5:$H$1000,'09_Web_Packages'!$B$5:$B$1000,D${r},'09_Web_Packages'!$C$5:$C$1000,I${r},'09_Web_Packages'!$D$5:$D$1000,AL${r},'09_Web_Packages'!$F$5:$F$1000,${lensCriteria}))`;
   const phoneOnly = `SUMIFS('09_Web_Packages'!$H$5:$H$1000,'09_Web_Packages'!$B$5:$B$1000,D${r},'09_Web_Packages'!$C$5:$C$1000,I${r},'09_Web_Packages'!$D$5:$D$1000,AL${r})`;
-  return `=IF(I${r}="","",IF(I${r}="lens_only",IFERROR(${lensOnly},0),IF(I${r}="phone_lens_bundle",IFERROR(${bundle},0),IFERROR(${phoneOnly},0))))`;
+  // Honor the locked native quote; keep historical price calculation.
+  const quote = `IFERROR(VALUE(REGEXEXTRACT(T${r},"\\[KK_QUOTE:([1-9][0-9]{0,7})\\]")),0)`;
+  return `=IF(${quote}>0,${quote},IF(I${r}="","",IF(I${r}="lens_only",IFERROR(${lensOnly},0),IF(I${r}="phone_lens_bundle",IFERROR(${bundle},0),IFERROR(${phoneOnly},0)))))`;
 }
 
 function kkEnsureZeissLensModelMaster_() {
@@ -1379,7 +1381,7 @@ function kkGetPackageSpecByType_(packageType) {
   const wanted = String(packageType || '').toLowerCase().trim();
   if (!wanted) throw new Error('Booking missing package_type');
   const rows = kkGetValues_(KK.packages, 5, 1, 10);
-  let fallback = null;
+  const active=[],historical=[];
   for (const r of rows) {
     const type = String(r[2] || '').toLowerCase().trim();
     if (type !== wanted) continue;
@@ -1390,10 +1392,12 @@ function kkGetPackageSpecByType_(packageType) {
       lens_group: String(r[3] || '').trim(),
       active: kkIsTrue_(r[7])
     };
-    if (spec.active) return spec;
-    if (!fallback) fallback = spec;
+    if(spec.active)active.push(spec);
+    else historical.push(spec);
   }
-  if (fallback) return fallback;
+  const candidates=active.length?active:historical;
+  if(candidates.length===1)return candidates[0];
+  if(candidates.length>1)throw new Error('BOOKING_TEMPLATE_OWNER_REVIEW_REQUIRED');
   throw new Error('No package master found for package_type: ' + wanted);
 }
 
@@ -1409,7 +1413,9 @@ function kkAssignMissingAssetsForPreparedBooking_(bookingRow, nextStatus, eventD
   const needsLens = packageType === 'lens_only' || packageType === 'phone_lens_bundle';
   if ((!needsPhone || String(next[9] || '').trim()) && (!needsLens || String(next[10] || '').trim())) return next;
 
-  const spec = kkGetPackageSpecByType_(packageType);
+  const selectedTemplateId=kkBookingTemplateIdFromNote_(next[19]);
+  const spec=selectedTemplateId?kkGetPackageByTemplateId_(selectedTemplateId):kkGetPackageSpecByType_(packageType);
+  if(String(spec.package_type||'').toLowerCase().trim()!==packageType)throw new Error('Booking template/type mismatch');
   if (needsPhone && !String(next[9] || '').trim()) {
     next[9] = kkFindAvailableAsset_('phone', spec.model_group, eventDate);
   }
@@ -2042,19 +2048,34 @@ function kkIsWebPackageBookable_(p) {
   return (status === 'available' || status === 'open') && Number(p.available_count || 0) > 0 && Number(p.price || 0) > 0;
 }
 
-function kkAssertWebPackageBookable_(eventId, templateId) {
+function kkAssertWebPackageBookable_(eventId, templateId, requireExact) {
   const normalizedTemplateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
   const eventRows = kkApiWebPackageRows_().filter(p => String(p.event_id || '').trim() === String(eventId || '').trim());
-  if (!eventRows.length) return;
-  const row = eventRows.find(p => {
+  if (!eventRows.length && !requireExact) return;
+  const matches = eventRows.filter(p => {
     const webPackageId = String(p.package_id || '').trim();
     const webTemplateId = kkTemplateIdFromWebPackageId_(webPackageId, p.event_id || eventId);
     return webPackageId === normalizedTemplateId || webTemplateId === normalizedTemplateId;
   });
-  if (!row) throw new Error('Package is not visible for this event in 09_Web_Packages: ' + normalizedTemplateId);
+  if(matches.length!==1)throw new Error('Package is not visible or is ambiguous in 09_Web_Packages: ' + normalizedTemplateId);
+  const row=matches[0];
   if (!kkIsWebPackageBookable_(row)) {
     throw new Error('งานนี้เต็มแล้วหรือแพ็กเกจนี้ไม่พร้อมจอง: ' + normalizedTemplateId + ' / status=' + String(row.package_status || '-') + ' / available_count=' + String(row.available_count || 0) + ' / price=' + String(row.price || 0));
   }
+  return row;
+}
+
+function kkLineVerifiedQuote_(row,pkg,display) {
+  if(!row || String(row.package_type||'').toLowerCase().trim()!==String(pkg.package_type||'').toLowerCase().trim() ||
+      String(row.model_group||'').trim()!==String(pkg.model_group||'').trim() ||
+      String(row.lens_group||'').trim()!==String(pkg.lens_group||'').trim() ||
+      !Number.isInteger(Number(row.available_count)) || Number(row.available_count)<=0 ||
+      /\[INQUIRY_ONLY\]/i.test(String(row.web_note||'')) || /\bINQUIRY_ONLY\b/i.test(String(row.use_case||'')))
+    throw new Error('LINE_CANONICAL_PACKAGE_UNVERIFIED');
+  const price=Number(row.price);
+  if(!Number.isSafeInteger(price)||price<1||price>99999999||display!==price.toLocaleString('en-US')+' บาท')
+    throw new Error('LINE_CANONICAL_QUOTE_CHANGED');
+  return price;
 }
 
 function kkApiSnapshot_(payload) {
@@ -2912,8 +2933,46 @@ function kkBookingNoteWithRequest_(note, requestId) {
   return marker ? (base ? base + ' ' + marker : marker) : base;
 }
 
+function kkBookingTemplateIdFromNote_(note) {
+  const matches=Array.from(String(note||'').matchAll(/\[KK_TEMPLATE:(TPL-[A-Za-z0-9-]{3,160})\]/g));
+  if(matches.length>1)throw new Error('BOOKING_TEMPLATE_AMBIGUOUS');
+  return matches.length?matches[0][1]:'';
+}
+
+function kkBookingQuotedPriceFromNote_(note) {
+  const matches=Array.from(String(note||'').matchAll(/\[KK_QUOTE:([1-9][0-9]{0,7})\]/g));
+  if(matches.length>1)throw new Error('BOOKING_QUOTE_AMBIGUOUS');
+  return matches.length?Number(matches[0][1]):0;
+}
+
+function kkBookingNoteWithTemplate_(note, templateId, quotedPrice) {
+  const clean=String(note||'').replace(/\s*\[KK_(?:TEMPLATE|QUOTE):[^\]\r\n]*\]\s*/g,' ')
+    .replace(/(?:TERMS_ACK_BACKEND|TERMS_AT):[^\s|]*/g,'').trim();
+  const id=String(templateId||'').trim(), price=Number(quotedPrice||0);
+  if(id&&!/^TPL-[A-Za-z0-9-]{3,160}$/.test(id))throw new Error('BOOKING_TEMPLATE_INVALID');
+  if(price&&(!id||!Number.isSafeInteger(price)||price<1||price>99999999))throw new Error('BOOKING_QUOTE_INVALID');
+  return [clean,id?'[KK_TEMPLATE:'+id+']':'',price?'[KK_QUOTE:'+price+']':''].filter(Boolean).join(' ');
+}
+
+function kkBookingNoteForUpdate_(note, previous) {
+  const old=String(previous||'');
+  const clean=kkBookingNoteWithTemplate_(kkBookingNoteWithRequest_(note,kkBookingRequestIdFromNote_(old)),
+    kkBookingTemplateIdFromNote_(old),kkBookingQuotedPriceFromNote_(old));
+  const segments=old.split(' | ');
+  const ack=segments.includes('TERMS_ACK_BACKEND:KK-TERMS-2026-11-06');
+  const at=segments.filter(v=>/^TERMS_AT:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(v));
+  return clean+(ack?' | TERMS_ACK_BACKEND:KK-TERMS-2026-11-06'+(at.length===1?' | '+at[0]:''):'');
+}
+
+function kkBookingBindingMatches_(row, claim) {
+  if(!claim||claim.template_binding_version!=='KK_TEMPLATE_BINDING_V1')return true;
+  return kkBookingTemplateIdFromNote_(row[19])===claim.template_id &&
+    String(row[8]||'').toLowerCase().trim()===claim.bound_package_type &&
+    kkBookingQuotedPriceFromNote_(row[19])===Number(claim.quoted_price||0);
+}
+
 function kkBookingNoteForDisplay_(note) {
-  return String(note || '').replace(/\s*\[KK_REQ:[A-Za-z0-9._:-]{8,128}\]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  return String(note || '').replace(/\s*\[KK_REQ:[A-Za-z0-9._:-]{8,128}\]\s*/g, ' ').replace(/\s*\[KK_(?:TEMPLATE|QUOTE):[^\]\r\n]*\]\s*/g,' ').replace(/\s{2,}/g, ' ').trim();
 }
 
 function kkBookingRequestIdFromNote_(note) {
@@ -3083,6 +3142,7 @@ function kkLineBookingClaimReadback_(claim) {
   if (String(readback[13] || '').toLowerCase().trim() !== 'unpaid') return null;
   if (Number(readback[14] || 0) !== 0) return null;
   if (kkBookingRequestIdFromNote_(readback[19]) !== String(claim.request_id || '').trim()) return null;
+  if(!kkBookingBindingMatches_(readback,claim))return null;
   return { row_number: row, row: readback };
 }
 
@@ -3125,7 +3185,7 @@ function kkApiCreateLineBookingPending_(payload) {
         if(initial)return kkLineInitialOutboxReplay_(payload,existing,initial);
         const reconciled = kkLineBookingClaimReadback_(existing);
         if (reconciled) {
-          props.setProperty(requestKey, JSON.stringify({
+          props.setProperty(requestKey, JSON.stringify(Object.assign({},existing,{
             status: 'OK',
             request_id: requestId,
             booking_id: String(existing.booking_id),
@@ -3134,7 +3194,7 @@ function kkApiCreateLineBookingPending_(payload) {
             template_id: String(existing.template_id || ''),
             completed_at: new Date().toISOString(),
             reconciled: true
-          }));
+          })));
           return {
             row_number: reconciled.row_number,
             booking_id: String(existing.booking_id),
@@ -3177,16 +3237,18 @@ function kkApiCreateLineBookingPending_(payload) {
     if (String(event.status).toLowerCase() !== 'open') throw new Error('Event is not open: ' + eventId);
     if (!event.active) throw new Error('Event is not active_on_web: ' + eventId);
     if (!pkg.active) throw new Error('Package is inactive: ' + templateId);
-    kkAssertWebPackageBookable_(eventId, templateId);
+    const webPackage=kkAssertWebPackageBookable_(eventId, templateId, Boolean(initial));
+    const quotedPrice=initial?kkLineVerifiedQuote_(webPackage,pkg,initial.context.price_display):0;
     const pkgType = String(pkg.package_type || '').toLowerCase().trim();
     if(initial && (!pkgType || pkgType.length>100))throw new Error('LINE_INITIAL_OUTBOX_PACKAGE_TYPE_UNVERIFIED');
 
-    const initialPin=initial?{
+    const bindingPin={template_binding_version:'KK_TEMPLATE_BINDING_V1',bound_package_type:pkgType,quoted_price:quotedPrice};
+    const initialPin=initial?Object.assign({},bindingPin,{
       initial_mode:KK_LINE_INITIAL_OUTBOX_VERSION_,initial_context_json:initial.contextJson,
       initial_context_hash:initial.contextHash,initial_owner_target:initial.ownerTarget,
       initial_customer_name:customerName,initial_customer_contact:customerContact,
       initial_customer_phone:customerPhone,initial_package_type:pkgType
-    }:{};
+    }):bindingPin;
 
     // First claim blocks duplicate redelivery before any Booking mutation.
     props.setProperty(requestKey, serializeClaim(Object.assign({
@@ -3221,7 +3283,7 @@ function kkApiCreateLineBookingPending_(payload) {
     // A partial intent or uncertain Booking write never allocates a replacement.
     if(initial)kkLineInitialOutboxCreateIntents_(initial,bookingId,requestId,customerContact);
 
-    const bookingNote = kkBookingNoteWithRequest_(payload.booking_note || 'LINE webhook intake', requestId);
+    const bookingNote = kkBookingNoteWithTemplate_(kkBookingNoteWithRequest_(payload.booking_note || 'LINE webhook intake', requestId),templateId,quotedPrice);
     const sh = kkSheet_(KK.bookings);
     sh.getRange(row, 1, 1, 20).setValues([[
       bookingId, new Date(), 'pending', eventId, customerName, customerContact, customerPhone, 'LINE',
@@ -3236,7 +3298,10 @@ function kkApiCreateLineBookingPending_(payload) {
       customer_contact: customerContact,
       customer_phone: customerPhone,
       row_number: row,
-      booking_id: bookingId
+      booking_id: bookingId,
+      template_id: templateId,
+      template_binding_version: bindingPin.template_binding_version,
+      bound_package_type: pkgType, quoted_price: quotedPrice
     });
     if (!persisted) throw new Error('LINE pending booking exact A:T readback failed');
 
@@ -3397,6 +3462,7 @@ function kkLineInitialOutboxCanonical_(claim,requestId,context,contact,settlemen
   }
   if(!canonical || String(canonical.row[11]||'').trim()!==context.pickup_time || !/^U[0-9a-f]{32}$/.test(String(canonical.row[5]||'')))
     throw new Error('LINE_INITIAL_OUTBOX_CANONICAL_BOOKING_UNVERIFIED');
+  if(!kkBookingBindingMatches_(canonical.row,claim))throw new Error('LINE_INITIAL_OUTBOX_CANONICAL_TEMPLATE_OR_QUOTE_MISMATCH');
   if(claim.initial_mode===KK_LINE_INITIAL_OUTBOX_VERSION_ && (!claim.initial_package_type ||
       String(canonical.row[8]||'').toLowerCase().trim()!==claim.initial_package_type))
     throw new Error('LINE_INITIAL_OUTBOX_CANONICAL_PACKAGE_TYPE_MISMATCH');
@@ -3962,7 +4028,7 @@ function kkApiCreateBooking_(payload) {
     const pickupTime = String(payload.pickup_time || '').trim();
     const paymentStatus = String(payload.payment_status || 'unpaid').toLowerCase().trim();
     const amountReceived = kkApiNumber_(payload.amount_received, 'amount_received', true) || 0;
-    const bookingNote = kkBookingNoteWithRequest_(payload.booking_note || '', requestId);
+    let bookingNote = kkBookingNoteWithRequest_(payload.booking_note || '', requestId);
 
     // Booking must never repair stock or formulas under a nested lock. A
     // missing migration marker is an explicit owner readiness gate.
@@ -3976,6 +4042,7 @@ function kkApiCreateBooking_(payload) {
     const event = kkGetEventById_(eventId);
     if (kkIsPastEventDate_(event.event_date)) throw new Error('Cannot create booking for a past event date: ' + kkApiDate_(event.event_date));
     const pkg = kkGetPackageByTemplateId_(templateId);
+    bookingNote=kkBookingNoteWithTemplate_(bookingNote,templateId,0);
     if (String(event.status).toLowerCase() !== 'open') throw new Error('Event is not open: ' + eventId);
     if (!event.active) throw new Error('Event is not active_on_web: ' + eventId);
     if (!pkg.active) throw new Error('Package is inactive: ' + templateId);
@@ -4030,8 +4097,7 @@ function kkApiUpdateBooking_(payload) {
     if (payload.payment_status !== undefined && payload.payment_status !== '') next[13] = paymentStatus;
     if (payload.amount_received !== undefined && payload.amount_received !== '') next[14] = amountReceived;
     if (payload.booking_note !== undefined) {
-      const existingRequestId = kkBookingRequestIdFromNote_(current[19]);
-      next[19] = kkBookingNoteWithRequest_(payload.booking_note || '', existingRequestId);
+      next[19] = kkBookingNoteForUpdate_(payload.booking_note || '',current[19]);
     }
     if (!String(next[4] || '').trim()) throw new Error('customer_name is required');
 
@@ -4041,6 +4107,9 @@ function kkApiUpdateBooking_(payload) {
     // Critical workflow guard: older bookings may reserve package stock correctly but
     // still have blank physical Asset IDs. When admin clicks “เตรียมแล้ว” (prepared)
     // or “รับแล้ว” (picked_up), assign the missing phone/lens automatically.
+    const selectedTemplateId=kkBookingTemplateIdFromNote_(next[19]);
+    const selectedSpec=selectedTemplateId?kkGetPackageByTemplateId_(selectedTemplateId):null;
+    if(selectedSpec&&String(selectedSpec.package_type||'').toLowerCase().trim()!==String(next[8]||'').toLowerCase().trim())throw new Error('Booking template/type mismatch');
     kkAssignMissingAssetsForPreparedBooking_(next, nextStatus, event.event_date);
 
     if (kkActiveHold_(nextStatus)) {
@@ -4052,8 +4121,8 @@ function kkApiUpdateBooking_(payload) {
       const reactivating = !kkActiveHold_(currentStatus);
       const phoneChanged = String(next[9] || '').trim() !== String(current[9] || '').trim();
       const lensChanged = String(next[10] || '').trim() !== String(current[10] || '').trim();
-      if (next[9] && (reactivating || phoneChanged)) kkValidateManualAsset_(next[9], 'phone', '', event.event_date, row);
-      if (next[10] && (reactivating || lensChanged)) kkValidateManualAsset_(next[10], 'lens', '', event.event_date, row);
+      if (next[9] && (reactivating || phoneChanged)) kkValidateManualAsset_(next[9], 'phone', selectedSpec?selectedSpec.model_group:'', event.event_date, row);
+      if (next[10] && (reactivating || lensChanged)) kkValidateManualAsset_(next[10], 'lens', selectedSpec?selectedSpec.lens_group:'', event.event_date, row);
     }
     kkAssertBookingAssetsNotDoubleBooked_(row, next, nextStatus);
 
