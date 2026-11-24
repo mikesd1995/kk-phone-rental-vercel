@@ -63,9 +63,16 @@ test('strict Apps Script cache never reuses prior owner read-key snapshot after 
    KK_CORE_PRIVATE_TRANSPORT:'apps-script',
    KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/test_script/exec',
    KK_ADMIN_API_KEY:adminKey,KK_CORE_PRIVATE_READ_KEY:key1};
- const headers=Object.values(F.SPECS).reduce((m,c)=>{m[c.sheet]=c.header;return m;},{});
+ const {RANGE_SPECS}=require('../server/core-private-range-contract.js');
  let reads=0;
- appReader.readValues=async x=>{reads++;return [[headers[x.sheet]||'id']];};
+ appReader.readValues=async x=>{
+   reads++;
+   const exact=RANGE_SPECS.find(s=>s.sheet===x.sheet&&s.range===x.range);
+   assert.ok(exact,'unexpected private Admin range');
+   // Runtime schema validation needs the complete positional header, not only
+   // the former one-column cache fixture. Keep all 11 datasets synthetic.
+   return [Array.from(exact.orderedHeaders)];
+ };
  F.clearSnapshotCache();
  try{
    const first=await F.buildSnapshot({env,sheetId:env.GOOGLE_SHEET_ID,fetchImpl:noopFetch,cacheTtlMs:60000});
@@ -206,4 +213,40 @@ test('private Admin snapshots stay bounded across many rotated service-account i
    assert.equal(privateReads,71*Object.keys(F.SPECS).length);
    assert.doesNotMatch(JSON.stringify(same),/ROTATION_000|reader@example.invalid/);
  }finally{privateSheets.readValues=original;F.clearSnapshotCache();}
+});
+test('legacy CSV and private value mappers reject ambiguous or reserved header keys',()=>{
+ const bad=[['booking_id','booking_id'],['booking_id',' event_id ','event_id'],
+  ...['__proto__','constructor','prototype','__row_number','toString','valueOf',
+   'hasOwnProperty','__defineGetter__','isPrototypeOf'].map(k=>['booking_id',k])];
+ for(const cols of bad){
+  const values=[cols,cols.map(()=> 'SYNTHETIC_PRIVATE_ROW')];
+  const check=e=>e.code==='CORE_PRIVATE_SCHEMA_INVALID'&&e.message==='CORE_PRIVATE_SCHEMA_INVALID';
+  assert.throws(()=>F.valuesAsObjects(values,'booking_id'),check);
+  assert.throws(()=>F.rowsAsObjects(values.map(r=>r.join(',')).join('\n'),'booking_id'),check);
+ }
+ const good=F.valuesAsObjects([['booking_id','','event_id'],['BK-FIXTURE','','EV-FIXTURE']],'booking_id',4);
+ assert.deepEqual(good,[{__row_number:5,booking_id:'BK-FIXTURE',event_id:'EV-FIXTURE'}]);
+});
+test('strict Admin snapshot rejects ambiguous booking headers without fallback or raw data in error',async()=>{
+ const Core=require('../server/core-sheet-private-reader.js');
+ const prior=Core.readValues;
+ const env={GOOGLE_SHEET_ID:'fixture-only',KK_CORE_SHEET_REQUIRE_PRIVATE:'1',
+  KK_CORE_PRIVATE_TRANSPORT:'apps-script',KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/fixture/exec',
+  KK_ADMIN_API_KEY:'a'.repeat(48),KK_CORE_PRIVATE_READ_KEY:'r'.repeat(48)};
+ let publicCalls=0,privateCalls=0;
+ Core.readValues=async({sheet})=>{
+  privateCalls++;
+  const spec=Object.values(F.SPECS).find(s=>s.sheet===sheet);
+  return sheet==='00_Master_Booking'?[['booking_id','customer_contact','booking_id'],
+   ['BK-FIXTURE','SYNTHETIC_PRIVATE_ROW','BK-DUPLICATE']]:[[spec.header]];
+ };
+ F.clearSnapshotCache();
+ try{
+  await assert.rejects(()=>F.buildSnapshot({env,sheetId:env.GOOGLE_SHEET_ID,cache:false,
+   fetchImpl:async()=>{publicCalls++;throw Error('PUBLIC_FORBIDDEN');}}),
+   e=>e.code==='CORE_PRIVATE_SCHEMA_INVALID'&&e.dataset==='bookings'&&
+    e.message==='CORE_PRIVATE_SCHEMA_INVALID');
+  assert.equal(privateCalls,Object.keys(F.SPECS).length);
+  assert.equal(publicCalls,0);
+ }finally{Core.readValues=prior;F.clearSnapshotCache();}
 });
