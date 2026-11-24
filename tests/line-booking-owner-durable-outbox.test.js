@@ -58,7 +58,7 @@ function fakeSheet(rows) {
     }
   };
 }
-function appsScriptHarness({outboxEnabled=true,header=HEADERS,booking='pending'}={}) {
+function appsScriptHarness({outboxEnabled=true,header=HEADERS,booking='pending',admissionClaim=null}={}) {
   const source=fs.readFileSync(path.join(__dirname,'..','apps-script/Code.gs'),'utf8');
   const start=source.indexOf('const KK_LINE_OWNER_OUTBOX_VERSION_');
   const end=source.indexOf('function kkApiDecideLineBookingPending_(payload)',start);
@@ -71,7 +71,7 @@ function appsScriptHarness({outboxEnabled=true,header=HEADERS,booking='pending'}
     SpreadsheetApp: {flush(){flushes++;if(failOnFlush===flushes)throw Error('synthetic crash after write');}},
     PropertiesService:{getScriptProperties:()=>({getProperty:key=>key==='KK_LINE_OWNER_OUTBOX_V1_ENABLED'?(outboxEnabled?'true':'false'):
         key==='KK_LINE_OWNER_OUTBOX_DISPATCH_SECRET'?DISPATCH:
-        key==='KK_ADMIN_API_KEY'?'distinct-admin-key':''})},
+        key==='KK_ADMIN_API_KEY'?'distinct-admin-key':key.startsWith('KK_LINE_BOOKING_REQ_')&&admissionClaim?JSON.stringify(admissionClaim):''})},
     Utilities:{
       DigestAlgorithm:{SHA_256:'sha256'},Charset:{UTF_8:'utf8'},
       computeDigest:(_alg,input)=>Array.from(crypto.createHash('sha256').update(input).digest())
@@ -93,6 +93,11 @@ function appsScriptHarness({outboxEnabled=true,header=HEADERS,booking='pending'}
     }
   };
   vm.createContext(context);
+  for(const name of ['kkLineBookingRequestKey_','kkBookingTemplateIdFromNote_','kkBookingQuotedPriceFromNote_','kkBookingBindingMatches_']){
+    const a=source.indexOf('function '+name+'('),b=source.indexOf('\nfunction ',a+1);
+    assert.ok(a>=0&&b>a);
+    vm.runInContext(source.slice(a,b),context,{filename:name+'.gs'});
+  }
   vm.runInContext(source.slice(start,end),context,{filename:'AppsScriptOwnerOutbox.gs'});
   const api={
     decide:p=>context.kkApiDecideLineBookingPendingDurable_({...p,outbox_dispatch_key:DISPATCH}),
@@ -430,4 +435,30 @@ test('server: authenticated canonical decision includes dispatch credential',asy
   await approve(t);
   const change=t.calls.find(c=>c.request.action==='decideLineBookingPending');
   assert.equal(change.request.outbox_dispatch_key,DISPATCH);
+});
+
+
+test('owner decision revalidates exact admission template and quote after initial card delivery',()=>{
+  const original=makeBooking();
+  const req=String(original[19]).match(/\[KK_REQ:([^\]]+)\]/)[1];
+  const pin={status:'OK',booking_id:BOOKING,request_id:req,event_id:'EVT-SYNTHETIC',
+    template_binding_version:'KK_TEMPLATE_BINDING_V1',template_id:'TPL-X500-PHONE',
+    bound_package_type:'phone_only',quoted_price:1090,initial_customer_contact:CUSTOMER};
+  for(const note of ['[KK_TEMPLATE:TPL-X300-PHONE] [KK_QUOTE:1090]','[KK_TEMPLATE:TPL-X500-PHONE] [KK_QUOTE:790]','']){
+    const f=appsScriptHarness({admissionClaim:pin});
+    const row=f.bookingSheet.rows[4];
+    row[3]=pin.event_id;row[8]=pin.bound_package_type;
+    row[19]+=' '+note;
+    assert.throws(()=>f.decide(decision),/TEMPLATE_OR_QUOTE_MISMATCH/);
+    assert.equal(row[2],'pending');
+    assert.equal(f.ledger.rows.length,1);
+  }
+  const missing=appsScriptHarness();
+  missing.bookingSheet.rows[4][19]+=' [KK_TEMPLATE:TPL-X500-PHONE] [KK_QUOTE:1090]';
+  assert.throws(()=>missing.decide(decision),/TEMPLATE_OR_QUOTE_MISMATCH/);
+  const valid=appsScriptHarness({admissionClaim:pin});
+  const row=valid.bookingSheet.rows[4];
+  row[3]=pin.event_id;row[8]=pin.bound_package_type;
+  row[19]+=' [KK_TEMPLATE:TPL-X500-PHONE] [KK_QUOTE:1090]';
+  assert.equal(valid.decide(decision).booking_status,'confirmed');
 });
