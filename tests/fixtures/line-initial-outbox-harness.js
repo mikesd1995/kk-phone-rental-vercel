@@ -36,11 +36,17 @@ function harness(options={}){
   kkBookingNoteWithRequest_:(n,r)=>n+' [KK_REQ:'+r+']',
   kkNormalizeTemplateIdForEvent_:(_,t)=>t,
   kkGetEventById_:()=>({event_date:'2026-11-18',status:'open',active:true}),
-  kkGetPackageByTemplateId_:()=>({package_type:'phone_only',active:true}),
-  kkIsPastEventDate_:()=>false,kkAssertWebPackageBookable_(){},
+  kkGetPackageByTemplateId_:()=>({package_type:'phone_only',model_group:'SYNTHETIC_PHONE',lens_group:'NONE',active:true}),
+  kkIsPastEventDate_:()=>false,kkAssertWebPackageBookable_(){return {package_type:'phone_only',model_group:'SYNTHETIC_PHONE',lens_group:'NONE',price:790,available_count:1,...options.webPackage};},
   kkFirstEmptyRow_(){allocations++;return 5;},kkGenerateUniqueBookingId_:()=>BID
  };
  vm.createContext(ctx);
+ // Real source helpers (not a second implementation of identity/quote logic).
+ for(const name of ['kkBookingTemplateIdFromNote_','kkBookingQuotedPriceFromNote_','kkBookingNoteWithTemplate_','kkBookingNoteForUpdate_','kkBookingBindingMatches_','kkLineVerifiedQuote_']){
+  const a=source.indexOf('function '+name+'('), b=source.indexOf('\nfunction ',a+1);
+  assert.ok(a>=0&&b>a);
+  vm.runInContext(source.slice(a,b),ctx,{filename:name+'.gs'});
+ }
  const start=source.indexOf('function kkLineBookingRequestKey_');
  const end=source.indexOf('const KK_LINE_OWNER_OUTBOX_VERSION_',start);
  vm.runInContext(source.slice(start,end),ctx,{filename:'InitialOutboxCandidate.gs'});
