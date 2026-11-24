@@ -32,7 +32,11 @@ test('new bookings get immutable explicit booking_id values and Sheet Quick Book
 
 test('technical idempotency marker is hidden from Admin snapshots and preserved across note edits',()=>{
   assert.match(apps,/function kkBookingNoteForDisplay_\(note\)/);
-  assert.match(apps,/const existingRequestId = kkBookingRequestIdFromNote_\(current\[19\]\)/);
+  assert.match(apps,/next\[19\] = kkBookingNoteForUpdate_\(payload\.booking_note \|\| '',current\[19\]\)/);
+  const a=apps.indexOf('function kkBookingNoteForUpdate_('),b=apps.indexOf('\nfunction ',a+1);
+  assert.ok(a>0&&b>a);
+  assert.match(apps.slice(a,b),/kkBookingNoteWithRequest_\(note,kkBookingRequestIdFromNote_\(old\)\)/);
+  assert.match(apps.slice(a,b),/kkBookingTemplateIdFromNote_\(old\),kkBookingQuotedPriceFromNote_\(old\)/);
   assert.match(apps,/note: kkBookingNoteForDisplay_\(r\[19\]\)/);
   assert.match(fallback,/function cleanBookingNote\(v\)/);
   assert.match(fallback,/note:cleanBookingNote\(r\.staff_note\)/);
