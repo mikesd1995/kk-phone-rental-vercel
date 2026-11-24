@@ -12,6 +12,17 @@ function isLensOnlyPriceRow(p={}){
   const id=text(p.template_id).toUpperCase();
   return type==='lens_only'||id==='TPL-ZEISS-2-35X-LENS';
 }
+function isBundlePriceRow(p={}){
+  const type=text(p.package_type).toLowerCase();
+  const id=text(p.template_id).toUpperCase();
+  return ['phone_lens_bundle','phone_lens','bundle'].includes(type)||
+    id==='TPL-VIVO-X300-PRO-BUNDLE'||/(?:^|-)BUNDLE$/.test(id);
+}
+function verifiedOrganizerLensPermission(input={},candidate={}){
+  const rule=text(input.lens_rule||input.lensRule||candidate.lens_rule||candidate.lensRule||'UNRESOLVED').toUpperCase();
+  return rule==='VERIFIED_ALLOWED' &&
+    (input.lens_permission_verified===true||input.lensPermissionVerified===true);
+}
 function isWeekendDate(v){
   if(!isIsoDate(v)) return false;
   const d=new Date(text(v)+'T00:00:00Z').getUTCDay();
@@ -72,18 +83,23 @@ function preparePromotion(input={}){
   const pricingStatus=text(policy.pricing_status)||(needsPriceRecheck?'PROVISIONAL_NEEDS_PRICE_RECHECK':'FINAL_PRICE_APPROVED');
   const priceConfidence=text(policy.price_confidence)||(needsPriceRecheck?'PROVISIONAL':'APPROVED');
 
+  const lensAllowed=verifiedOrganizerLensPermission(input,c);
   const cleanPrices=finalPrices.map(p=>{
     const lensOnly=isLensOnlyPriceRow(p);
+    const bundle=isBundlePriceRow(p);
     const rawNote=text(p.override_note||'VERIFIER_APPROVED');
     const note=rawNote+(needsPriceRecheck&&!rawNote.includes('PROVISIONAL_NEEDS_PRICE_RECHECK')?'|PROVISIONAL_NEEDS_PRICE_RECHECK':'');
     return {
       template_id:text(p.template_id),
       override_price:Number(p.override_price),
-      active_override:lensOnly?false:(p.active_override===false?false:true),
-      override_note:note
+      active_override:lensOnly||bundle&&!lensAllowed?false:(p.active_override===false?false:true),
+      override_note:note+(bundle&&!lensAllowed?'|LENS_PERMISSION_NOT_VERIFIED':'')
     };
   });
-  if(cleanPrices.some(p=>!p.template_id||!Number.isFinite(p.override_price)||p.override_price<=0)) blockers.push('FINAL_KK_PRICE_INVALID');
+  // Zero is valid only for an explicitly hidden lens or bundle; phone prices must stay positive.
+  if(cleanPrices.some(p=>!p.template_id||!Number.isFinite(p.override_price)||
+    (p.override_price<=0&&!(p.override_price===0&&p.active_override===false&&
+      (isLensOnlyPriceRow(p)||isBundlePriceRow(p)))))) blockers.push('FINAL_KK_PRICE_INVALID');
 
   if(input.verifier_approved!==true) blockers.push('FINAL_VERIFIER_APPROVAL_REQUIRED');
   const ownerPublishAllowed=input.owner_publish_allowed===true||policyApproved;
@@ -156,9 +172,9 @@ function verifyStorefrontReadback(plan={},readback={}){
   for(const p of expected){
     const row=packages.find(x=>text(x.template_id||x.package_id).includes(text(p.template_id)));
     if(!row||Number(row.price)!==Number(p.override_price)) blockers.push('PACKAGE_PRICE_READBACK_MISMATCH:'+text(p.template_id));
-    if(row&&isLensOnlyPriceRow(p)){
+    if(row&&(isLensOnlyPriceRow(p)||isBundlePriceRow(p))&&p.active_override===false){
       const status=text(row.package_status||row.status).toLowerCase();
-      if(status==='available'||status==='open') blockers.push('LENS_ONLY_VISIBLE_ON_CREATE:'+text(p.template_id));
+      if(status!=='hidden') blockers.push((isLensOnlyPriceRow(p)?'LENS_ONLY_VISIBLE_ON_CREATE:':'LENS_BUNDLE_VISIBLE_ON_CREATE:')+text(p.template_id));
     }
   }
 
@@ -178,6 +194,8 @@ module.exports={
   OWNER_REOPEN_INTENT,
   VisibilityGuard,
   isLensOnlyPriceRow,
+  isBundlePriceRow,
+  verifiedOrganizerLensPermission,
   isWeekendDate,
   publishEligibility,
   preparePromotion,

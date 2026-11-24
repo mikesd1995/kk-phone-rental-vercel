@@ -42,26 +42,41 @@ test('missing or stale market falls back to configured standard, not inquiry-onl
   );
 });
 
-test('lens uncertainty does not block the bundle', () => {
-  const plan = resolvePackagePlan({ lensRule: 'UNRESOLVED' });
-  assert.equal(plan.phone.enabled, true);
-  assert.equal(plan.phone.price, 890);
-  assert.equal(plan.bundle.enabled, true);
-  assert.equal(plan.bundle.price, 1090);
-  assert.equal(plan.bundle.lensRuleAdvisory, 'UNRESOLVED');
-  assert.equal(plan.lensOnly.enabled, false);
+test('unresolved or missing official lens policy disables lens bundle without blocking phone', () => {
+  for (const input of [{}, { lensRule: 'UNRESOLVED' }, { lensRule: 'VERIFIED_ALLOWED' }]) {
+    const plan = resolvePackagePlan(input);
+    assert.equal(plan.phone.enabled, true);
+    assert.equal(plan.phone.price, 890);
+    assert.equal(plan.bundle.enabled, false);
+    assert.equal(plan.bundle.reason, 'LENS_PERMISSION_NOT_VERIFIED');
+    assert.equal(plan.lensOnly.enabled, false);
+  }
 });
 
-test('even an explicit lens prohibition remains advisory for bundle availability', () => {
-  const plan = resolvePackagePlan({ lensRule: 'PROHIBITED' });
+test('explicit lens prohibition blocks bundle even if verifier flag was supplied', () => {
+  const plan = resolvePackagePlan({ lensRule: 'PROHIBITED', lensPermissionVerified: true });
   assert.equal(plan.phone.enabled, true);
+  assert.equal(plan.bundle.enabled, false);
+  assert.equal(plan.bundle.reason, 'LENS_PERMISSION_NOT_VERIFIED');
+});
+
+test('verified organizer permission enables bundle without changing approved prices', () => {
+  const plan = resolvePackagePlan({
+    lensRule: 'VERIFIED_ALLOWED',
+    lensPermissionVerified: true,
+    manualPhonePrice: 590,
+    manualBundlePrice: 690
+  });
+  assert.equal(plan.phone.enabled, true);
+  assert.equal(plan.phone.price, 590);
   assert.equal(plan.bundle.enabled, true);
-  assert.equal(plan.bundle.price, 1090);
-  assert.equal(plan.bundle.lensRuleAdvisory, 'PROHIBITED');
+  assert.equal(plan.bundle.price, 690);
+  assert.equal(plan.bundle.source, 'MANUAL_LOCKED');
+  assert.equal(plan.lensRuleAdvisory, undefined);
 });
 
 test('lens-only is disabled by default even when lens is allowed', () => {
-  const plan = resolvePackagePlan({ lensRule: 'VERIFIED_ALLOWED' });
+  const plan = resolvePackagePlan({ lensRule: 'VERIFIED_ALLOWED', lensPermissionVerified: true });
   assert.equal(plan.phone.price, 890);
   assert.equal(plan.bundle.price, 1090);
   assert.equal(plan.lensOnly.enabled, false);

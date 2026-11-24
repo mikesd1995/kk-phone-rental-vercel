@@ -23,7 +23,8 @@ function resolvePrice({ manualPrice, marketPrice, marketFresh = false, standardP
 
 function resolvePackagePlan(input = {}) {
   const phoneAllowed = input.phoneAllowed !== false;
-  const lensRule = String(input.lensRule || 'VERIFIED_ALLOWED').toUpperCase();
+  const lensRule = String(input.lensRule || 'UNRESOLVED').trim().toUpperCase();
+  const lensPermissionVerified = lensRule === 'VERIFIED_ALLOWED' && input.lensPermissionVerified === true;
   const explicitInquiryOnly = input.explicitInquiryOnly === true;
 
   if (!phoneAllowed) {
@@ -43,11 +44,11 @@ function resolvePackagePlan(input = {}) {
         standardPrice: input.standardPhonePrice || DEFAULT_PHONE_PRICE
       }) };
 
-  // Lens/equipment rules are advisory information for the customer, not a selling gate.
-  // Some organizers use ambiguous wording that does not clearly distinguish phone lenses,
-  // camera lenses, or other recording gear. KK keeps the phone+lens bundle bookable and
-  // lets the customer decide whether the package fits their event.
-  const bundle = explicitInquiryOnly
+  // A verified organizer permission is mandatory to sell an attachable lens.
+  // Unknown, missing or prohibited rules must never auto-enable the bundle.
+  const bundle = !lensPermissionVerified
+    ? { enabled: false, reason: 'LENS_PERMISSION_NOT_VERIFIED', lensRuleAdvisory: lensRule }
+    : explicitInquiryOnly
     ? { enabled: true, inquiryOnly: true, price: 0, source: 'EXPLICIT_INQUIRY_ONLY', lensRuleAdvisory: lensRule }
     : { enabled: true, ...resolvePrice({
         manualPrice: input.manualBundlePrice,
