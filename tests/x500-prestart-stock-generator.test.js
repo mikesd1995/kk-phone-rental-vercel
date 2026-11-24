@@ -94,3 +94,42 @@ test('PHONE-004 start-day boundary matches live 02_Assets: 21-Nov excluded, 22-N
   assert.equal(20261128 < startYmd, false);
   assert.equal((formula.match(/"PHONE-004"/g) || []).length, 1);
 });
+
+test('real lens stock generator uses scalar alias counts verified in native Sheets', () => {
+  const context = {};
+  vm.runInNewContext([extract('kkFormulaLensAssetCount_'),
+    extract('kkFormulaActiveBookingCount_'),extract('kkFormulaLensBookedCount_')].join('\n'),context);
+  const stock=context.kkFormulaLensAssetCount_(3104);
+  assert.match(stock,/COUNTIFS\('02_Assets'!\$B\$5:\$B,"lens",'02_Assets'!\$C\$5:\$C,F3104/);
+  assert.match(stock,/COUNTIFS\('02_Assets'!\$B\$5:\$B,"lens",'02_Assets'!\$C\$5:\$C,"G1"/);
+  assert.match(stock,/COUNTIFS\('02_Assets'!\$B\$5:\$B,"lens",'02_Assets'!\$C\$5:\$C,"ZEISS_2_35X"/);
+  assert.doesNotMatch(stock,/SUM\(COUNTIFS|\\{"ZEISS_2_35X","G1"\\}/);
+  const holds=context.kkFormulaLensBookedCount_(3104);
+  assert.match(holds,/'00_Master_Booking'!\$AK\$5:\$AK,TRUE,'00_Master_Booking'!\$AM\$5:\$AM,F3104/);
+  assert.match(holds,/'00_Master_Booking'!\$AM\$5:\$AM,""/);
+  assert.match(holds,/IF\(F3104="ZEISS_2_35X","G1",IF\(F3104="G1","ZEISS_2_35X"/);
+});
+
+test('physical asset allocation and formula share the verified public start day', () => {
+  const context={kkDateKey_:v=>String(v).replace(/-/g,'')};
+  vm.runInNewContext([extract('kkPhone004StartDay_'),extract('kkAssetDateEligible_')].join('\n'),context);
+  assert.equal(context.kkAssetDateEligible_('PHONE-004','phone','2026-11-21'),false);
+  assert.equal(context.kkAssetDateEligible_('PHONE-004','phone','2026-11-22'),true);
+  assert.equal(context.kkAssetDateEligible_('PHONE-003','phone','2026-11-21'),true);
+  assert.match(source,/if \(!kkAssetDateEligible_\(assetId,type,eventDate\)\) continue;/);
+  assert.match(source,/!rentable \|\| !kkAssetDateEligible_\(assetId,type,eventDate\)/);
+});
+
+test('exact stock migration expands existing grids and preserves WebPackage H prices', () => {
+  const repair=extract('kkRepairLensCompatibilityFormulas_');
+  assert.match(repair,/webEnd=web\.getLastRow\(\),bookingEnd=booking\.getMaxRows\(\)/);
+  assert.match(repair,/stage\(booking,38,modelHints\)/);
+  assert.match(repair,/stage\(web,9,avail\);stage\(web,10,status\);stage\(web,13,raw\)/);
+  assert.doesNotMatch(repair,/stage\(web,8,/);
+  assert.match(repair,/STOCK_FORMULA_READBACK_MISMATCH/);
+  assert.match(repair,/STOCK_FORMULA_ROLLBACK_MISMATCH/);
+  const priceRepair=extract('kkRepairWebPackagePriceFormulas_');
+  assert.match(priceRepair,/formulas\[idx\]\[0\]\|\|\(values\[idx\]\[0\]!==''&&values\[idx\]\[0\]!==null\)/);
+  const readiness=extract('kkRequireExactStockFormulaReady_');
+  assert.match(readiness,/LINE_STOCK_FORMULA_MIGRATION_NOT_READY/);
+});
