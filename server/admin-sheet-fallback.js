@@ -84,7 +84,7 @@ function bangkokDay(now){
 }
 function workflowOpen(s){ return ['pending','confirmed','prepared','picked_up','returned','uploaded'].includes(String(s||'').trim().toLowerCase()); }
 function cleanBookingNote(v){
-  return String(v||'').replace(/\s*\[KK_REQ:[A-Za-z0-9._:-]{8,128}\]\s*/g,' ').replace(/\s{2,}/g,' ').trim();
+  return String(v||'').replace(/\s*\[KK_REQ:[A-Za-z0-9._:-]{8,128}\]\s*/g,' ').replace(/\s*\[KK_(?:TEMPLATE|QUOTE):[^\]\r\n]*\]\s*/g,' ').replace(/\s{2,}/g,' ').trim();
 }
 
 function fetchWithTimeout(url, fetchImpl, timeoutMs){
