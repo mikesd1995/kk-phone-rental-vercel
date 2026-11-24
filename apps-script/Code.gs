@@ -4172,9 +4172,9 @@ function kkUpsertCustomerStat_(booking, event) {
 
 // PERFORMANCE FIX: O(1) Batch Archiving & Range Clearing
 function kkCleanupOldData30Days_() {
-  kkEnsureCrmArchiveSheets_();
   const lock = kkAcquireDocumentLock_('write operation', 12000);
   try {
+    kkEnsureCrmArchiveSheets_();
     const threshold = new Date();
     threshold.setDate(threshold.getDate() - 30);
     threshold.setHours(0, 0, 0, 0);
