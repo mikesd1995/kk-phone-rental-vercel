@@ -89,3 +89,60 @@ test('zero candidates with no verified-input accounting remains blocked',()=>{
  assert.ok(r.blockers.includes('NO_VERIFIED_CANDIDATES'));
 });
 
+
+const launchLead={event_id:'EVT-20261103-GMMTVNEXT-GENERATION-HAPPY',
+ event_date:'2026-11-03',title:'GMMTVNEXT: GENERATION HAPPY'};
+const launchQueue={...launchLead,status:'READY_FOR_VERIFIER'};
+test('cross-surface GMMTVNEXT audit blocks COMPLETE even when event was discovered in a separate report',()=>{
+ const out=Gate.evaluate({discovery:{...discovery,audit_required:true},candidates:[completeCandidate],
+  audit_discovery_leads:[launchLead],candidate_queue_readback_verified:true,
+  candidate_queue_readback:[],final_report_ready:true});
+ assert.equal(out.complete,false);
+ assert.ok(out.blockers.includes('AUDIT_LEAD_TO_CANDIDATE_RECONCILIATION_INCOMPLETE'));
+ assert.equal(out.audit_reconciliation.missing_count,1);
+ assert.equal(out.audit_reconciliation.unresolved[0].reason,'AUDIT_LEAD_NOT_IN_CANDIDATE_QUEUE');
+ assert.equal(out.production_completion_claim_allowed,false);
+});
+test('exact dated Candidate Queue readback closes GMMTVNEXT handoff debt, not unrelated same-day events',()=>{
+ const input={discovery:{...discovery,audit_required:true},candidates:[completeCandidate],
+  audit_discovery_leads:[launchLead],candidate_queue_readback_verified:true,final_report_ready:true};
+ const unrelated={event_id:'EVT-20261103-THE-FALL-OF-TROY-BANGKOK',event_date:'2026-11-03',
+  title:'The Fall of Troy Live in Bangkok',status:'READY_FOR_VERIFIER'};
+ assert.equal(Gate.evaluate({...input,candidate_queue_readback:[unrelated]}).complete,false);
+ assert.equal(Gate.evaluate({...input,candidate_queue_readback:[{...launchQueue,event_id:'WRONG-ID'}]}).complete,false);
+ const good=Gate.evaluate({...input,candidate_queue_readback:[unrelated,launchQueue]});
+ assert.equal(good.complete,true);
+ assert.equal(good.audit_reconciliation.accounted_count,1);
+});
+test('iQIYI parent event requires both fan zone 400 and green carpet 1600 eligibility evidence',()=>{
+ const lead={event_id:'EVT-20261105-IQIYI-IJOY-TH-2027',event_date:'2026-11-05',
+  title:'iQIYI iJOY TH 2027',required_access_variants:['FAN_ZONE_400','GREEN_CARPET_1600']};
+ const base={discovery:{...discovery,audit_required:true},candidates:[completeCandidate],
+  audit_discovery_leads:[lead],candidate_queue_readback_verified:true,final_report_ready:true};
+ const partial={...lead,access_variants:['FAN_ZONE_400']};
+ const failed=Gate.evaluate({...base,candidate_queue_readback:[partial]});
+ assert.equal(failed.complete,false);
+ assert.deepEqual(failed.audit_reconciliation.unresolved[0].missing_access_variants,['GREEN_CARPET_1600']);
+ assert.equal(Gate.evaluate({...base,candidate_queue_readback:[{...partial,access_variants:['FAN_ZONE_400','GREEN_CARPET_1600']}]}).complete,true);
+});
+test('audited discovery does not accept unverified readback, incomplete identity, or another date',()=>{
+ const base={discovery:{...discovery,audit_required:true},candidates:[completeCandidate],
+  audit_discovery_leads:[launchLead],final_report_ready:true};
+ assert.equal(Gate.evaluate({...base,candidate_queue_readback:[launchQueue]}).complete,false);
+ assert.equal(Gate.evaluate({...base,candidate_queue_readback_verified:true,
+  candidate_queue_readback:[{...launchQueue,event_date:'2026-11-05'}]}).complete,false);
+ assert.equal(Gate.evaluate({...base,audit_discovery_leads:[{title:'',event_date:''}],
+  candidate_queue_readback_verified:true,candidate_queue_readback:[]}).complete,false);
+});
+test('safe terminal with exact identity is permitted but an unresolved HOLD is not',()=>{
+ const input={discovery:{...discovery,audit_required:true},candidates:[],
+  verified_candidate_count:1,audit_discovery_leads:[launchLead],
+  final_report_ready:true};
+ const ok=Gate.evaluate({...input,terminal_dispositions:[
+  {event_id:launchLead.event_id,event_date:launchLead.event_date,status:'SKIPPED_FULL_BOOKING_DATE'}]});
+ assert.equal(ok.complete,true);
+ const no=Gate.evaluate({...input,terminal_dispositions:[
+  {event_id:launchLead.event_id,event_date:launchLead.event_date,status:'HOLD_AMBIGUOUS_EXISTING'}]});
+ assert.equal(no.complete,false);
+ assert.ok(no.blockers.includes('AUDIT_LEAD_TO_CANDIDATE_RECONCILIATION_INCOMPLETE'));
+});

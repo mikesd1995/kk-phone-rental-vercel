@@ -10,3 +10,34 @@ test('existing event produces market repricing and poster refresh plan without b
 test('existing mutation counts only after exact readback receipt',async()=>{const r=await O.run({discovery,candidates:[candidate],existing_events:[{event_id:'OLD',event_name:'Event One',event_date:'2026-10-20',active_on_web:true,poster_url:'https://x/a.jpg',packages:[{template_id:'P',package_type:'phone_only',price:790}]}],competitor_prices:[{event_key:'E1',exact_event:true,price:690}],posters:[{event_key:'E1',verified:true,official:true,image_url:'https://x/b.jpg'}]},{existingEventWriterFn:async()=>({readback_verified:true})});assert.equal(r.rows[0].status,'UPDATED_VERIFIED');assert.equal(r.production_writes,2);});
 
 test('canonical existing id permits verified date and venue sync without creating a replacement event',async()=>{const changed={...candidate,existing_event_id:'OLD',event_date:'2026-10-21',venue:'New Hall'};const r=await O.run({discovery,candidates:[changed],existing_events:[{event_id:'OLD',event_name:'Event One',event_date:'2026-10-20',venue:'Bangkok',active_on_web:true,poster_url:'https://x/a.jpg',packages:[{template_id:'P',package_type:'phone_only',price:590}]}]});const action=r.rows[0].update_plan.actions.find(x=>x.action==='updateEvent');assert.equal(action.event_date,'2026-10-21');assert.equal(action.venue,'New Hall');assert.equal(r.production_writes,0);});
+
+test('audited GMMTVNEXT is blocked before ANY governed writer if discovered October lead was never queued',async()=>{
+ let writes=0;
+ const out=await O.run({
+  discovery:{...discovery,audit_required:true},
+  audit_discovery_leads:[{event_id:'EVT-20261103-GMMTVNEXT-GENERATION-HAPPY',event_date:'2026-11-03',title:'GMMTVNEXT: GENERATION HAPPY'}],
+  candidate_queue_readback_verified:true,candidate_queue_readback:[],
+  candidates:[candidate],
+  existing_events:[{event_id:'OLD',event_name:'Event One',event_date:'2026-10-20',
+   active_on_web:true,poster_url:'https://example.com/poster.png',
+   packages:[{template_id:'P',package_type:'phone_only',price:790}]}],
+  competitor_prices:[{event_key:'E1',exact_event:true,price:590}],
+  posters:[{event_key:'E1',verified:true,official:true,image_url:'https://example.com/poster.png'}]
+ },{executeWrites:true,existingEventWriterFn:async()=>{writes++;return {readback_verified:true};}});
+ assert.equal(writes,0);
+ assert.equal(out.production_writes,0);
+ assert.equal(out.status,'BLOCKED_AUDIT_RECONCILIATION');
+ assert.equal(out.acceptance.audit_reconciliation.missing_count,1);
+ assert.equal(out.production_completion_claim_allowed,false);
+});
+test('iQIYI incomplete Green Carpet eligibility blocks before writer despite Fan Zone 400 proof',async()=>{
+ const out=await O.run({discovery:{...discovery,audit_required:true},
+  audit_discovery_leads:[{event_date:'2026-11-05',title:'iQIYI iJOY TH 2027',
+    required_access_variants:['FAN_ZONE_400','GREEN_CARPET_1600']}],
+  candidate_queue_readback_verified:true,candidate_queue_readback:[{
+    event_date:'2026-11-05',title:'iQIYI iJOY TH 2027',access_variants:['FAN_ZONE_400']}],
+  candidates:[candidate]},{executeWrites:true});
+ assert.equal(out.status,'BLOCKED_AUDIT_RECONCILIATION');
+ assert.deepEqual(out.acceptance.audit_reconciliation.unresolved[0].missing_access_variants,['GREEN_CARPET_1600']);
+ assert.equal(out.production_writes,0);
+});

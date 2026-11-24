@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V8';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V12';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -20,7 +20,7 @@ const REGISTRY=Object.freeze({
     {source_id:'impact-thunderdome',label:'IMPACT / Thunder Dome',required:true},
     {source_id:'bitec',label:'BITEC / BITEC LIVE',required:true},
     {source_id:'union-hall-mall',label:'Union Hall / Union Mall',required:true},
-    {source_id:'iconsiam-hall',label:'ICONSIAM Hall',required:true},
+    {source_id:'iconsiam-hall',label:'ICONSIAM Hall',direct_url:'https://www.iconsiamhall.com/en/event-calendar/event-list',required:true},
     {source_id:'mcc-hall',label:'MCC Hall',required:true},
     {source_id:'paragon-hall',label:'Paragon Hall',required:true},
     {source_id:'the-mall-m-grand-hall',label:'The Mall Lifestore / M Grand Hall',required:true},
@@ -28,7 +28,7 @@ const REGISTRY=Object.freeze({
     {source_id:'siam-center-free-stage',label:'Siam Center public plaza and POP-Pah free T-Pop programmes',required:true}
   ]),
   ARTIST_AGENCY:Object.freeze([
-    {source_id:'gmmtv',label:'GMMTV',domain:'gmmtv.com',required:true},
+    {source_id:'gmmtv',label:'GMMTV official new-series and projects fan audience launch registration',domain:'gmmtv.com',direct_url:'https://x.com/GMMTV',search_terms:['GMMTVNEXT GENERATION HAPPY','GMMTV NEXT 3 November 2026 Union Hall','GMMTV เปิดตัวโปรเจกต์ ลงทะเบียนเข้าร่วมงาน','register.gmm-tv.com','GMMTVNEXT press launch 2000 seats 500 waitlist'],required:true},
     {source_id:'one31',label:'one31',domain:'one31.net',required:true},
     {source_id:'domundi-mandee',label:'DOMUNDI / Mandee Work',required:true},
     {source_id:'deehup-house-ticketing',label:'Dee Hup House official fanmeet ticketing',domain:'deehuphouse.com',required:true},
@@ -44,6 +44,11 @@ const REGISTRY=Object.freeze({
   ]),
   BRAND_SPONSOR:Object.freeze([
     {source_id:'watsons-campaigns',label:'Watsons campaigns',required:true},
+    {source_id:'eveandboy-retail',label:'EVEANDBOY retail official artist appearances and lucky-fan campaigns',direct_url:'https://x.com/EVEANDBOY',search_terms:['EVEANDBOY Ongredients ThomasKong','EVEANDBOY 40 lucky fans','EVEANDBOY ambassador launch buy register win','อีฟแอนด์บอย แบรนด์แอมบาสเดอร์ ลุ้นสิทธิ์ ศิลปิน'],required:true},
+    {source_id:'beautrium-retail',label:'BEAUTRIUM official beauty anniversary stages artist lineups fan zones',direct_url:'https://x.com/TheBeautrium',search_terms:['BEAUTRIUM 15TH ANNIVERSARY FAN ZONE','BEAUTRIUM Siam Square artist schedule','บิวเทรี่ยม เปิดตัวศิลปิน งานกิจกรรม'],required:true},
+    {source_id:'brand-ambassador-lucky-fan-family',label:'Official multi-brand beauty skincare brand ambassador launches top spender lucky fan invited events',search_terms:['brand ambassador launch 40 lucky fans Bangkok','skincare beauty lucky fan top spender artist Bangkok','เปิดตัวพรีเซนเตอร์ ลุ้นสิทธิ์ lucky fans งานศิลปิน','ประกาศผู้โชคดี งานแอมบาสเดอร์ วันที่จัด กรุงเทพ'],required:true},
+    {source_id:'retail-partner-crosspromotion',label:'Brand plus retailer official campaign posts and event date from winner announcements',search_terms:['EVEANDBOY BEAUTRIUM Watsons brand artist event Bangkok','purchase registration winner announced event date artist retail','ร่วมกิจกรรม ซื้อครบ ลงทะเบียน ประกาศรายชื่อ วันจัดงาน ศิลปิน'],required:true},
+    {source_id:'iqiyi-thailand-platform',label:'iQIYI Thailand official iJOY fan zone registration artist showcase and awards',direct_url:'https://x.com/iQIYI_Thailand',search_terms:['iQIYI iJOY TH','#iQIYIiJOYTH2027','iQIYI FAN ZONE ลงทะเบียน','iQIYI VIP artist showcase'],required:true},
     {source_id:'wetv-campaigns',label:'WeTV campaigns',required:true},
     {source_id:'smtrue-campaigns',label:'SM True campaigns',required:true},
     {source_id:'mall-brand-campaigns',label:'Mall / retail brand campaigns',required:true},
@@ -105,7 +110,11 @@ function buildUniversePlan(input={}){
       [row.label,labels.th,'กรุงเทพ'].filter(Boolean).join(' '),
       [domain,row.label,'Bangkok'].filter(Boolean).join(' '),
       [domain,'concert fanmeeting Bangkok'].filter(Boolean).join(' '),
-      [row.label,'Bangkok'].filter(Boolean).join(' ')
+      [row.label,'Bangkok'].filter(Boolean).join(' '),
+      ...(Array.isArray(row.search_terms)?row.search_terms:[]).flatMap(term=>[
+        [term,labels.en,'Bangkok'].join(' '),
+        [term,labels.th,'กรุงเทพ'].join(' ')
+      ])
     ].filter(Boolean);
     return {
       source_id:row.source_id,
@@ -113,9 +122,11 @@ function buildUniversePlan(input={}){
       required:row.required===true,
       label:row.label,
       domain:row.domain||null,
+      direct_url:row.direct_url||null,
       query:queries[0],
       query_variants:[...new Set(queries.slice(1))],
-      providers:['BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
+      providers:row.direct_url?['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI']:['BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
+      ...(row.direct_url?{stop_condition:'EXECUTE_AND_RECORD_RECEIPT'}:{}),
       evidence_required:true
     };
   });
