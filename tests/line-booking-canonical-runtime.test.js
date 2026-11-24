@@ -9,7 +9,7 @@ const program = new vm.Script(source, {filename:'canonical-Code.gs'});
 const SHEET_ID='synthetic-canonical-sheet-0001';
 const SCRIPT_ID='synthetic-canonical-script-0001';
 const KEY='s'.repeat(48), ADMIN='a'.repeat(48);
-const LENS_VERSION='v16.7.0_PHASE3_9_5_11_SAME_DAY_INVENTORY_20260928';
+const LENS_VERSION='v16.7.0_PHASE3_9_5_14_EXACT_MODEL_HOLDS_20261124';
 const required=['00_Master_Booking','01_Events','03_Packages','02_Assets','08_Web_Ready','09_Web_Packages'];
 
 function fixture(opts={}) {
