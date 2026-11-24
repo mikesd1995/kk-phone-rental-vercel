@@ -12,6 +12,8 @@ on:
       - 'server/line-booking-deadline.js'
       - 'server/kk-line-messaging-api.js'
       - 'apps-script/Code.gs'
+      - 'apps-script/staging/Code.gs'
+      - 'tests/kk-staging-private-gas.test.js'
       - 'tests/line-booking-*.test.js'
       - 'tests/line-identity-owner-outbox-integration.test.js'
       - 'tests/line-webhook*.test.js'
@@ -55,12 +57,14 @@ jobs:
           node --check server/line-booking-owner-approval.js
           node --check server/line-booking-deadline.js
           node --check api/line-webhook.js
+          node --check < apps-script/staging/Code.gs
 
       - name: Booking E2E targeted regression
         run: |
           node --test \
             tests/line-booking-flex.test.js \
             tests/line-card-provider-bounds.test.js \
+            tests/kk-staging-private-gas.test.js \
             tests/line-booking-owner-approval.test.js \
             tests/line-booking-owner-approval-replay-failclosed.test.js \
             tests/line-booking-owner-approval-upstream-privacy.test.js \
