@@ -43,29 +43,68 @@ function kkStagingIsValidKey_(supplied, props) {
   return difference === 0;
 }
 
-function kkStagingOpenPrivateWorkbook_(props) {
-  const expectedId = String(props.getProperty('KK_STAGING_SHEET_ID') || '').trim();
-  if (!expectedId || expectedId.length < 20 ||
-      String(props.getProperty('KK_STAGING_PRIVATE_READ_ENABLED') || '') !== '1')
-    throw new Error('STAGING_DISABLED');
-  const workbook = SpreadsheetApp.getActiveSpreadsheet();
+// The active parent is available in the bound script EDITOR, not in a
+// deployed Web App. The owner must attest the bound Sheet once while disabled.
+// Script properties are owner-controlled configuration, not caller evidence.
+// See https://developers.google.com/apps-script/guides/bound#special_methods
+function kkStagingExpectedId_(props) {
+  const id = String(props.getProperty('KK_STAGING_SHEET_ID') || '').trim();
+  if (!/^[A-Za-z0-9_-]{20,200}$/.test(id)) throw new Error('STAGING_ID_INVALID');
+  return id;
+}
+
+function kkStagingScriptId_() {
+  const id = String(ScriptApp.getScriptId() || '').trim();
+  if (!/^[A-Za-z0-9_-]{20,200}$/.test(id)) throw new Error('STAGING_SCRIPT_ID_INVALID');
+  return id;
+}
+
+function kkStagingAssertPrivateWorkbook_(workbook, expectedId) {
   if (!workbook || workbook.getId() !== expectedId)
     throw new Error('STAGING_WRONG_WORKBOOK');
-
-  // Even a privately deployed web app must not make its read capability a
-  // back door into a workbook with public / separately shared customer data.
   const file = DriveApp.getFileById(expectedId);
   if (file.getSharingAccess() !== DriveApp.Access.PRIVATE ||
       file.getViewers().length > 0 || file.getEditors().length > 0)
     throw new Error('STAGING_ACL_NOT_OWNER_ONLY');
-
-  // A real Core workbook cannot pass the unique staging-only evidence gate.
   const readme = workbook.getSheetByName(KK_STAGING_README_);
   if (!readme ||
       readme.getRange('A1').getDisplayValue() !== KK_STAGING_SENTINEL_ ||
       readme.getRange('B2').getDisplayValue() !==
         'OWNER-PRIVATE SANDBOX; NO PRODUCTION CONNECTIVITY')
     throw new Error('STAGING_SENTINEL_MISSING');
+}
+
+// Run explicitly in the NEW container-bound staging editor, while disabled.
+// Only records the owner-verified binding in this script's own properties.
+// There is no HTTP route to call this function and no Sheet mutation.
+function kkStagingBindFromEditor() {
+  const props = PropertiesService.getScriptProperties();
+  if (String(props.getProperty('KK_STAGING_PRIVATE_READ_ENABLED') || '') !== '0')
+    throw new Error('STAGING_BIND_REQUIRES_DISABLED');
+  const expectedId = kkStagingExpectedId_(props);
+  const scriptId = kkStagingScriptId_();
+  kkStagingAssertPrivateWorkbook_(SpreadsheetApp.getActiveSpreadsheet(), expectedId);
+  const binding = scriptId + ':' + expectedId;
+  const existing = String(props.getProperty('KK_STAGING_VERIFIED_BINDING') || '');
+  if (existing && existing !== binding) throw new Error('STAGING_BINDING_CONFLICT');
+  props.setProperty('KK_STAGING_VERIFIED_BINDING', binding);
+  return {ok:true,version:KK_STAGING_PRIVATE_READER_VERSION_,binding_verified:true};
+}
+
+function kkStagingOpenPrivateWorkbook_(props, requestedId) {
+  if (String(props.getProperty('KK_STAGING_PRIVATE_READ_ENABLED') || '') !== '1')
+    throw new Error('STAGING_DISABLED');
+  const expectedId = kkStagingExpectedId_(props);
+  if (requestedId !== expectedId ||
+      props.getProperty('KK_STAGING_VERIFIED_BINDING') !==
+        kkStagingScriptId_() + ':' + expectedId)
+    throw new Error('STAGING_BINDING_REQUIRED');
+
+  // In a /exec request there is no active spreadsheet. Open only the pinned
+  // owner-attested ID, never a caller-selected workbook. Recheck ACL and
+  // sentinel on every read, including after revocation or fixture changes.
+  const workbook = SpreadsheetApp.openById(expectedId);
+  kkStagingAssertPrivateWorkbook_(workbook, expectedId);
   return workbook;
 }
 
@@ -135,7 +174,7 @@ function kkStagingRead_(payload, props) {
       !kkStagingIsValidKey_(payload.readKey, props))
     throw new Error('STAGING_AUTH_DENIED');
 
-  const workbook = kkStagingOpenPrivateWorkbook_(props);
+  const workbook = kkStagingOpenPrivateWorkbook_(props, payload.coreSheetId);
   if (payload.coreSheetId !== workbook.getId())
     throw new Error('STAGING_SOURCE_MISMATCH');
   const schema = Object.prototype.hasOwnProperty.call(
