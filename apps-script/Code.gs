@@ -128,7 +128,7 @@ function kkEnsureAdminLogSheets_() {
 function kkAppendRowSafe_(sheetName, row) {
   try {
     kkEnsureAdminLogSheets_();
-    const sh = SpreadsheetApp.getActive().getSheetByName(sheetName);
+    const sh = kkCanonicalWorkbook_().getSheetByName(sheetName);
     const targetRow = Math.max(sh.getLastRow() + 1, 2);
     sh.getRange(targetRow, 1, 1, row.length).setValues([row]);
   } catch (logErr) {
@@ -167,7 +167,7 @@ function kkErrorLog_(action, payload, err, startedAt) {
 }
 
 function kkSheetExists_(name) {
-  return !!SpreadsheetApp.getActive().getSheetByName(name);
+  return !!kkCanonicalWorkbook_().getSheetByName(name);
 }
 
 function kkProjectAuthorityDiagnostics_() {
@@ -196,7 +196,7 @@ function kkProjectAuthorityDiagnostics_() {
 function kkPhase1Diagnostics_(payload) {
   const props = PropertiesService.getScriptProperties();
   const frontendSheetId = payload && payload.frontendSheetId ? String(payload.frontendSheetId).trim() : '';
-  const spreadsheetId = SpreadsheetApp.getActive().getId();
+  const spreadsheetId = kkCanonicalWorkbook_().getId();
   const authority = kkProjectAuthorityDiagnostics_();
   return {
     admin_api_version: KK_ADMIN_VERSION,
@@ -237,8 +237,59 @@ function kkShowPhase1Health() {
   );
 }
 
+// Canonical runtime: an owner-attested bound workbook, usable from /exec,
+// editor and triggers. No caller-supplied ID or active-document fallback.
+// Google: bound active-parent methods are unavailable in Web App/API execution.
+// Binding changes require a drained cutover; never point two writer projects at
+// the same canonical Sheet. Script Properties are owner-controlled, not HTTP input.
+function kkCanonicalRuntimeBinding_() {
+  const props = PropertiesService.getScriptProperties();
+  const id = String(props.getProperty('KK_CANONICAL_WORKBOOK_ID') || '').trim();
+  const scriptId = String(ScriptApp.getScriptId() || '').trim();
+  const binding = String(props.getProperty('KK_CANONICAL_VERIFIED_BINDING') || '');
+  if (!/^[A-Za-z0-9_-]{20,200}$/.test(id) ||
+      !/^[A-Za-z0-9_-]{20,200}$/.test(scriptId) ||
+      binding !== scriptId + ':' + id)
+    throw new Error('CANONICAL_WORKBOOK_BINDING_REQUIRED');
+  return id;
+}
+
+function kkCanonicalWorkbook_() {
+  const id = kkCanonicalRuntimeBinding_();
+  const ss = SpreadsheetApp.openById(id);
+  if (!ss || ss.getId() !== id) throw new Error('CANONICAL_WORKBOOK_ID_MISMATCH');
+  return ss;
+}
+
+// Run only in the owning bound editor, while old deployments, triggers,
+// external writers and LINE automation are stopped. This action is NOT exposed
+// by doPost. Do not infer or copy a binding from a different project.
+function kkBindCanonicalWorkbookFromEditor() {
+  const props = PropertiesService.getScriptProperties();
+  const id = String(props.getProperty('KK_CANONICAL_WORKBOOK_ID') || '').trim();
+  const scriptId = String(ScriptApp.getScriptId() || '').trim();
+  const active = SpreadsheetApp.getActiveSpreadsheet();
+  if (!/^[A-Za-z0-9_-]{20,200}$/.test(id) ||
+      !/^[A-Za-z0-9_-]{20,200}$/.test(scriptId) ||
+      !active || active.getId() !== id)
+    throw new Error('CANONICAL_EDITOR_PARENT_MISMATCH');
+  for (const sheet of [KK.bookings, KK.events, KK.packages, KK.assets, KK.webReady, KK.webPackages]) {
+    if (!active.getSheetByName(sheet)) throw new Error('CANONICAL_EDITOR_SCHEMA_MISSING');
+  }
+  const binding = scriptId + ':' + id;
+  const existing = String(props.getProperty('KK_CANONICAL_VERIFIED_BINDING') || '');
+  if (existing && existing !== binding) throw new Error('CANONICAL_BINDING_CONFLICT');
+  // Carry forward only the exact previously installed lens marker, never run
+  // formula repair while binding. Missing/stale evidence requires owner review.
+  const documentProps = PropertiesService.getDocumentProperties();
+  if (documentProps && documentProps.getProperty('KK_LENS_COMPAT_PATCH_VERSION') === KK_LENS_COMPAT_PATCH_VERSION)
+    props.setProperty('KK_LENS_COMPAT_PATCH_VERSION', KK_LENS_COMPAT_PATCH_VERSION);
+  props.setProperty('KK_CANONICAL_VERIFIED_BINDING', binding);
+  return {ok:true,binding_verified:true};
+}
+
 function kkSheet_(name) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(name);
+  const sh = kkCanonicalWorkbook_().getSheetByName(name);
   if (!sh) throw new Error('Missing sheet: ' + name);
   return sh;
 }
@@ -277,7 +328,7 @@ function kkGetValues_(sheetName, startRow, startCol, numCols) {
 }
 
 function kkSetupNamedRanges() {
-  const ss = SpreadsheetApp.getActive();
+  const ss = kkCanonicalWorkbook_();
   KK_NAMED_RANGES.forEach(cfg => {
     ss.getNamedRanges()
       .filter(nr => nr.getName() === cfg.name)
@@ -290,7 +341,7 @@ function kkSetupNamedRanges() {
 }
 
 function kkRange_(name, sheetName, fallbackA1) {
-  const ss = SpreadsheetApp.getActive();
+  const ss = kkCanonicalWorkbook_();
   const named = ss.getRangeByName(name);
   if (named) return named;
   return kkSheet_(sheetName).getRange(fallbackA1);
@@ -1258,13 +1309,13 @@ function kkRepairLensCompatibilityFormulas_() {
   booking.getRange(startRow, 37, rowCount, 1).setFormulas(lensHold);     // AK reserves a lens by package
 }
 
-function kkEnsureLensCompatibilityPatchInstalled_() {
-  const props = PropertiesService.getDocumentProperties();
-  if (props.getProperty('KK_LENS_COMPAT_PATCH_VERSION') === KK_LENS_COMPAT_PATCH_VERSION) return false;
-  const lock = kkTryDocumentLock_('lens compatibility auto repair', 3000);
+function kkEnsureLensCompatibilityPatchInstalled_(forceOwnerRepair) {
+  const props = PropertiesService.getScriptProperties();
+  if (!forceOwnerRepair && props.getProperty('KK_LENS_COMPAT_PATCH_VERSION') === KK_LENS_COMPAT_PATCH_VERSION) return false;
+  const lock = kkTryDocumentLock_('lens compatibility owner repair', 3000);
   if (!lock) return false;
   try {
-    if (props.getProperty('KK_LENS_COMPAT_PATCH_VERSION') === KK_LENS_COMPAT_PATCH_VERSION) return false;
+    if (!forceOwnerRepair && props.getProperty('KK_LENS_COMPAT_PATCH_VERSION') === KK_LENS_COMPAT_PATCH_VERSION) return false;
     kkEnsureZeissLensModelMaster_();
     kkRetireG2AssetsAndPackages_();
     kkRepairLensCompatibilityFormulas_();
@@ -1277,8 +1328,7 @@ function kkEnsureLensCompatibilityPatchInstalled_() {
 }
 
 function kkRepairLensCompatibilityPatch() {
-  PropertiesService.getDocumentProperties().deleteProperty('KK_LENS_COMPAT_PATCH_VERSION');
-  const installed = kkEnsureLensCompatibilityPatchInstalled_();
+  const installed = kkEnsureLensCompatibilityPatchInstalled_(true);
   kkSafeAlert_((installed ? 'Repaired' : 'Already current') + ': lens compatibility formulas are ready. Public Web Packages will count only ZEISS_2_35X/G1 lenses. Standalone lens rental stays hidden unless the event has an active phone-only booking. G2/G_2 rows are retired from selling stock. Price formulas use package_id/template_id from 09_Web_Packages!A, not row order.');
 }
 
@@ -1630,7 +1680,7 @@ function kkConvertEventDriveUrls() {
 
 function kkRunBasicHealthCheck() {
   SpreadsheetApp.flush();
-  const sh = SpreadsheetApp.getActive().getSheetByName(KK.health);
+  const sh = kkCanonicalWorkbook_().getSheetByName(KK.health);
   if (sh) SpreadsheetApp.setActiveSheet(sh);
   kkSafeAlert_('Health Check recalculated. Please review rows with CHECK.');
 }
@@ -1696,7 +1746,7 @@ const KK_PRIVATE_CORE_READ_ALLOWLIST = Object.freeze({
 });
 function kkApiPrivateCoreRead_(payload){
   if(String(PropertiesService.getScriptProperties().getProperty('KK_CORE_PRIVATE_READ_ENABLED')||'')!=='1') throw new Error('PRIVATE_CORE_READ_DISABLED');
-  const ss=SpreadsheetApp.getActive();
+  const ss=kkCanonicalWorkbook_();
   if(String(payload.coreSheetId||'')!==ss.getId()) throw new Error('PRIVATE_CORE_ID_MISMATCH');
   const sheet=String(payload.sheet||'');
   const range=String(payload.range||'');
@@ -1716,8 +1766,13 @@ function kkApiPrivateCoreRead_(payload){
 }
 
 
+// Historical helper names retained for callers; both now use ONE ScriptLock.
+// Never fall back to DocumentLock: Web Apps return null and split lock domains
+// would allow concurrent writes during migration.
 function kkAcquireDocumentLock_(label, waitMs) {
-  const lock = LockService.getDocumentLock();
+  kkCanonicalRuntimeBinding_();
+  const lock = LockService.getScriptLock();
+  if (!lock) throw new Error('CANONICAL_SCRIPT_LOCK_UNAVAILABLE');
   const ms = Math.max(1000, Number(waitMs || 8000));
   if (!lock.tryLock(ms)) {
     throw new Error('ระบบกำลังบันทึก/คำนวณจากคำสั่งก่อนหน้าอยู่ กรุณารอ 10-20 วินาทีแล้วกดอีกครั้ง (' + String(label || 'document lock') + ')');
@@ -1726,7 +1781,9 @@ function kkAcquireDocumentLock_(label, waitMs) {
 }
 
 function kkTryDocumentLock_(label, waitMs) {
-  const lock = LockService.getDocumentLock();
+  kkCanonicalRuntimeBinding_();
+  const lock = LockService.getScriptLock();
+  if (!lock) throw new Error('CANONICAL_SCRIPT_LOCK_UNAVAILABLE');
   const ms = Math.max(1000, Number(waitMs || 3000));
   if (!lock.tryLock(ms)) {
     Logger.log('Skipped lock-dependent background task because document lock is busy: ' + String(label || 'document lock'));
@@ -1752,6 +1809,7 @@ function doPost(e) {
     action = String(payload.action || '').trim();
     if(action==='privateCoreRead') kkApiRequirePrivateReadKey_(payload);
     else kkApiRequireKey_(payload);
+    kkCanonicalRuntimeBinding_();
     keyOk = true;
     let result;
 
@@ -1982,7 +2040,7 @@ function kkApiSnapshot_(payload) {
   // the Vercel proxy timeout when the spreadsheet is busy. Repairs remain
   // available from the explicit KK Admin repair menu.
   const snapshotStartedAt = Date.now();
-  const lensPatchReady = PropertiesService.getDocumentProperties()
+  const lensPatchReady = PropertiesService.getScriptProperties()
     .getProperty('KK_LENS_COMPAT_PATCH_VERSION') === KK_LENS_COMPAT_PATCH_VERSION;
 
   const modelMap = kkModelDisplayMap_();
@@ -2166,7 +2224,7 @@ function kkApiSnapshot_(payload) {
     customers: customerStats,
     health: health,
     generated_at: kkApiDateTime_(new Date()),
-    spreadsheet_id: SpreadsheetApp.getActive().getId(),
+    spreadsheet_id: kkCanonicalWorkbook_().getId(),
     admin_api_version: KK_ADMIN_VERSION,
     frontend_sheet_id: phase1Diagnostics.frontend_sheet_id || '',
     phase1_diagnostics: phase1Diagnostics,
@@ -2655,6 +2713,7 @@ function kkApiAddAssets_(payload) {
     const contiguous = targetRows.every((row, i) => i === 0 || row === targetRows[i - 1] + 1);
     if (contiguous) sh.getRange(targetRows[0], 1, qty, 7).setValues(data);
     else targetRows.forEach((row, i) => sh.getRange(row, 1, 1, 7).setValues([data[i]]));
+    SpreadsheetApp.flush();
     return { asset_ids: ids, rows: targetRows };
   } finally {
     lock.releaseLock();
@@ -2723,7 +2782,7 @@ function kkAssetUsageSummary_(assetId) {
     if (kkActiveHold_(status) || ['returned', 'uploaded'].includes(status)) summary.current_active += 1;
   });
 
-  const archiveSheet = SpreadsheetApp.getActive().getSheetByName(KK.bookingArchive);
+  const archiveSheet = kkCanonicalWorkbook_().getSheetByName(KK.bookingArchive);
   if (archiveSheet) {
     const lastRow = archiveSheet.getLastRow();
     const lastCol = archiveSheet.getLastColumn();
@@ -2857,7 +2916,7 @@ function kkBookingIdValues_() {
     const id = String(r[0] || '').trim();
     if (id) ids.push(id);
   });
-  const archive = SpreadsheetApp.getActive().getSheetByName(KK.bookingArchive);
+  const archive = kkCanonicalWorkbook_().getSheetByName(KK.bookingArchive);
   if (archive && archive.getLastRow() >= 2) {
     archive.getRange(2, 7, archive.getLastRow() - 1, 1).getValues().forEach(r => {
       const id = String(r[0] || '').trim();
@@ -3693,7 +3752,7 @@ function kkLineNativeConsentRequirePrivateCore_(){
   // DriveApp distinguishes a public file from owner-private/member-only file.
   // Protecting or hiding tabs does not protect LINE IDs in a publicly shared
   // workbook. Fail closed if access cannot be verified.
-  const ss=SpreadsheetApp.getActiveSpreadsheet();
+  const ss=kkCanonicalWorkbook_();
   if(!ss || typeof ss.getId!=='function')throw new Error('LINE_NATIVE_CONSENT_CORE_UNVERIFIED');
   const file=DriveApp.getFileById(ss.getId());
   const access=file.getSharingAccess();
@@ -3882,7 +3941,10 @@ function kkApiCreateBooking_(payload) {
     const amountReceived = kkApiNumber_(payload.amount_received, 'amount_received', true) || 0;
     const bookingNote = kkBookingNoteWithRequest_(payload.booking_note || '', requestId);
 
-    kkEnsureLensCompatibilityPatchInstalled_();
+    // Booking must never repair stock or formulas under a nested lock. A
+    // missing migration marker is an explicit owner readiness gate.
+    if (PropertiesService.getScriptProperties().getProperty('KK_LENS_COMPAT_PATCH_VERSION') !== KK_LENS_COMPAT_PATCH_VERSION)
+      throw new Error('LENS_COMPAT_OWNER_REVIEW_REQUIRED');
     if (!eventId || !templateId || !customerName) throw new Error('Please fill event_id, template_id and customer_name');
     if (!['pending', 'confirmed', 'prepared', 'picked_up', 'returned', 'uploaded', 'completed', 'no_show', 'cancelled'].includes(bookingStatus)) throw new Error('Invalid booking_status');
     if (!['unpaid', 'partial', 'paid', 'refunded'].includes(paymentStatus)) throw new Error('Invalid payment_status');
@@ -3990,7 +4052,7 @@ function kkApiUpdateBooking_(payload) {
 }
 
 function kkEnsureSheetWithHeaders_(name, headers) {
-  const ss = SpreadsheetApp.getActive();
+  const ss = kkCanonicalWorkbook_();
   let sh = ss.getSheetByName(name);
   if (!sh) sh = ss.insertSheet(name);
   const existing = sh.getRange(1, 1, 1, headers.length).getValues()[0];
