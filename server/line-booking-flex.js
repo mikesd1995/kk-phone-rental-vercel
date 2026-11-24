@@ -7,7 +7,7 @@ function clean(value, fallback='-') {
 // Limit source-driven text to keep the LINE Flex bubble valid when input data is
 // anomalously large. Code-point slicing avoids tearing emoji surrogate pairs.
 function cardText(value, fallback='-', maxCharacters=180) {
-  const s=clean(value,fallback).replace(/[\u0000-\u001F\u007F]/g,' ').trim();
+  const s=clean(value,fallback).replace(/[\u0000-\u001F\u007F]/g,' ').replace(/[\uD800-\uDFFF]/gu,'\uFFFD').trim();
   return Array.from(s || fallback).slice(0,maxCharacters).join('');
 }
 function httpsImageUrl(value) {

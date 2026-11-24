@@ -71,3 +71,18 @@ test('control characters in customer-facing fields cannot inject multiple card l
  assert.equal(flex.contents.body.contents[1].text,'SYNTHETIC  Booking approved');
  assert.match(JSON.stringify(flex),/Safe  Hall/);
 });
+
+test('source text replaces isolated UTF-16 surrogates without changing valid Thai or emoji',()=>{
+ const raw='ไทย📱\uD800A\uDC00';
+ const expected='ไทย📱\uFFFDA\uFFFD';
+ const flex=buildBookingFlex({event:{event_name:raw,event_date:raw,venue:raw},
+  package:{package_name:raw,price_display:raw},customer:{nickname:raw,pickup_time:raw},
+  booking:{booking_id:'BK-STAGING-01'}});
+ assert.equal(flex.contents.body.contents[1].text,expected);
+ assert.ok(flex.altText.includes(expected));
+ const texts=flex.contents.body.contents.filter(x=>x.type==='text').map(x=>x.text);
+ assert.equal(texts.filter(t=>t.includes(expected)).length,7);
+ assert.ok(texts.includes('Booking ID  BK-STAGING-01'));
+ assert.equal(/[\uD800-\uDFFF]/u.test(flex.altText),false);
+ for(const value of texts) assert.equal(/[\uD800-\uDFFF]/u.test(value),false);
+});
