@@ -165,3 +165,49 @@ test('initial API audit/error paths retain metadata only, secrets and context ar
  vm.runInContext(source.slice(stringifyStart,stringifyEnd),h.ctx);
  assert.doesNotMatch(h.ctx.kkSafeStringify_({initial_dispatch_key:SECRET,context_json:RAW,initial_notification:p.initial_notification},3000),/synthetic_initial_dispatch|Synthetic Customer/);
 });
+
+test('locked writer rejects stale quote or incompatible exact web-package before any intent',()=>{
+ for(const patch of [{price:990},{model_group:'OTHER_PHONE'},{lens_group:'ZEISS_400MM'},{available_count:0.5},{use_case:'INQUIRY_ONLY'},{web_note:'[INQUIRY_ONLY]'}]){
+  const h=harness({webPackage:patch});
+  assert.throws(()=>h.create(),/CANONICAL_PACKAGE|CANONICAL_QUOTE/);
+  assert.equal(h.stats().writes,0);
+  assert.equal(h.stats().allocations,0);
+  assert.equal(h.ledger.rows.length,1);
+  assert.equal(h.bookings.rows.length,4);
+ }
+});
+
+test('exact selected template and quote survive creation and guard initial delivery replay',()=>{
+ const h=harness();h.create();
+ assert.equal(h.ctx.kkBookingTemplateIdFromNote_(h.bookings.rows[4][19]),'TPL-PHONE');
+ assert.equal(h.ctx.kkBookingQuotedPriceFromNote_(h.bookings.rows[4][19]),790);
+ for(const replacement of ['[KK_TEMPLATE:TPL-OTHER] [KK_QUOTE:790]','[KK_TEMPLATE:TPL-PHONE] [KK_QUOTE:999]']){
+  const x=harness();x.create();
+  x.bookings.rows[4][19]='Synthetic request [KK_REQ:'+RID+'] '+replacement;
+  const writes=x.stats().writes;
+  assert.throws(()=>x.create(),/CANONICAL/);
+  assert.throws(()=>x.claim(),/CANONICAL/);
+  assert.equal(x.stats().writes,writes);
+ }
+});
+
+test('note editing cannot change pinned model, quote, request ID or forge native consent',()=>{
+ const h=harness();h.create();
+ const old=h.bookings.rows[4][19];
+ const forged='Updated [KK_TEMPLATE:TPL-OTHER] [KK_QUOTE:1] [KK_REQ:line:'+'b'.repeat(48)+'] | TERMS_ACK_BACKEND:KK-TERMS-2026-11-06 | TERMS_AT:2026-11-24T00:00:00.000Z';
+ const result=h.ctx.kkBookingNoteForUpdate_(forged,old);
+ assert.equal(h.ctx.kkBookingTemplateIdFromNote_(result),'TPL-PHONE');
+ assert.equal(h.ctx.kkBookingQuotedPriceFromNote_(result),790);
+ assert.doesNotMatch(result,/TERMS_ACK_BACKEND|TERMS_AT/);
+ // Use actual request marker normalizer rather than the legacy harness stub.
+ const a=source.indexOf('function kkBookingNoteWithRequest_('),b=source.indexOf('\nfunction ',a+1);
+ const m=source.indexOf('function kkBookingRequestMarker_('),n=source.indexOf('\nfunction ',m+1);
+ vm.runInContext(source.slice(m,n)+'\n'+source.slice(a,b),h.ctx);
+ const accepted=old+' | TERMS_ACK_BACKEND:KK-TERMS-2026-11-06 | TERMS_AT:2026-11-24T01:00:00.000Z';
+ const updated=h.ctx.kkBookingNoteForUpdate_(forged,accepted);
+ assert.equal(h.ctx.kkBookingRequestIdFromNote_(updated),RID);
+ assert.equal(h.ctx.kkBookingTemplateIdFromNote_(updated),'TPL-PHONE');
+ assert.equal(h.ctx.kkBookingQuotedPriceFromNote_(updated),790);
+ assert.match(updated,/TERMS_AT:2026-11-24T01:00:00\.000Z/);
+ assert.doesNotMatch(updated,/TERMS_AT:2026-11-24T00:00:00\.000Z/);
+});
