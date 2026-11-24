@@ -27,6 +27,7 @@ function makeBuilders() {
   };
   vm.runInNewContext(
     [
+      extract('kkPhone004StartDay_'),
       extract('kkFormulaActiveBookingCount_'),
       extract('kkFormulaPhoneRawCount_'),
       extract('kkFormulaWebPackageAvailable_')
@@ -43,12 +44,12 @@ test('X500 raw inventory formula subtracts PHONE-004 before 22 November 2026', (
 
   assert.match(formula, /D3104="VIVO_X500_PRO_MAX"/);
   assert.match(formula, /VALUE\(MID\(B3104,5,8\)\),0\)<20261122/);
-  assert.match(formula, /COUNTIFS\('02_Assets'!\$A\$5:\$A\$1000,"PHONE-004"/);
-  assert.match(formula, /'02_Assets'!\$E\$5:\$E\$1000,"available"/);
-  assert.match(formula, /'02_Assets'!\$G\$5:\$G\$1000,TRUE/);
-  assert.match(formula, /SUMPRODUCT\(/, 'existing same-day booking hold must remain');
-  assert.match(formula, /phone_only\|phone_lens_bundle/, 'all phone packages share the booking hold');
-  assert.ok(formula.indexOf('PHONE-004') < formula.indexOf('SUMPRODUCT('),
+  assert.match(formula, /COUNTIFS\('02_Assets'!\$A\$5:\$A,"PHONE-004"/);
+  assert.match(formula, /'02_Assets'!\$E\$5:\$E,"available"/);
+  assert.match(formula, /'02_Assets'!\$G\$5:\$G,TRUE/);
+  assert.match(formula, /'00_Master_Booking'!\$AJ\$5:\$AJ,TRUE,'00_Master_Booking'!\$AL\$5:\$AL,D3104/, 'same-day model booking hold must remain');
+  assert.match(formula, /'00_Master_Booking'!\$AL\$5:\$AL,""/, 'unknown-model holds still reserve conservatively');
+  assert.ok(formula.indexOf('PHONE-004') < formula.indexOf("COUNTIFS('00_Master_Booking'"),
     'gate must be deducted before existing booking holds');
 });
 
@@ -61,7 +62,7 @@ test('generated raw and clamped public counts share the pre-start gate', () => {
       assert.match(formula, new RegExp('B' + row + ',5,8'));
       assert.match(formula, /PHONE-004/);
       assert.match(formula, /20261122/);
-      assert.match(formula, /SUMPRODUCT\(/);
+      assert.match(formula, /'00_Master_Booking'!\$AJ\$5:\$AJ,TRUE/);
       assert.match(formula, /LENS_STOCK_/, 'lens allocation must remain part of bundle logic');
       assert.match(formula, /LENS_HOLDS_/, 'lens booking holds must be preserved');
     }
