@@ -1067,6 +1067,12 @@ function dedupeWebRowsByEventId(webRows){
 }
 
 // ─── FIX 1: buildPackagesFromSheet — ใช้ available_count จาก 09_Web_Packages จริง ─
+// Keep bundle names identical to LINE canonical matching. The stable lens
+// enum, not price, row order or free-text display, identifies the variant.
+function storefrontBundleLabel(model, lensGroup){
+  var group=String(lensGroup||"").normalize("NFKC").replace(/\s+/g," ").trim().toLowerCase();
+  return model+" + Lens"+(group==="zeiss_2_35x"?" 200mm":group==="zeiss_400mm"?" 400mm":"");
+}
 function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
   // phoneCnt + lensCnt มาจาก 08_Web_Ready G/H; package count มาจาก 09_Web_Packages I
   var evtPkgs=dedupePackageRows(pkgRows).filter(function(p){
@@ -1100,7 +1106,7 @@ function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
     else{ price=toNum(p.bundle_price||p.phone_price); }
 
     var spec  = pkgType==="phone_only" ? "เฉพาะมือถือ" : pkgType==="lens_only" ? (lensDisplay||"เลนส์เสริม") : "มือถือ + เลนส์";
-    var label = pkgType==="lens_only"  ? (lensDisplay||"Lens") : pkgType==="phone_lens_bundle" ? modelDisplay+" + Lens" : modelDisplay;
+    var label = pkgType==="lens_only"  ? (lensDisplay||"Lens") : pkgType==="phone_lens_bundle" ? storefrontBundleLabel(modelDisplay,p.lens_group) : modelDisplay;
 
     // FIX: ใช้ available_count จาก 09_Web_Packages แทน isOpen&&price>0
     // available_count จาก 09_Web_Packages เป็น source of truth ต่อ package
