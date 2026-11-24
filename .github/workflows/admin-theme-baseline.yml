@@ -1,0 +1,64 @@
+name: Admin theme baseline UX preflight
+on:
+  push:
+    branches: [feat/admin-dark-theme-887]
+permissions:
+  contents: read
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run code:context -- "Admin CRM persistent dark mode theme analytics accessibility contrast"
+      - run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+      - name: Render Admin baseline and invoke registered reviewer
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/kk-theme-http.log 2>&1 &
+          trap 'kill $! 2>/dev/null || true' EXIT
+          for n in $(seq 1 20); do curl -fsS http://127.0.0.1:4173/admin/index.html >/dev/null && break; sleep 0.5; done
+          node <<'NODE'
+          const fs=require('node:fs');
+          const cp=require('node:child_process');
+          const {chromium}=require('playwright');
+          const E=require('./scripts/storefront-evidence.cjs');
+          (async()=>{
+            const dir='artifacts/admin-theme-baseline';
+            fs.mkdirSync(dir,{recursive:true});
+            const sourceSha=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+            const files=cp.execFileSync('git',['ls-files','-z','admin'],{encoding:'utf8'}).split('\0').filter(Boolean).sort();
+            const identity={digest:E.hash(JSON.stringify(files.map(p=>[p,E.hash(fs.readFileSync(p))])))};
+            const browser=await chromium.launch({channel:'chrome',headless:true});
+            try{
+              for(const [width,height] of [[320,568],[375,812],[390,844],[430,932],[480,932],[768,1024],[1024,768],[1440,900]]){
+                const page=await browser.newPage({viewport:{width,height}});
+                await page.route('**/*',route=>{
+                  const url=new URL(route.request().url());
+                  return url.origin==='http://127.0.0.1:4173'&&['document','stylesheet','image','font'].includes(route.request().resourceType())?route.continue():route.abort();
+                });
+                await page.goto('http://127.0.0.1:4173/admin/index.html');
+                await page.evaluate(()=>{document.getElementById('loginPanel').classList.add('hidden');document.getElementById('appPanel').classList.remove('hidden');});
+                await page.screenshot({path:dir+'/crm-'+width+'.png'});
+                const measured=await page.evaluate(()=>({document_scroll_width_px:document.documentElement.scrollWidth,content_width_px:innerWidth,body_background:getComputedStyle(document.body).backgroundColor,card_background:getComputedStyle(document.querySelector('.pro-hero')).backgroundColor}));
+                const input={surface:'admin_crm_static_fixture',viewport:{width,height},metrics:{document_scroll_width_px:measured.document_scroll_width_px,content_width_px:measured.content_width_px},screenshot_observations:[{code:'ADMIN_BRIGHT_SURFACE',severity:'P2',evidence:'Owner reports eye strain; rendered body '+measured.body_background+' and overview '+measured.card_background,recommended_action:'Add scoped persisted accessible dark theme and retain light mode.',acceptance:'Measured dark surfaces, legible foregrounds, keyboard toggle and unchanged light baseline.'}]};
+                const result=await E.invokeWithEvidence('storefront_ux_review',input,{outputDir:dir,sourceSha,identity});
+                console.log(JSON.stringify({width,measured,status:result.status,invocation_check:result.invocation_check,result:result.result}));
+                await page.close();
+              }
+            }finally{await browser.close();}
+          })().catch(e=>{console.error(e);process.exitCode=1;});
+          NODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: admin-theme-baseline-evidence
+          path: artifacts/admin-theme-baseline/
+          retention-days: 3
+          if-no-files-found: warn
