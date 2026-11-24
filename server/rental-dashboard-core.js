@@ -325,9 +325,9 @@ module.exports._test={eventMetadata,parseHelper,aggregate,eventMonth,coreCsv,bui
 
 /** Authorized Admin CRM projection. Reuse the existing Core read transport.
  * Never expose through the public storefront or aggregate analytics response. */
-async function readCustomerHistoryProjection(env=process.env){
+async function readCustomerHistoryProjection(env=process.env,read=coreCsv){
   const sheetId=String(env.GOOGLE_SHEET_ID||DEFAULT_SHEET_ID).trim();
-  const rows=parseCsv(await coreCsv(sheetId,"_Rental_Dashboard_Data","A1:O",env));
+  const rows=parseCsv(await read(sheetId,"_Rental_Dashboard_Data","A1:O",env));
   const expected=["Source","Booking ID","Created At","Booking Status","Event ID","Event Name","Event Date","Customer Key","Customer Name","Phone","Channel","Package Type","Payment Status","Amount Received","Event Month"];
   if(!rows.length||expected.some((h,i)=>String(rows[0][i]||"").trim()!==h))throw new Error("CRM_HISTORY_SCHEMA_INVALID");
   const master=[],archive=[];
