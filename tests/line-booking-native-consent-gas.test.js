@@ -45,7 +45,8 @@ function fixture(overrides={}){
     kkBookingRequestIdFromNote_(value){
       const m=String(value).match(/line:[a-f0-9]{48}/);return m?m[0]:'';
     },
-    SpreadsheetApp:{flush(){flushes++},getActiveSpreadsheet(){return {getId(){return 'synthetic-private-core-id'}}}},
+    kkCanonicalWorkbook_(){return {getId(){return 'synthetic-private-core-id'}}},
+    SpreadsheetApp:{flush(){flushes++}},
     DriveApp:{Access:{PRIVATE:'PRIVATE',ANYONE_WITH_LINK:'ANYONE_WITH_LINK',ANYONE:'ANYONE',DOMAIN:'DOMAIN'},
       getFileById(id){assert.equal(id,'synthetic-private-core-id');
         if(overrides.driveUnavailable)throw Error('SYNTHETIC_DRIVE_READ_FAILED');
