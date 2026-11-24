@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'server/core-private-range-contract.js'
+      - 'server/admin-sheet-fallback.js'
+      - 'tests/core-private-range-contract.test.js'
       - 'server/core-sheet-private-reader.js'
       - 'server/core-sheet-apps-script-reader.js'
       - 'tests/core-apps-script-untrusted-error.test.js'
@@ -15,18 +17,8 @@ on:
       - 'tests/admin-sheet-fallback-private-reader.test.js'
       - '.github/workflows/core-private-range-ci.yml'
   push:
-    paths:
-      - 'server/core-private-range-contract.js'
-      - 'server/core-sheet-private-reader.js'
-      - 'server/core-sheet-apps-script-reader.js'
-      - 'tests/core-apps-script-untrusted-error.test.js'
-      - 'docs/KK_CORE_PRIVATE_SCHEMA_ORDER_GATE_20261121.md'
-      - 'scripts/core-private-cutover-preflight.cjs'
-      - 'tests/core-private-cutover-preflight.test.js'
-      - 'tests/core-apps-script-private-reader.test.js'
-      - 'tests/core-sheet-privacy-cutover.test.js'
-      - 'tests/admin-sheet-fallback-private-reader.test.js'
-      - '.github/workflows/core-private-range-ci.yml'
+    branches: [fix/core-private-schema-order-gate-20261121]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -66,10 +58,18 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Privacy preflight and authentication tests
-        run: node --test tests/core-private-cutover-preflight.test.js tests/core-apps-script-private-reader.test.js tests/core-apps-script-untrusted-error.test.js tests/core-sheet-privacy-cutover.test.js
+        run: node --test tests/core-private-cutover-preflight.test.js tests/core-apps-script-private-reader.test.js tests/core-apps-script-untrusted-error.test.js tests/core-sheet-privacy-cutover.test.js tests/core-private-range-contract.test.js tests/admin-sheet-fallback-private-reader.test.js tests/core-read-only-key-isolation.test.js
 
       - name: Static syntax check
         run: npm run check
 
       - name: Full repository regression and poster ACL policy
         run: npm test
+
+      - name: Continuous invariant source gate
+        run: npm run audit:invariants
+
+      - name: Assert no provider keys or mutation authorization
+        run: |
+          test -z "${KK_CORE_PRIVATE_READ_KEY:-}"
+          test -z "${KK_ADMIN_API_KEY:-}"

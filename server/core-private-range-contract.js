@@ -56,15 +56,27 @@ const RANGE_SPECS=Object.freeze([
   spec('event_archive','13_Event_Archive','A1:Z','archived_at',26,['rental_analytics'])
 ]);
 
+// Shared defensive header-key check for legacy mappers and the strict contract.
+// Blank cells are allowed, but no named column may overwrite another field or
+// the synthetic physical-row metadata / Object prototype methods.
+function safeHeaderKeys(row){
+  if(!Array.isArray(row))return null;
+  const keys=row.map(v=>String(v==null?'':v).trim());
+  const names=keys.filter(Boolean);
+  if(!names.length||new Set(names).size!==names.length||
+     names.some(k=>k==='__row_number'||k==='prototype'||
+       Object.prototype.hasOwnProperty.call(Object.prototype,k)))return null;
+  return keys;
+}
 function schemaResult(values,specification){
   // Accept Google display values only, within the existing bounded read sizes.
   // This applies equally to injected fixtures and either existing transport.
   if(!Array.isArray(values)||values.length===0||values.length>4000||
       values.some(row=>!Array.isArray(row)||row.length>specification.width||row.some(cell=>typeof cell!=='string')))
     return {ok:false,classification:'PRIVATE_SCHEMA_INVALID'};
-  const header=values[0].map(v=>v.trim());
+  const header=safeHeaderKeys(values[0]);
   const expected=specification.orderedHeaders;
-  if(!expected||header.length<expected.length||
+  if(!header||!expected||header.length<expected.length||
     header.some((name,i)=>{
       // A4:Z / A1:Z may include empty trailing cells. Extra named headers are
       // never silently accepted, since consumers rely on column offsets.
@@ -77,4 +89,4 @@ function schemaResult(values,specification){
   return {ok:true,classification:hasData?'PRIVATE_RANGE_SCHEMA_OK':'PRIVATE_RANGE_SCHEMA_EMPTY'};
 }
 
-module.exports={RANGE_SPECS,schemaResult};
+module.exports={RANGE_SPECS,schemaResult,safeHeaderKeys};

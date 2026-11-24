@@ -5,7 +5,7 @@
 // an owner-approved private transport and independent read-only key are configured.
 // Output is aggregate status only; NEVER emit rows, contacts, OAuth tokens, keys or IDs.
 const PrivateCore=require('../server/core-sheet-private-reader.js');
-const {RANGE_SPECS,schemaResult}=require('../server/core-private-range-contract.js');
+const {RANGE_SPECS,schemaResult,safeHeaderKeys}=require('../server/core-private-range-contract.js');
 
 // Preserve the old metadata export without maintaining a second range list.
 const EXTRA_SPECS=Object.freeze(Object.fromEntries(RANGE_SPECS
@@ -42,11 +42,9 @@ function classify(err){
   return SAFE_PRIVATE_FAILURE_CODES.has(code)?code:'CORE_PRIVATE_PROBE_FAILED';
 }
 function hasHeader(values,required){
-  if(!required)return Array.isArray(values)&&values.length>0;
-  // A1/A4 range begins at the required header; data-row values cannot stand in
-  // for a missing header. Fail closed before any owner ACL cutover approval.
-  return Array.isArray(values)&&values.length>0&&Array.isArray(values[0])&&
-    values[0].some(v=>String(v||'').trim()===required);
+  // Compatibility helper only. Actual 19-range acceptance uses schemaResult.
+  const keys=safeHeaderKeys(Array.isArray(values)?values[0]:null);
+  return !!keys&&(!required||keys.includes(required));
 }
 function plan(env=process.env){
   const source=PrivateCore.state(env);

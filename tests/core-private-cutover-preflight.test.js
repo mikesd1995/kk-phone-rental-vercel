@@ -224,3 +224,19 @@ test('private Core probe rejects a synthetic contact-column reorder with only op
   assert.deepEqual(report.results.filter(x=>!x.ok).map(x=>x.dataset),['bookings']);
   assert.doesNotMatch(JSON.stringify(report),/SYNTHETIC_PRIVATE_CUSTOMER_VALUE_MUST_NEVER_LEAK/);
 });
+test('shared header validation rejects ambiguous keys in preflight and strict 19-range schema',()=>{
+ const {schemaResult}=require('../server/core-private-range-contract.js');
+ const Admin=require('../server/admin-sheet-fallback.js');
+ const spec=Preflight.RANGE_SPECS.find(s=>s.dataset==='bookings');
+ for(const key of ['booking_id','__proto__','constructor','prototype','__row_number',
+   'toString','valueOf','hasOwnProperty','__defineGetter__','isPrototypeOf']){
+  const header=[...spec.orderedHeaders];header[1]=key;
+  assert.equal(Preflight.hasHeader([header],spec.header),false);
+  assert.equal(schemaResult([header],spec).ok,false);
+  assert.throws(()=>Admin.valuesAsObjects([header],spec.header),e=>e.code==='CORE_PRIVATE_SCHEMA_INVALID');
+ }
+ assert.equal(Preflight.hasHeader([[]],null),false);
+ assert.equal(Preflight.hasHeader([['archived_at','archived_at']],null),false);
+ assert.equal(Preflight.hasHeader([['booking_id','','event_id']],'booking_id'),true);
+ assert.equal(Preflight.hasHeader([['archived_at','source_row']],null),true);
+});
