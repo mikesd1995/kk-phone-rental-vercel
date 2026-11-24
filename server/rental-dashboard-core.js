@@ -322,3 +322,25 @@ module.exports=async function handler(req,res){
 
 
 module.exports._test={eventMetadata,parseHelper,aggregate,eventMonth,coreCsv,buildStrictBookingQuoteMap,fetchAppsScriptPrivateQuotes};
+
+/** Authorized Admin CRM projection. Reuse the existing Core read transport.
+ * Never expose through the public storefront or aggregate analytics response. */
+async function readCustomerHistoryProjection(env=process.env){
+  const sheetId=String(env.GOOGLE_SHEET_ID||DEFAULT_SHEET_ID).trim();
+  const rows=parseCsv(await coreCsv(sheetId,"_Rental_Dashboard_Data","A1:O",env));
+  const expected=["Source","Booking ID","Created At","Booking Status","Event ID","Event Name","Event Date","Customer Key","Customer Name","Phone","Channel","Package Type","Payment Status","Amount Received","Event Month"];
+  if(!rows.length||expected.some((h,i)=>String(rows[0][i]||"").trim()!==h))throw new Error("CRM_HISTORY_SCHEMA_INVALID");
+  const master=[],archive=[];
+  const statuses=new Set(["pending","confirmed","prepared","picked_up","returned","uploaded","completed","cancelled","no_show"]);
+  for(const r of rows.slice(1)){
+    const source=String(r[0]||"").trim().toUpperCase(),id=String(r[1]||"").trim(),status=String(r[3]||"").trim().toLowerCase();
+    if(!id||!status)continue; // blank formula rows are not bookings
+    if(!["MASTER","ARCHIVE"].includes(source)||!statuses.has(status)||!String(r[4]||"").trim())throw new Error("CRM_HISTORY_ROW_INVALID");
+    if(source==="MASTER"){master.push({booking_id:id,event_id:String(r[4]).trim(),booking_status:status});continue;}
+    const key=String(r[7]||"").trim(),phone=normalizePhone(r[9]);
+    if(phone&&key.startsWith("phone:")&&key!=="phone:"+phone)throw new Error("CRM_HISTORY_IDENTITY_CONFLICT");
+    archive.push({booking_id:id,created_at:String(r[2]||""),booking_status:status,event_id:String(r[4]).trim(),event_name:String(r[5]||""),event_date:String(r[6]||""),customer_name:String(r[8]||""),customer_phone:phone,customer_contact:key.startsWith("contact:")?key.slice(8):"",package_type:String(r[11]||""),payment_status:String(r[12]||""),amount_received:num(r[13]),archived:true});
+  }
+  return {master,archive};
+}
+module.exports.readCustomerHistoryProjection=readCustomerHistoryProjection;
