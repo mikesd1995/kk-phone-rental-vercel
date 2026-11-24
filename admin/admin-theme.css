@@ -1,0 +1,55 @@
+/* Admin-only shared dark palette; light-mode layout and business UI stay untouched. */
+.admin-theme-control{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:12px}
+.admin-theme-control select{min-height:44px;max-width:100%;width:auto;font:inherit;border-radius:9px;padding:6px 10px}
+.admin-theme-control select:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
+:root[data-admin-theme="dark"]{
+  color-scheme:dark;
+  --kk-admin-canvas:#101827;--kk-admin-panel:#192435;--kk-admin-soft:#223044;
+  --kk-admin-line:#42546a;--kk-admin-text:#e7edf6;--kk-admin-muted:#b7c5d7;
+  --kk-admin-blue:#93c5fd;--kk-admin-blue-soft:#203956;
+  --kk-admin-green:#86efac;--kk-admin-green-soft:#183b31;
+  --kk-admin-yellow:#fde68a;--kk-admin-yellow-soft:#40351c;
+  --kk-admin-red:#fda4af;--kk-admin-red-soft:#482631;
+  --bg:var(--kk-admin-canvas);--panel:var(--kk-admin-panel);--panel-soft:var(--kk-admin-soft);
+  --card:var(--kk-admin-panel);--ink:var(--kk-admin-text);--muted:var(--kk-admin-muted);
+  --line:var(--kk-admin-line);--line-strong:var(--kk-admin-line);--brand-soft:var(--kk-admin-blue-soft);
+  --brand-dark:var(--kk-admin-blue);--blue2:var(--kk-admin-blue);--soft:var(--kk-admin-soft);
+  --ok-soft:var(--kk-admin-green-soft);--warn-soft:var(--kk-admin-yellow-soft);--bad-soft:var(--kk-admin-red-soft);
+  --surface-glass:#192435;--glass:#192435;--glass-line:#42546a;
+  --admin-bg-1:#101827;--admin-bg-2:#101827;--table-head:#223044;--table-hover:#26364b;
+  --ux31-line:var(--kk-admin-line);--ux31-soft:var(--kk-admin-soft);--ux31-ink:var(--kk-admin-text);--ux31-muted:var(--kk-admin-muted);
+  --ux3-bg:var(--kk-admin-canvas);--ux3-surface:var(--kk-admin-panel);--ux3-surface-soft:var(--kk-admin-soft);
+  --ux3-ink:var(--kk-admin-text);--ux3-muted:var(--kk-admin-muted);--ux3-line:var(--kk-admin-line);--ux3-line-strong:var(--kk-admin-line);
+  --ux3-primary-soft:var(--kk-admin-blue-soft);--ux3-success-soft:var(--kk-admin-green-soft);--ux3-warning-soft:var(--kk-admin-yellow-soft);--ux3-danger-soft:var(--kk-admin-red-soft);
+  --ux4-bg:var(--kk-admin-canvas);--ux4-surface:var(--kk-admin-panel);--ux4-line:var(--kk-admin-line);--ux4-line-soft:#32445a;
+  --ux4-ink:var(--kk-admin-text);--ux4-muted:var(--kk-admin-muted);
+  --ux4-ok:var(--kk-admin-green);--ux4-ok-soft:var(--kk-admin-green-soft);--ux4-warn:var(--kk-admin-yellow);--ux4-warn-soft:var(--kk-admin-yellow-soft);--ux4-bad:var(--kk-admin-red);--ux4-bad-soft:var(--kk-admin-red-soft);
+}
+:root[data-admin-theme="dark"] body{background:var(--kk-admin-canvas)!important;color:var(--kk-admin-text)!important}
+:root[data-admin-theme="dark"] :is(.topbar,.card,.stat,.kpi,.hero,.pro-hero,.quickbar,.crm-profile-card,.timeline-item,.admin-dialog,dialog,.batch-preview-dialog,.tablewrap,.table-wrap,.snapshot>div,.login-card,.command-results,.command-result,.action-toolbar,.meta-chip,.pro-hero-metrics span,.empty-note){
+  background:var(--kk-admin-panel)!important;color:var(--kk-admin-text)!important;border-color:var(--kk-admin-line)!important;box-shadow:none!important
+}
+:root[data-admin-theme="dark"] :is(h1,h2,h3,h4,strong,.crm-profile-line,.crm-contact-line,.card-head h2,.form-title h2,.barvalue,.kpi strong,.snapshot strong,td){
+  color:var(--kk-admin-text)!important
+}
+:root[data-admin-theme="dark"] :is(.hint,small,.eyebrow,.kicker,.crm-note-line,.topbar p,.hero p,.stat span,.kpi span,.snapshot span,.quality,.barlabel,label,.meta-chip){color:var(--kk-admin-muted)!important}
+:root[data-admin-theme="dark"] :is(input:not([type=checkbox]):not([type=radio]),select,textarea,option){
+  background:var(--kk-admin-canvas)!important;color:var(--kk-admin-text)!important;border-color:var(--kk-admin-line)!important
+}
+:root[data-admin-theme="dark"] :is(input,textarea)::placeholder{color:var(--kk-admin-muted)!important;opacity:1}
+:root[data-admin-theme="dark"] :is(table,tbody,tr,td,th){border-color:var(--kk-admin-line)!important}
+:root[data-admin-theme="dark"] :is(table,tbody,td){background:var(--kk-admin-panel)!important}
+:root[data-admin-theme="dark"] th{background:var(--kk-admin-soft)!important;color:var(--kk-admin-text)!important}
+:root[data-admin-theme="dark"] tr:nth-child(even) td{background:#1e2b3d!important}
+:root[data-admin-theme="dark"] tr:hover td{background:#26364b!important}
+:root[data-admin-theme="dark"] :is(.btn.secondary,.btn.ghost,.mini-btn,.command-result){background:var(--kk-admin-soft)!important;color:var(--kk-admin-text)!important;border-color:var(--kk-admin-line)!important}
+:root[data-admin-theme="dark"] :is(.btn.primary,.btn[type="submit"],.mini-btn.active){background:#1d4ed8!important;color:#fff!important;border-color:#60a5fa!important}
+:root[data-admin-theme="dark"] :is(.pill.ok,.risk-chip.ok,.meta-chip.live,.trust-badge.vip){background:var(--kk-admin-green-soft)!important;color:var(--kk-admin-green)!important;border-color:#388064!important}
+:root[data-admin-theme="dark"] :is(.pill.warn,.risk-chip.warn,.trust-badge.verify){background:var(--kk-admin-yellow-soft)!important;color:var(--kk-admin-yellow)!important;border-color:#98782e!important}
+:root[data-admin-theme="dark"] :is(.pill.bad,.risk-chip.bad,.risk-chip.risk,.trust-badge.risk,.notice.bad){background:var(--kk-admin-red-soft)!important;color:var(--kk-admin-red)!important;border-color:#a85b69!important}
+:root[data-admin-theme="dark"] :is(.trust-badge.good,.trust-badge.new,.pill,.top-badge,.nav .mini-btn){background:var(--kk-admin-blue-soft);color:var(--kk-admin-blue);border-color:var(--kk-admin-line)}
+:root[data-admin-theme="dark"] :is(.notice:not(.bad),.risk-chip,.snapshot-status,.admin-client-recovery){background:var(--kk-admin-soft);color:var(--kk-admin-text);border-color:var(--kk-admin-line)}
+:root[data-admin-theme="dark"] :is(.track,.bar-track){background:var(--kk-admin-soft)!important}
+:root[data-admin-theme="dark"] :is(a:not(.btn),.link){color:var(--kk-admin-blue)}
+:root[data-admin-theme="dark"] :is(button,input,select,textarea,a):focus-visible{outline:2px solid #93c5fd!important;outline-offset:2px}
+:root[data-admin-theme="dark"] #tab-today #todayTable td[colspan]{background:var(--kk-admin-soft)!important;color:var(--kk-admin-muted)!important}
