@@ -29,3 +29,23 @@ test('status whitespace and no show use consistent categories',()=>{
   const c=ctx.customerHistoryRows(rows,[])[0];const a=ctx.customerAnalytics(c,ctx.customerBookings(c));
   assert.equal(c.rental_count,1);assert.equal(a.completed_count,1);assert.equal(a.active_count,1);assert.equal(a.no_show_count,1);
 });
+
+test('archive is accepted only against the same master snapshot; archived rows remain distinct',()=>{
+  const master=[{...booking('master','completed'),event_id:'E1'}, {...booking('legacy',''),event_id:''}];
+  const historical={...booking('legacy','completed'),event_id:'E2',archived:true};
+  const projection={master:[master[0]],archive:[historical]};
+  const archive=ctx.reconcileCustomerArchive({bookings:master},projection);
+  assert.equal(archive.length,1);
+  ctx.state.data={bookings:master};ctx.state.customerArchive=archive;
+  const c=ctx.customerHistoryRows(ctx.crmBookingRows(),[])[0];
+  assert.equal(c.rental_count,2);
+  assert.equal(ctx.customerAnalytics(c,ctx.customerBookings(c)).booking_count,2);
+  ctx.state.customerArchive=null;
+  assert.equal(ctx.reconcileCustomerArchive({bookings:master},{...projection,master:[]}),null);
+  assert.equal(ctx.reconcileCustomerArchive({bookings:master},{...projection,archive:[{...historical,booking_id:'master'}]}),null);
+  assert.equal(ctx.reconcileCustomerArchive({bookings:master},{...projection,archive:[historical,historical]}),null);
+  assert.equal(ctx.reconcileCustomerArchive({bookings:master},{...projection,archive:[{...master[0],archived:true}]}).length,0);
+});
+test('archive rows cannot invoke master row mutation actions',()=>{
+  assert.match(src,/r\.archived\?'[^']*Archive · อ่านอย่างเดียว/);
+});
