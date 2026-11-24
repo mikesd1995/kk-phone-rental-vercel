@@ -49,3 +49,21 @@ test('archive is accepted only against the same master snapshot; archived rows r
 test('archive rows cannot invoke master row mutation actions',()=>{
   assert.match(src,/r\.archived\?'[^']*Archive · อ่านอย่างเดียว/);
 });
+
+test('server projection reads only existing approved helper and strips non-booking placeholders',async()=>{
+  const {readCustomerHistoryProjection}=require('../server/rental-dashboard-core.js');
+  const head='Source,Booking ID,Created At,Booking Status,Event ID,Event Name,Event Date,Customer Key,Customer Name,Phone,Channel,Package Type,Payment Status,Amount Received,Event Month';
+  const csv=[head,'MASTER,M1,2026-11-01,completed,E1,Event 1,2026-11-01,phone:0800000001,Test,0800000001,,phone,paid,690,2026-11','MASTER,X,,,,,,,,,,,,,','ARCHIVE,A1,2026-10-01,completed,E2,Event 2,2026-10-01,phone:0800000001,Test,0800000001,,phone,paid,590,2026-10'].join('\n');
+  const read=async(id,sheet,range)=>{assert.equal(id,'fixture');assert.equal(sheet,'_Rental_Dashboard_Data');assert.equal(range,'A1:O');return csv;};
+  const p=await readCustomerHistoryProjection({GOOGLE_SHEET_ID:'fixture'},read);
+  assert.equal(p.master.length,1);assert.equal(p.archive.length,1);
+  assert.equal(p.archive[0].archived,true);assert.equal(p.archive[0].amount_received,590);
+  assert.equal(p.archive[0].row_number,undefined);
+  await assert.rejects(readCustomerHistoryProjection({GOOGLE_SHEET_ID:'fixture'},async()=>csv.replace('Booking ID','Wrong column')),/CRM_HISTORY_SCHEMA_INVALID/);
+  await assert.rejects(readCustomerHistoryProjection({GOOGLE_SHEET_ID:'fixture'},async()=>csv.replace('phone:0800000001,Test,0800000001,,phone,paid,590','phone:0800000009,Test,0800000001,,phone,paid,590')),/CRM_HISTORY_IDENTITY_CONFLICT/);
+});
+test('history route follows existing authenticated admin API guard',()=>{
+  const api=fs.readFileSync('api/kk-admin-snapshot-v6.js','utf8');
+  assert.ok(api.indexOf('if(!AdminSecurity.authorizeApi(req,res)) return;')<api.indexOf("action==='customerHistory'"));
+  assert.match(api,/req\.method==='GET'&&action==='customerHistory'/);
+});
