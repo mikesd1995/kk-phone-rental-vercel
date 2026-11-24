@@ -10,6 +10,7 @@ const source = fs.readFileSync(path.join(__dirname,'../apps-script/staging/Code.
 const CORE_SOURCE = fs.readFileSync(path.join(__dirname,'../apps-script/Code.gs'),'utf8');
 const SID = 'staging-owner-only-synthetic-sheet-id';
 const SECRET = 'private_sandbox_key_very_long_and_unique_123';
+const SCRIPT_ID = 'synthetic-owner-bound-script-id';
 const SCRIPT_URL = 'https://script.google.com/macros/s/STAGING_SAFETY_TEST_ONLY_123456789/exec';
 const REDIRECT = 'https://script.googleusercontent.com/macros/echo?user_content_key=synthetic';
 const eventHeaders = ['event_id','event_name','event_date_text','venue','poster_image_url',
@@ -41,6 +42,7 @@ const packageRows = [
 const props = {
   KK_STAGING_SHEET_ID: SID,
   KK_STAGING_PRIVATE_READ_ENABLED: '1',
+  KK_STAGING_VERIFIED_BINDING: SCRIPT_ID+':'+SID,
   KK_CORE_PRIVATE_READ_KEY: SECRET,
   KK_ADMIN_API_KEY: 'different_admin_key_not_used_for_reads'
 };
@@ -49,7 +51,7 @@ function request(sheet='08_Web_Ready',range='A4:K'){
 }
 function fixture(options={}){
   const propertyMap={...props,...(options.props||{})};
-  const counters={sheetReads:0,readmeReads:0,driveChecks:0,mutationCalls:0};
+  const counters={sheetReads:0,readmeReads:0,driveChecks:0,mutationCalls:0,activeCalls:0,openCalls:0,bindingWrites:0};
   const table={
     '08_Web_Ready':(options.corruptHeader ? [['customer_phone',...eventHeaders.slice(1)],...eventRows.slice(1)] : eventRows).map(row=>row.slice()),
     '09_Web_Packages':packageRows.map(row=>row.slice())
@@ -100,8 +102,28 @@ function fixture(options={}){
     }
   };
   const sandbox={
-    SpreadsheetApp:{getActiveSpreadsheet:()=>spreadsheet},
-    PropertiesService:{getScriptProperties:()=>({getProperty:key=>propertyMap[key]})},
+    SpreadsheetApp:{
+      getActiveSpreadsheet(){
+        counters.activeCalls++;
+        if(!options.editorContext)throw Error('active parent unavailable in web app');
+        return spreadsheet;
+      },
+      openById(id){
+        counters.openCalls++;
+        assert.equal(id,SID,'runtime must open only the pinned staging ID');
+        if(options.throwOpen)throw Error('SECRET_IN_OPEN_SHOULD_NOT_LEAK');
+        return spreadsheet;
+      }
+    },
+    ScriptApp:{getScriptId:()=>options.scriptId||SCRIPT_ID},
+    PropertiesService:{getScriptProperties:()=>({
+      getProperty:key=>propertyMap[key],
+      setProperty(key,value){
+        counters.bindingWrites++;
+        assert.equal(key,'KK_STAGING_VERIFIED_BINDING');
+        propertyMap[key]=value;
+      }
+    })},
     DriveApp:{
       Access:{PRIVATE:'PRIVATE',ANYONE:'ANYONE'},
       getFileById(id){
@@ -125,7 +147,7 @@ function fixture(options={}){
     const response=sandbox.doPost({postData:{contents:JSON.stringify(input)}});
     return JSON.parse(response.text);
   }
-  return {invoke,counters,sandbox};
+  return {invoke,counters,sandbox,propertyMap};
 }
 
 test('staging reader lives in standalone path, never changes production GAS dispatch',()=>{
@@ -155,6 +177,9 @@ test('private owner-only staging serves exact synthetic event and package schema
     ['phone_lens_bundle','VIVO_X500_PRO_MAX','ZEISS_400MM']
   ]);
   assert.equal(x.counters.sheetReads,2);
+  assert.equal(x.counters.activeCalls,0,'web app never uses editor-only active parent');
+  assert.equal(x.counters.openCalls,2);
+  assert.equal(x.counters.bindingWrites,0);
 });
 
 test('staging rejects identity, sharing, key, flag, sentinel and range failures before reading feed',()=>{
@@ -164,6 +189,10 @@ test('staging rejects identity, sharing, key, flag, sentinel and range failures 
     [{editor:true},request()],
     [{invalidSentinel:true},request()],
     [{activeId:'foreign-booking-data-id'},request()],
+    [{scriptId:'different-synthetic-script-id'},request()],
+    [{props:{KK_STAGING_VERIFIED_BINDING:''}},request()],
+    [{props:{KK_STAGING_VERIFIED_BINDING:SCRIPT_ID+':foreign-booking-data-id'}},request()],
+    [{throwOpen:true},request()],
     [{props:{KK_STAGING_PRIVATE_READ_ENABLED:'0'}},request()],
     [{props:{KK_STAGING_SHEET_ID:'foreign-id'}},request()],
     [{props:{KK_CORE_PRIVATE_READ_KEY:'weak'}},request()],
@@ -205,6 +234,8 @@ test('staging rejects identity, sharing, key, flag, sentinel and range failures 
     assert.deepEqual(result,{ok:false,error_code:'STAGING_PRIVATE_READ_DENIED'});
     assert.doesNotMatch(JSON.stringify(result),/SECRET_IN_ERROR|foreign-booking|readKey|admin_key|synthetic-sheet-id/);
     assert.equal(f.counters.mutationCalls,0);
+    assert.equal(f.counters.bindingWrites,0);
+    assert.equal(f.counters.activeCalls,0);
   }
 });
 
@@ -338,4 +369,51 @@ test('strict public endpoint returns 503 on revoked staging ACL without any publ
     });
     assert.equal(f.counters.sheetReads,0);
   }finally{global.fetch=old;}
+});
+
+
+test('owner editor binding is explicit, disabled, immutable across conflicting IDs and no HTTP action',()=>{
+  const disabled={KK_STAGING_PRIVATE_READ_ENABLED:'0',KK_STAGING_VERIFIED_BINDING:''};
+  const f=fixture({editorContext:true,props:disabled});
+  const proof=f.sandbox.kkStagingBindFromEditor();
+  assert.equal(proof.binding_verified,true);
+  assert.equal(f.propertyMap.KK_STAGING_VERIFIED_BINDING,SCRIPT_ID+':'+SID);
+  assert.equal(f.counters.bindingWrites,1);
+  assert.equal(f.counters.activeCalls,1);
+  assert.equal(f.counters.openCalls,0);
+  assert.equal(f.counters.sheetReads,0);
+  assert.equal(f.invoke().ok,false,'binding alone never enables reads');
+  f.propertyMap.KK_STAGING_PRIVATE_READ_ENABLED='1';
+  assert.equal(f.invoke().ok,true);
+  assert.equal(f.counters.activeCalls,1,'only editor binding used active parent');
+  assert.throws(()=>f.sandbox.kkStagingBindFromEditor(),/STAGING_BIND_REQUIRES_DISABLED/);
+  for(const patch of [
+    {editorContext:false},{activeId:'foreign-booking-data-id'},
+    {publicAcl:true},{viewer:true},{editor:true},{invalidSentinel:true},
+    {props:{...disabled,KK_STAGING_VERIFIED_BINDING:'other-script:other-sheet'}}
+  ]){
+    const bad=fixture({editorContext:true,props:disabled,...patch});
+    assert.throws(()=>bad.sandbox.kkStagingBindFromEditor());
+    assert.equal(bad.counters.bindingWrites,0);
+    assert.equal(bad.counters.sheetReads,0);
+  }
+  const http=fixture({props:disabled});
+  assert.equal(http.invoke({...request(),action:'kkStagingBindFromEditor'}).ok,false);
+  assert.equal(http.counters.bindingWrites,0);
+});
+
+test('wrong caller workbook, missing attestation or wrong script never opens a file',()=>{
+  for(const [options,input] of [
+    [{}, {...request(),coreSheetId:'foreign-booking-data-id'}],
+    [{props:{KK_STAGING_VERIFIED_BINDING:''}},request()],
+    [{scriptId:'another-synthetic-script-id'},request()],
+    [{props:{KK_STAGING_PRIVATE_READ_ENABLED:'0'}},request()]
+  ]){
+    const f=fixture(options);
+    assert.deepEqual(f.invoke(input),{ok:false,error_code:'STAGING_PRIVATE_READ_DENIED'});
+    assert.equal(f.counters.openCalls,0);
+    assert.equal(f.counters.driveChecks,0);
+    assert.equal(f.counters.sheetReads,0);
+    assert.equal(f.counters.bindingWrites,0);
+  }
 });
