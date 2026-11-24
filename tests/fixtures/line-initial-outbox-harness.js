@@ -27,6 +27,7 @@ function harness(options={}){
   KK:{bookings:'00_Master_Booking'},KK_ADMIN_VERSION:'synthetic',
   PropertiesService:{getScriptProperties:()=>({getProperty:k=>stored[k]||'',setProperty:(k,v)=>{assert.equal(lock,true);stored[k]=v;}})},
   Utilities:{DigestAlgorithm:{SHA_256:'SHA256'},Charset:{UTF_8:'UTF8'},computeDigest:(_,v)=>Array.from(crypto.createHash('sha256').update(v).digest())},
+  kkCanonicalWorkbook_:()=>({getId:()=> 'synthetic-private-core-id'}),
   SpreadsheetApp:{flush(){flushes++;if(crash===flushes)throw Error('SYNTHETIC_CRASH');}},
   kkAcquireDocumentLock_(){assert.equal(lock,false,'lock must not nest');lock=true;return {releaseLock(){lock=false;}};},
   kkSheet_:name=>{if(name==='00_Master_Booking')return bookings;if(name==='20_Line_Initial_Outbox'&&!options.noLedger)return ledger;throw Error('SYNTHETIC_MISSING_SHEET');},
