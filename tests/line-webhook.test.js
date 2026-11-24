@@ -513,3 +513,43 @@ test('canonical Pending Flex preserves recorded-booking acknowledgment only with
   assert.match(card,/Booking ID  BK-SYNTHETIC-001/);
   assert.doesNotMatch(card,/ยังไม่มีรายการจองในระบบ/);
 });
+
+test('WebReady outage shares one failed read per inbound request and never claims a booking',async()=>{
+ const event={type:'message',replyToken:'SYNTHETIC_REPLY',message:{type:'text',
+  text:'สนใจเช่า vivo X300 Pro + Lens\nงาน : LYKN REFLEXION CONCERT\nวันที่ : 18 ต.ค. 2026\nสถานที่ : IMPACT Arena\nชื่อเล่น : Demo'}};
+ for(const failure of ['http-503','transport','body-read']){
+  const calls=[];
+  let bodyReads=0;
+  const fakeFetch=async(url,options={})=>{
+   const u=String(url);
+   if(u.includes('08_Web_Ready')){
+    calls.push('web-ready');
+    if(failure==='transport')throw Error('synthetic upstream outage');
+    return {ok:failure==='body-read',status:failure==='http-503'?503:200,
+     text:async()=>{bodyReads++;throw Error('synthetic unavailable response');}};
+   }
+   if(u.endsWith('/reply')){
+    calls.push('reply');
+    const message=JSON.parse(options.body).messages[0];
+    assert.equal(message.type,'flex');
+    assert.equal(message.contents.hero,undefined);
+    const rendered=JSON.stringify(message);
+    assert.match(rendered,/ยังไม่บันทึกจอง/);
+    assert.match(rendered,/รอร้านตรวจสอบราคา/);
+    assert.doesNotMatch(rendered,/ร้านได้รับคำขอเช่าแล้ว|Booking ID/);
+    return {ok:true,status:200};
+   }
+   calls.push('unexpected');
+   throw Error('unexpected synthetic boundary');
+  };
+  const env={LINE_CHANNEL_ACCESS_TOKEN:'SYNTHETIC_TOKEN'};
+  for(let attempt=0;attempt<2;attempt++){
+   const result=await mod._test.processEvent(event,env,fakeFetch);
+   assert.equal(result.handled,true);
+   assert.equal(result.booking_id,'');
+   assert.equal(result.automation_status,'REPLY_ONLY');
+  }
+  assert.deepEqual(calls,['web-ready','reply','web-ready','reply'],failure);
+  assert.equal(bodyReads,failure==='body-read'?2:0,failure);
+ }
+});
