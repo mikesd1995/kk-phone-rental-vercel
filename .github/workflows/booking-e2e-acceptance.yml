@@ -2,8 +2,10 @@ name: Booking E2E Acceptance
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/line-booking-release-candidate-20261112]
     paths:
+      - 'server/line-booking-flex.js'
+      - 'tests/line-card-provider-bounds.test.js'
       - 'server/line-booking-webhook.js'
       - 'server/line-booking-intake.js'
       - 'server/line-booking-owner-approval.js'
@@ -47,6 +49,7 @@ jobs:
 
       - name: Syntax
         run: |
+          node --check server/line-booking-flex.js
           node --check server/line-booking-webhook.js
           node --check server/line-booking-intake.js
           node --check server/line-booking-owner-approval.js
@@ -56,6 +59,8 @@ jobs:
       - name: Booking E2E targeted regression
         run: |
           node --test \
+            tests/line-booking-flex.test.js \
+            tests/line-card-provider-bounds.test.js \
             tests/line-booking-owner-approval.test.js \
             tests/line-booking-owner-approval-replay-failclosed.test.js \
             tests/line-booking-owner-approval-upstream-privacy.test.js \
