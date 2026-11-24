@@ -732,8 +732,13 @@ function kkFormulaLensCriteria_(cellRef) {
 }
 
 function kkFormulaLensAssetCount_(rowNumber) {
-  const f = 'F' + rowNumber;
-  return `IF(REGEXMATCH(UPPER(REGEXREPLACE(${f},"[^A-Za-z0-9]","")),"^G2$"),0,SUM(COUNTIFS('02_Assets'!$B$5:$B,"lens",'02_Assets'!$C$5:$C,${kkFormulaLensCriteria_(f)},'02_Assets'!$E$5:$E,"available",'02_Assets'!$G$5:$G,TRUE)))`;
+  const f='F'+rowNumber;
+  // Native Sheets COUNTIFS with an array criterion can count only the first
+  // alias outside ARRAYFORMULA. Use two scalar counts; each physical lens
+  // belongs to exactly one group, so G1 and ZEISS_2_35X are counted once.
+  const count=group=>`COUNTIFS('02_Assets'!$B$5:$B,"lens",'02_Assets'!$C$5:$C,${group},'02_Assets'!$E$5:$E,"available",'02_Assets'!$G$5:$G,TRUE)`;
+  const alias=`IF(${f}="ZEISS_2_35X",${count('"G1"')},IF(${f}="G1",${count('"ZEISS_2_35X"')},0))`;
+  return `IF(REGEXMATCH(UPPER(REGEXREPLACE(${f},"[^A-Za-z0-9]","")),"^G2$"),0,${count(f)}+${alias})`;
 }
 
 function kkPhone004StartDay_() {
