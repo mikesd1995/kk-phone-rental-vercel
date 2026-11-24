@@ -70,11 +70,11 @@ test('all19 Core reader calls cross the existing Apps Script request/response an
   const allow=source.match(/const KK_PRIVATE_CORE_READ_ALLOWLIST = Object\.freeze\([\s\S]*?\n\}\);/);
   const fn=source.match(/function kkApiPrivateCoreRead_\(payload\)\{[\s\S]*?\n\}/);
   let selection,reads=0;
-  const gas=Function('PropertiesService','SpreadsheetApp',allow[0]+'\n'+fn[0]+'\nreturn kkApiPrivateCoreRead_;')(
+  const gas=Function('PropertiesService','kkCanonicalWorkbook_',allow[0]+'\n'+fn[0]+'\nreturn kkApiPrivateCoreRead_;')(
     {getScriptProperties:()=>({getProperty:()=> '1'})},
-    {getActive:()=>({getId:()=>env.GOOGLE_SHEET_ID,getSheetByName:sheet=>({
+    ()=>({getId:()=>env.GOOGLE_SHEET_ID,getSheetByName:sheet=>({
       getLastRow:()=>6,getRange:()=>({getDisplayValues:()=>{reads++;return fixture(selection);}})
-    })})});
+    })}));
   const original=Script.readValues;
   const calls=[];
   Script.readValues=info=>original({...info,fetchImpl:async (url,options)=>{
