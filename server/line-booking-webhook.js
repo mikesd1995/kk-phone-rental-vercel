@@ -137,13 +137,36 @@ function templateIdFromWebPackageId(packageId,eventId){
   if(eid && pkg.startsWith(eid+'-')) return pkg.slice(eid.length+1);
   return pkg;
 }
+function isX500Package(row){
+  return norm(row.model_group)==='vivo_x500_pro_max' ||
+    norm(row.model_display)==='vivo x500 pro max';
+}
 function packageLabel(row){
   const type=norm(row.package_type);
   const model=String(row.model_display||'').trim();
   const lens=String(row.lens_display||'').trim();
-  if(type==='phone_lens_bundle') return (model||'มือถือ')+' + Lens';
+  if(type==='phone_lens_bundle'){
+    const group=norm(row.lens_group);
+    // Match the storefront's canonical lens-group labels, never infer lens
+    // length from prices, availability, sort order or free-text display.
+    if(group==='zeiss_2_35x') return (model||'มือถือ')+' + Lens 200mm';
+    if(group==='zeiss_400mm'){
+      if(norm(row.model_group)==='vivo_x300_pro'||norm(model)==='vivo x300 pro') return '';
+      return (model||'มือถือ')+' + Lens 400mm';
+    }
+    return isX500Package(row)?'':(model||'มือถือ')+' + Lens';
+  }
   if(type==='lens_only') return lens||'Lens';
   return model||'มือถือ';
+}
+function matchesPackageName(row,wanted){
+  const label=packageLabel(row);
+  if(!label||!wanted) return false;
+  if(norm(label)===wanted) return true;
+  // Accept an old generic bundle name only for legacy/non-X500 requests.
+  // X500 has two lens variants; a generic request cannot authorize either.
+  return norm(row.package_type)==='phone_lens_bundle' && !isX500Package(row) &&
+    norm((String(row.model_display||'').trim()||'มือถือ')+' + Lens')===wanted;
 }
 function formatCanonicalPrice(value){
   const raw=String(value||'').replace(/,/g,'').trim();
@@ -166,15 +189,19 @@ async function resolveCanonicalPackage(booking, fetchImpl=fetch,env={}){
     async r=>r.ok&&TestTarget.validReadResponse(r,target)?parseCsv(await r.text()):[]);
   const rows=packages.filter(x=>String(x.event_id||'').trim()===eventId);
   const wanted=norm(booking.package_name);
-  const matches=rows.filter(x=>{
-    const status=norm(x.package_status);
-    const available=Number(String(x.available_count||'').replace(/,/g,''));
-    return norm(packageLabel(x))===wanted &&
-      (status==='available'||status==='open') &&
-      Number.isFinite(available) && available>0;
-  });
+  // Resolve identity across ALL rows before checking bookability. Filtering
+  // stock first can turn two ambiguous identities into one wrong booking.
+  const matches=rows.filter(x=>matchesPackageName(x,wanted));
   if(matches.length!==1) return null;
   const row=matches[0];
+  const status=norm(row.package_status);
+  const available=Number(String(row.available_count||'').replace(/,/g,''));
+  if((status!=='available'&&status!=='open')||!Number.isInteger(available)||available<=0)
+    return null;
+  // Inquiry-only rows are intentionally not bookable, even if a stale
+  // positive price or available status is present in the public projection.
+  if(/\[INQUIRY_ONLY\]/i.test(String(row.web_note||''))||
+    /(^|\b)INQUIRY_ONLY(\b|$)/i.test(String(row.use_case||''))) return null;
   const price=formatCanonicalPrice(row.price);
   if(!price) return null;
   const packageId=String(row.package_id||'').trim();
