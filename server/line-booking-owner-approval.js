@@ -132,6 +132,8 @@ function ownerApprovalMessage(ctx={},env=process.env){
   const phone=text(ctx.phone);
   const contactLabel=phone?'โทร  '+phone:'ติดต่อทาง LINE · ไม่ระบุเบอร์โทรศัพท์';
   const pickup=text(ctx.pickup_time)||'-';
+  const accepted=text(ctx.terms_status)==='LINE_MESSAGE_CONFIRMED' && text(ctx.terms_version)==='KK-TERMS-2026-11-06';
+  const termsLabel=accepted?'✅ พบข้อความยอมรับเงื่อนไขใน LINE (KK-TERMS-2026-11-06)':'⚠️ ยังไม่พบข้อความยอมรับเงื่อนไข — ขอคำยืนยันทาง LINE ก่อนอนุมัติ';
   return {
     type:'flex',
     altText:('Booking รออนุมัติ • '+eventName).slice(0,400),
@@ -147,7 +149,8 @@ function ownerApprovalMessage(ctx={},env=process.env){
         {type:'separator',margin:'md'},
         {type:'text',text:'ลูกค้า  '+customer,size:'sm',wrap:true,margin:'md'},
         {type:'text',text:contactLabel,size:'sm',wrap:true},
-        {type:'text',text:'เวลารับ  '+pickup,size:'sm',wrap:true}
+        {type:'text',text:'เวลารับ  '+pickup,size:'sm',wrap:true},
+        {type:'text',text:termsLabel,size:'xs',wrap:true,color:accepted?'#18794E':'#B45309'}
       ]},
       footer:{type:'box',layout:'horizontal',spacing:'sm',contents:[
         {type:'button',style:'primary',action:{type:'postback',label:'Confirm',data:approve,displayText:'Confirm '+bookingId}},

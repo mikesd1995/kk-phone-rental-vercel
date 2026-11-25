@@ -294,6 +294,23 @@ function ownerExact(value:unknown,keys:string[]):Record<string,unknown>{
   if(Object.keys(r).length!==keys.length||Object.keys(r).some(k=>!keys.includes(k)))ownerError("OWNER_REQUEST_INVALID");
   return r;
 }
+// Dedicated finite control permission: no notification queue, canonical-enable
+// flag, provider operation, row creation or caller-selected RPC is reachable.
+async function ownerHealthAttemptClaim(body:Record<string,unknown>,identity:Record<string,unknown>){
+  ownerExact(body,['probe','version','attempt_id','nonce','source_sha','deployment_id']);
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  if(identity.environment!=='production'||body.probe!=='owner-health-attempt-claim'||body.version!=='v1'||
+     typeof body.attempt_id!=='string'||!uuid.test(body.attempt_id)||typeof body.nonce!=='string'||!uuid.test(body.nonce)||
+     typeof body.source_sha!=='string'||!/^([a-f0-9]{40})$/.test(body.source_sha)||
+     typeof body.deployment_id!=='string'||!/^dpl_[A-Za-z0-9]{1,196}$/.test(body.deployment_id))ownerError('HEALTH_ATTEMPT_CLAIM_REJECTED');
+  const result=ownerExact(await ownerRpc('kk_claim_owner_health_attempt_v1',{
+    p_attempt_id:body.attempt_id,p_nonce:body.nonce,p_source_sha:body.source_sha,p_deployment_id:body.deployment_id,p_environment:'production'
+  }),['claimed','attempt_id','nonce','source_sha','deployment_id','environment','control_writes','business_writes']);
+  if(typeof result.claimed!=='boolean'||result.attempt_id!==body.attempt_id||result.nonce!==body.nonce||
+     result.source_sha!==body.source_sha||result.deployment_id!==body.deployment_id||result.environment!=='production'||
+     result.control_writes!==(result.claimed?1:0)||result.business_writes!==0)ownerError('HEALTH_ATTEMPT_CLAIM_REJECTED');
+  return {ok:true,authenticated:true,probe:'owner-health-attempt-claim',version:'v1',send_allowed:false,provider_sends:0,...result};
+}
 function ownerRaw(value:unknown){
   if(typeof value!=="string"||new TextEncoder().encode(value).length<6||new TextEncoder().encode(value).length>93||/[\u0000-\u001f\u007f-\u009f]/.test(value))ownerError("OWNER_SOURCE_ID_INVALID");
   if(new TextDecoder("utf-8",{fatal:true}).decode(new TextEncoder().encode(value))!==value)ownerError("OWNER_SOURCE_ID_INVALID");
@@ -382,6 +399,13 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     const code = err instanceof Error ? err.message : "OIDC_VERIFY_FAILED";
     return fail(401, code);
+  }
+
+  if(body?.probe==='owner-health-attempt-claim'){
+    try{return json(200,await ownerHealthAttemptClaim(body,identity));}
+    // The RPC may have committed before its receipt was lost or rejected.
+    // Never turn an uncertain terminal control write into a false zero claim.
+    catch{return json(403,{ok:false,authenticated:true,probe:'owner-health-attempt-claim',version:'v1',send_allowed:false,provider_sends:0,business_writes:0,control_write_outcome:'UNKNOWN',error_code:'HEALTH_ATTEMPT_CLAIM_REJECTED'});}
   }
 
   if(body?.probe==='owner-canonical'&&body?.version==='v2'){

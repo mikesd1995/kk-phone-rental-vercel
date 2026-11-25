@@ -7,6 +7,14 @@ const DEFAULT_SITE='https://kk-phone-rental.vercel.app';
 
 function text(v){return String(v==null?'':v).trim();}
 function enabled(v){return !['0','false','no','off'].includes(text(v).toLowerCase());}
+function errorWithFootprint(value,footprint,code){
+  if(value instanceof Error&&Object.isExtensible(value)){
+    try{value.write_footprint=footprint;return value;}catch(_){}
+  }
+  // Rejections need not be Error objects, and frozen errors cannot be annotated.
+  // Preserve the bounded outcome without copying opaque thrown values.
+  return Object.assign(new Error(code),{code,write_footprint:footprint});
+}
 
 function assertReady(plan){
   if(!plan||plan.status!=='READY_FOR_GOVERNED_ADMIN_CREATE'||plan.admin_action!=='createEvent'||!plan.admin_payload){
@@ -30,42 +38,54 @@ async function adminCreate(plan,{env=process.env,fetchImpl=global.fetch,correlat
   const payload=Object.assign({},plan.admin_payload,{
     correlation_id:text(correlationId||plan.correlation_id||'')
   });
-  const response=await fetchImpl(base+'/api/kk-admin-guard',{
-    method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'x-admin-pin':pin,
-      'x-kk-promotion-executor':VERSION
-    },
-    body:JSON.stringify(payload)
-  });
-  const body=await response.json().catch(()=>null);
-  if(!response.ok||!body||body.ok===false){
-    const code=text(body&&body.error_code)||('PROMOTION_ADMIN_HTTP_'+String(response.status||0));
-    throw Object.assign(new Error(text(body&&body.error)||code),{code,httpStatus:Number(response.status||0),body});
+  try{
+    const response=await fetchImpl(base+'/api/kk-admin-guard',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-admin-pin':pin,
+        'x-kk-promotion-executor':VERSION
+      },
+      body:JSON.stringify(payload)
+    });
+    const body=await response.json().catch(()=>null);
+    if(!response.ok||!body||body.ok!==true){
+      const code=text(body&&body.error_code)||('PROMOTION_ADMIN_HTTP_'+String(response.status||0));
+      throw Object.assign(new Error(text(body&&body.error)||code),{code,httpStatus:Number(response.status||0),body});
+    }
+    return body;
+  }catch(err){
+    throw errorWithFootprint(err,{production_writes:0,verified_writes:0,attempted_writes:1,unknown_write_outcomes:1},'PROMOTION_ADMIN_FAILED');
   }
-  return body;
 }
 
 async function execute(plan,{env=process.env,fetchImpl=global.fetch,readbackFn,correlationId=''}={}){
-  assertReady(plan);
-  const created=await adminCreate(plan,{env,fetchImpl,correlationId});
+  let created;
+  try{assertReady(plan);created=await adminCreate(plan,{env,fetchImpl,correlationId});}
+  catch(err){
+    throw errorWithFootprint(err,err&&err.write_footprint||{production_writes:0,verified_writes:0,attempted_writes:0,unknown_write_outcomes:0},'PROMOTION_ADMIN_FAILED');
+  }
+  const footprint={production_writes:1,verified_writes:0,attempted_writes:1,unknown_write_outcomes:0};
   if(typeof readbackFn!=='function'){
     return {
       schema_version:VERSION,
       status:'CREATED_READBACK_REQUIRED',
       create_result:created,
-      production_writes:1,
+      ...footprint,
       publishes:1,
       readback_verified:false
     };
   }
-  const readback=await readbackFn({plan,created,env,fetchImpl});
-  const verified=Promotion.verifyStorefrontReadback(plan,readback||{});
+  let verified;
+  try{
+    const readback=await readbackFn({plan,created,env,fetchImpl});
+    verified=Promotion.verifyStorefrontReadback(plan,readback||{});
+  }catch(err){throw errorWithFootprint(err,footprint,'PROMOTION_READBACK_FAILED');}
   if(!verified.verified){
     const err=new Error('storefront readback failed');
     err.code='PROMOTION_READBACK_FAILED';
     err.verification=verified;
+    err.write_footprint=footprint;
     throw err;
   }
   return {
@@ -73,7 +93,8 @@ async function execute(plan,{env=process.env,fetchImpl=global.fetch,readbackFn,c
     status:'STOREFRONT_PROMOTION_VERIFIED',
     create_result:created,
     verification:verified,
-    production_writes:1,
+    ...footprint,
+    verified_writes:1,
     publishes:1,
     readback_verified:true
   };

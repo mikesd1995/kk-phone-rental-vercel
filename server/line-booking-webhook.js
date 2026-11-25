@@ -8,6 +8,7 @@ const InboxMedia = require('./kk-inbox-media');
 const {createPostgrestStore} = require('./kk-inbox-postgrest-store');
 const LineMessaging = require('./kk-line-messaging-api');
 const OwnerApproval = require('./line-booking-owner-approval');
+const TermsEvidence = require('./kk-booking-terms-evidence');
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 const PUBLIC_DATA_BASE = 'https://kk-phone-rental.vercel.app/api/kk-data';
@@ -42,7 +43,9 @@ function parseBookingText(text) {
   const model=line('รุ่น/แพ็กเกจ|Package[ \\t]*/[ \\t]*model|รุ่น|Model');
   const packageName=model || (interest && interest[1] ? interest[1].trim() : '');
   if(!event || !date || !venue || !packageName) return null;
-  return {event_name:event,event_date:date,venue,package_name:packageName,price_display:price,nickname,phone,pickup_time:pickup};
+  const terms=TermsEvidence.extractFromCustomerText(s);
+  return {event_name:event,event_date:date,venue,package_name:packageName,price_display:price,nickname,phone,pickup_time:pickup,
+    terms_acknowledged:terms.matched,terms_version:terms.version};
 }
 function parseCsv(text){
   const rows=[]; let row=[],cell='',q=false; const s=String(text||'').replace(/^\uFEFF/,'');
@@ -207,7 +210,9 @@ async function processEvent(event, env=process.env, fetchImpl=fetch){
       price_display:canonical.price_display,
       nickname:booking.nickname,
       phone:booking.phone,
-      pickup_time:booking.pickup_time
+      pickup_time:booking.pickup_time,
+      terms_status:booking.terms_acknowledged===true ? 'LINE_MESSAGE_CONFIRMED' : 'NOT_CONFIRMED',
+      terms_version:booking.terms_version||''
     },env,fetchImpl);
     automationStatus='PENDING_OWNER_APPROVAL';
   }else if(readiness.ready && !canonical){

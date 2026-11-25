@@ -3,6 +3,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const vm=require('node:vm');
 const publicData=require('../api/kk-data.js');
 
 test('event share id validation',()=>{
@@ -33,10 +34,28 @@ test('homepage contains Organization, Service and visible FAQ structured data',(
   assert.equal(html.includes('"name":"ไฟล์บน Google Drive เก็บไว้ได้กี่วัน?"'),true);
 });
 
-test('share CTA uses server event route',()=>{
+test('event-share URL helper uses the current origin and encodes event IDs within the server route',()=>{
   const js=fs.readFileSync('script.js','utf8');
-  assert.equal(js.includes('function eventShareUrl(c)'),true);
-  assert.equal(js.includes('url:eventShareUrl(activeModalEvent)'),true);
+  const helper=js.match(/function eventShareUrl\(c\)\{[\s\S]*?\n\}/);
+  assert.ok(helper,'the production event-share URL helper must be available');
+  const context={
+    window:{location:{origin:'https://kk-phone-rental.vercel.app',href:'https://kk-phone-rental.vercel.app/?event=old#modal'}},
+    eventUrl:()=>{ throw new Error('valid event IDs must use the server event route'); }
+  };
+  vm.runInNewContext(helper[0]+'\nthis.shareUrl=eventShareUrl;',context);
+  const cases=[
+    {id:'EVT-20260927-ATLAS-RISING-UP-CONCERT',want:'https://kk-phone-rental.vercel.app/event/EVT-20260927-ATLAS-RISING-UP-CONCERT'},
+    {id:'EVT-1 /?#&=%',want:'https://kk-phone-rental.vercel.app/event/EVT-1%20%2F%3F%23%26%3D%25'},
+    {id:'EVT%2Fpart',want:'https://kk-phone-rental.vercel.app/event/EVT%252Fpart'}
+  ];
+  for(const {id,want} of cases){
+    const actual=context.shareUrl({id});
+    assert.equal(actual,want);
+    const url=new URL(actual);
+    assert.equal(url.origin,'https://kk-phone-rental.vercel.app');
+    assert.equal(url.search,'','event IDs must not inject a query');
+    assert.equal(url.hash,'','event IDs must not inject a fragment');
+  }
 });
 
 test('runtime warning tracer is installed',()=>{

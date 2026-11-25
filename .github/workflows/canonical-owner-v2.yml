@@ -3,7 +3,7 @@
   "on": {
     "pull_request": {
       "branches": ["main"],
-      "paths": [".github/workflows/canonical-owner-v2.yml", "server/make-owner-*", "make/telegram-response-adapter/**", "server/kk-make-owner-notify.js", "server/runtime-ledger-oidc-bridge.js", "api/kk-scanner-dispatch.js", "apps-script/kk-agent/**", "supabase/functions/kk-runtime-ledger-oidc-probe/**", "supabase/staging/*owner*.sql", "tests/*owner*.test.js", "tests/fixtures/owner-canonical-capture.synthetic.json", "scripts/test-owner-canonical-native.mjs", "scripts/test-owner-canonical-loop.mjs", "package.json", "package-lock.json", "vercel.json"]
+      "paths": [".github/workflows/canonical-owner-v2.yml", "server/make-owner-*", "make/telegram-response-adapter/**", "server/kk-make-owner-notify.js", "server/runtime-ledger-oidc-bridge.js", "api/kk-scanner-dispatch.js", "apps-script/kk-agent/**", "supabase/functions/kk-runtime-ledger-oidc-probe/**", "supabase/staging/*owner*.sql", "tests/*owner*.test.js", "tests/fixtures/owner-canonical-capture.synthetic.json", "scripts/test-owner-canonical-native.mjs", "scripts/test-owner-health-attempt-native.mjs", "scripts/test-owner-canonical-loop.mjs", "package.json", "package-lock.json", "vercel.json"]
     },
     "workflow_dispatch": {}
   },
@@ -34,6 +34,11 @@
         {
           "name": "Install pinned disposable PostgreSQL engine outside repository",
           "run": "npm install --prefix \"${RUNNER_TEMP}/kk-canonical-native\" --no-save --ignore-scripts --no-package-lock @electric-sql/pglite@0.5.11"
+        },
+        {
+          "name": "Native one-time health control SQL regression without external calls",
+          "env": {"PGLITE_MODULE": "file://${{ runner.temp }}/kk-canonical-native/node_modules/@electric-sql/pglite/dist/index.js"},
+          "run": "node scripts/test-owner-health-attempt-native.mjs --output \"${RUNNER_TEMP}/owner-health-attempt-native.json\""
         },
         {
           "name": "Native canonical SQL regression with synthetic receipts only",
