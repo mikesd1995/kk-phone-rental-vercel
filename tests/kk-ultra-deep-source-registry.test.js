@@ -99,3 +99,25 @@ test('December cross-month fan events require named M Card, Mediheal, TTM and cr
  for(const id of ids)assert.ok(proof.missing_required_sources.includes(id),id);
  for(const tier of ['BRAND_SPONSOR','TICKETING','PUBLIC_CALENDAR'])assert.equal(proof.by_tier[tier].complete,false,tier);
 });
+
+test('issue 879 named missed-source lanes require independent coverage receipts',()=>{
+ const ids=['twelveplus-th','dentiste-th','mflow-theseries','ngernnn-artist','theconcert-ticketing','aksra-theatre-king-power','thai-summit-tower-events','smooth-life-tower-events'];
+ for(const month of ['2026-11','2026-12','2027-01']){
+  const p=R.buildUniversePlan({month});
+  const labels=R.monthLabels(month);
+  assert.equal(new Set(p.tasks.map(x=>x.source_id)).size,p.tasks.length);
+  for(const id of ids){
+   const task=p.tasks.find(x=>x.source_id===id);
+   assert.ok(task,id);assert.equal(task.required,true,id);
+   assert.ok(task.query.includes(labels.en),id);
+   assert.ok(task.query_variants.some(q=>q.includes(labels.th)),id);
+   assert.ok(task.query_variants.some(q=>!q.includes(labels.en)&&!q.includes(labels.th)),id);
+  }
+ }
+ const receipts=R.allSources().map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ for(const id of ids){
+  const proof=R.buildUniverseProof(receipts.filter(x=>x.source_id!==id));
+  assert.equal(proof.complete,false,id);
+  assert.ok(proof.missing_required_sources.includes(id),id);
+ }
+});
