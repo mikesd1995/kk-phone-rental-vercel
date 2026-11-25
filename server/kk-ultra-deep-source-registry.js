@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V10';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V11';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -15,6 +15,7 @@ const REGISTRY=Object.freeze({
     {source_id:'allticket',label:'AllTicket',domain:'allticket.com',required:true},
     {source_id:'kazz-market-activity',label:'KAZZ Magazine event activity ticketing',domain:'kazzmarket.com',required:true},
     {source_id:'ttm-recent-asia-artist-fancon',label:'ThaiTicketMajor newly announced Asia artist fancons and December special concerts',domain:'thaiticketmajor.com',required:true},
+    {source_id:'theconcert-ticketing',label:'TheConcert official ticketing',domain:'theconcert.com',required:true},
     {source_id:'megatix',label:'Megatix',domain:'megatix.in.th',required:false}
   ]),
   VENUE:Object.freeze([
@@ -26,6 +27,9 @@ const REGISTRY=Object.freeze({
     {source_id:'paragon-hall',label:'Paragon Hall',required:true},
     {source_id:'the-mall-m-grand-hall',label:'The Mall Lifestore / M Grand Hall',required:true},
     {source_id:'the-mall-lifestore-plaza-artist-activations',label:'The Mall Lifestore branch plaza artist appearances and Christmas tree lighting',domain:'mcardmall.com',required:true},
+    {source_id:'aksra-theatre-king-power',label:'Aksra Theatre King Power',required:true},
+    {source_id:'thai-summit-tower-events',label:'Thai Summit Tower artist events',required:true},
+    {source_id:'smooth-life-tower-events',label:'Smooth Life Tower artist events',required:true},
     {source_id:'pmcu-siam-square',label:'PMCU Siam Square seasonal free music festivals and stages',domain:'pmcu.co.th',required:true},
     {source_id:'siam-center-free-stage',label:'Siam Center public plaza and POP-Pah free T-Pop programmes',required:true}
   ]),
@@ -38,6 +42,8 @@ const REGISTRY=Object.freeze({
     {source_id:'change2561',label:'CHANGE2561',required:true},
     {source_id:'idolfactory',label:'IDOLFACTORY',required:true},
     {source_id:'channel3-bl-gl',label:'Channel 3 BL GL artist ecosystem',required:true},
+    {source_id:'mflow-theseries',label:'MFlowTheSeries artist fancons',domain:'x.com',required:true},
+    {source_id:'ngernnn-artist',label:'Ngern ngernnn artist appearances',domain:'instagram.com',required:true},
     {source_id:'thai-artist-agencies',label:'Thai artist agencies',required:true},
     {source_id:'international-promoters',label:'International promoters',required:true},
     {source_id:'flex1045-radio-promoter',label:'Flex 104.5 / FlexConnect official radio-organized concert and festival announcements',domain:'flexconnect.net',required:true},
@@ -52,6 +58,8 @@ const REGISTRY=Object.freeze({
     {source_id:'mcard-the-mall-artist-events',label:'M Card The Mall Lifestore artist fan-zone and Christmas tree lighting events',domain:'mcardmall.com',required:true},
     {source_id:'mcard-future-event-spend-winner-cycle',label:'M Card cross-month spending, winner announcement and December artist meet-and-greet',domain:'mcardmall.com',required:true},
     {source_id:'mediheal-th-artist-lucky-fans',label:'MEDIHEAL Thailand official X artist lucky-fan pop-ups and top-spender activations',domain:'x.com',required:true},
+    {source_id:'twelveplus-th',label:'TwelvePlusTH artist campaigns',domain:'x.com',required:true},
+    {source_id:'dentiste-th',label:'Dentiste_X artist campaigns',domain:'x.com',required:true},
     {source_id:'lucky-fan-top-spender',label:'Lucky fan / top spender campaigns',required:true},
     {source_id:'beauty-personal-care-campaigns',label:'Beauty / personal-care artist campaigns',required:true},
     {source_id:'retail-performance-schedules',label:'Retail / mall artist performance schedules',required:true},
@@ -133,7 +141,20 @@ function buildUniversePlan(input={}){
         'illustration creative community events Bangkok '+labels.en
       ]
     };
+    // Issue #879: named lead lanes must survive independently of a broad tier search.
+    // Search terms are discovery hints, not proof of an official event or access rights.
+    const namedRecallQueries={
+      'twelveplus-th':['site:x.com/TwelvePlusTH AuAu Save lucky fan '+labels.en,'TwelvePlus อู่อู๋ เซฟ ลุ้นสิทธิ์ ประกาศผู้โชคดี '+labels.th,'TwelvePlusTH AuAuSave artist campaign registration winner'],
+      'dentiste-th':['site:x.com/Dentiste_X Keng Namping artist workshop '+labels.en,'Dentiste เก่ง น้ำปิง กิจกรรมศิลปิน '+labels.th,'Dentiste_X KengNamping lucky fan workshop'],
+      'mflow-theseries':['site:x.com/MflowTheseries Boat Oat fancon '+labels.en,'MFlow โบ๊ท โอ๊ต แฟนคอน '+labels.th,'MflowTheseries BoatOat fancon ticket announcement'],
+      'ngernnn-artist':['site:instagram.com/ngernnn Ngern artist event '+labels.en,'เงิน อนุภาษ งานแฟนมีต '+labels.th,'ngernnn midnight artist event ticket'],
+      'theconcert-ticketing':['site:theconcert.com fancon fan meeting artist '+labels.en,'TheConcert เปิดขายบัตร แฟนคอน ศิลปิน '+labels.th,'site:theconcert.com Ngern Midnight concert fanmeeting'],
+      'aksra-theatre-king-power':['Aksra Theatre King Power fancon '+labels.en,'อักษราเธียเตอร์ คิง เพาเวอร์ แฟนคอน '+labels.th,'Aksra Theatre King Power artist fan meeting'],
+      'thai-summit-tower-events':['Thai Summit Tower artist event '+labels.en,'อาคารไทยซัมมิท ทาวเวอร์ ศิลปิน '+labels.th,'Thai Summit Tower fan meeting ticket'],
+      'smooth-life-tower-events':['Smooth Life Tower artist workshop '+labels.en,'สมูท ไลฟ์ ทาวเวอร์ ศิลปิน ลัคกี้แฟน '+labels.th,'Smooth Life Tower artist campaign workshop']
+    };
     const queries=[
+      ...(namedRecallQueries[row.source_id]||[]),
       [domain,row.label,labels.en,'Bangkok'].filter(Boolean).join(' '),
       [domain,'concert fanmeeting',labels.en,'Bangkok'].filter(Boolean).join(' '),
       [domain,'artist event lucky fan',labels.en,'Bangkok'].filter(Boolean).join(' '),
