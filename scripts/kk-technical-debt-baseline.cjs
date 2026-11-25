@@ -5,7 +5,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const VERSION = 1;
+const VERSION = 2;
 const MODULES = Object.freeze([
   { file: 'script.js', area: 'storefront', reviewLines: 2000 },
   { file: 'admin/admin.js', area: 'admin', reviewLines: 3800 },
@@ -32,13 +32,47 @@ function readSource(root, relative, io = fs) {
   // GitHub credentials or the Core Sheet, and never print source snippets.
   try {
     const source = io.readFileSync(path.join(root, relative), 'utf8');
-    return { exists: true, source };
+    return typeof source === 'string' ? { exists: true, source } : { exists: false, source: '' };
   } catch (_) {
     return { exists: false, source: '' };
   }
 }
+function jsonObject(source) {
+  if (!source.exists) return null;
+  try {
+    const value = JSON.parse(source.source);
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  } catch (_) { return null; }
+}
+function checkChain(command) {
+  // Recognize only plain, literal node --check commands joined by &&.
+  // Never execute a command, resolve a user-supplied path or emit its text.
+  if (typeof command !== 'string' || !command.trim()) return null;
+  const segments = command.split('&&');
+  const targets = new Set();
+  let explicit = 0;
+  for (const segment of segments) {
+    const match = /^node\s+--check\s+((?:\.\/)?[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_.-]+)*\.(?:js|cjs|mjs))$/.exec(segment.trim());
+    if (!match || match[1].split('/').some(part => part === '..')) continue;
+    explicit++;
+    targets.add(match[1].replace(/^\.\//, ''));
+  }
+  const unrecognized = segments.length - explicit;
+  return {
+    explicit_command_count: explicit,
+    unique_target_count: targets.size,
+    duplicate_command_count: explicit - targets.size,
+    unrecognized_segment_count: unrecognized,
+    tracked_js_missing_explicit_check: unrecognized ? null : MODULES.filter(m => m.file.endsWith('.js') && !targets.has(m.file)).map(m => m.file)
+  };
+}
 function audit(root, io = fs) {
-  const fetch = file => readSource(root, file, io);
+  // Single snapshot per allowlisted source, even if several metrics use it.
+  const cache = new Map();
+  const fetch = file => {
+    if (!cache.has(file)) cache.set(file, readSource(root, file, io));
+    return cache.get(file);
+  };
   const modules = MODULES.map(({ file, area, reviewLines }) => {
     const { exists, source } = fetch(file);
     const lines = exists ? lineCount(source) : null;
@@ -73,22 +107,25 @@ function audit(root, io = fs) {
     };
   });
 
-  let npmScripts = null;
-  let syntaxCheckCharacters = null;
-  if (packageFile.exists) {
-    try {
-      const pkg = JSON.parse(packageFile.source);
-      npmScripts = pkg.scripts && typeof pkg.scripts === 'object' ? Object.keys(pkg.scripts).length : 0;
-      syntaxCheckCharacters = typeof pkg.scripts?.check === 'string' ? pkg.scripts.check.length : 0;
-    } catch (_) { /* Emit no raw parse errors (might contain local file text). */ }
-  }
-  let previewIgnoreConfigured = null;
-  if (vercelFile.exists) {
-    try {
-      const settings = JSON.parse(vercelFile.source);
-      previewIgnoreConfigured = typeof settings.ignoreCommand === 'string' && settings.ignoreCommand.length > 0;
-    } catch (_) { /* Unknown is safer than inferring a healthy deployment. */ }
-  }
+  const pkg = jsonObject(packageFile);
+  const settings = jsonObject(vercelFile);
+  const validScripts = pkg && (!Object.hasOwn(pkg, 'scripts') ||
+    (pkg.scripts && typeof pkg.scripts === 'object' && !Array.isArray(pkg.scripts) &&
+      Object.values(pkg.scripts).every(value => typeof value === 'string')));
+  const npmScripts = validScripts ? Object.keys(pkg.scripts || {}).length : null;
+  const command = validScripts ? pkg.scripts?.check : undefined;
+  const syntaxCheckCharacters = validScripts ? (command?.length || 0) : null;
+  const chain = checkChain(command);
+  const previewIgnoreConfigured = !settings ? null :
+    !Object.hasOwn(settings, 'ignoreCommand') ? false :
+    typeof settings.ignoreCommand === 'string' ? !!settings.ignoreCommand.trim() : null;
+  const inventoryFindings = [
+    ...(npmScripts === null ? ['PACKAGE_SCRIPTS_UNKNOWN'] : !chain ? ['SYNTAX_CHECK_COMMAND_MISSING'] : []),
+    ...(previewIgnoreConfigured === null ? ['VERCEL_IGNORE_COMMAND_UNKNOWN'] : !previewIgnoreConfigured ? ['VERCEL_IGNORE_COMMAND_MISSING'] : []),
+    ...(chain?.duplicate_command_count ? ['SYNTAX_CHECK_DUPLICATE_TARGETS'] : []),
+    ...(chain?.unrecognized_segment_count ? ['SYNTAX_CHECK_PARTIAL_COVERAGE_UNKNOWN'] : []),
+    ...(chain?.tracked_js_missing_explicit_check?.length ? ['TRACKED_JS_EXPLICIT_CHECK_MISSING'] : [])
+  ];
 
   const criticalGuardRegressions = [
     ...(browserGuard.api_only_configured ? [] : ['BROWSER_API_ONLY_CONFIG_MISSING']),
@@ -102,21 +139,23 @@ function audit(root, io = fs) {
     modules,
     browser_guard: browserGuard,
     legacy_server_readers: legacyReaders,
-    package_metrics: { script_count: npmScripts, syntax_check_characters: syntaxCheckCharacters },
+    package_metrics: { script_count: npmScripts, syntax_check_characters: syntaxCheckCharacters, syntax_check_chain: chain },
     deployment_metrics: { preview_ignore_command_present: previewIgnoreConfigured },
     summary: {
       tracked_modules: MODULES.length,
       missing_tracked_modules: missingTracked,
       above_review_threshold: modules.filter(m => m.needs_modularization_review).map(m => m.file),
       browser_guard_regressions: criticalGuardRegressions,
+      inventory_findings: inventoryFindings,
       legacy_server_reader_review_count: legacyReaders.filter(m => m.status === 'REVIEW_LEGACY_PATH').length,
       warnings_total: missingTracked.length + modules.filter(m => m.needs_modularization_review).length +
-        criticalGuardRegressions.length + legacyReaders.filter(m => m.status === 'REVIEW_LEGACY_PATH').length
+        criticalGuardRegressions.length + inventoryFindings.length + legacyReaders.filter(m => m.status === 'REVIEW_LEGACY_PATH').length
     },
     limitations: [
       'Static source markers are not proof of runtime privacy or authentication.',
       'No customer data, GitHub PR states, Drive ACLs, live CI or Production browser tests are read.',
-      'Line-count thresholds are review prompts, not build failure limits.'
+      'Line-count thresholds are review prompts, not build failure limits.',
+      'Syntax chain metrics recognize literal commands only; missing explicit coverage is not proof of absent CI coverage.'
     ]
   };
   return report;
@@ -125,9 +164,12 @@ function main(argv = process.argv, io = fs, output = process.stdout, root = path
   // --strict-browser is opt-in. Normal mode documents existing debt without
   // disrupting Codex, preview builds, development or other CI workflows.
   const strictBrowser = argv.includes('--strict-browser');
+  const strictInventory = argv.includes('--strict-inventory');
   const result = audit(root, io);
   output.write(JSON.stringify(result, null, 2) + '\n');
-  return strictBrowser && result.summary.browser_guard_regressions.length > 0 ? 2 : 0;
+  if (strictBrowser && result.summary.browser_guard_regressions.length > 0) return 2;
+  if (strictInventory && (result.summary.missing_tracked_modules.length || result.summary.inventory_findings.length)) return 3;
+  return 0;
 }
 if (require.main === module) process.exitCode = main();
 module.exports = { VERSION, MODULES, LEGACY_SERVER_READERS, lineCount, occurrences, audit, main };

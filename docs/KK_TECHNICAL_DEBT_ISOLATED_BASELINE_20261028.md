@@ -49,3 +49,26 @@ Directly read the eight fixed sources from main after creating the isolated bran
 Native local Node v22.16.0: syntax checks passed, 8/8 node:test synthetic fixture cases passed; GitHub source/test file content must be verified by exact Git blob SHA before treating those local results as evidence for the committed files. No full npm test or GitHub-hosted test has been claimed. These source-marker tests can be bypassed by dynamic code and are NOT a penetration test; offline sample warnings cannot prove that Production leaks data.
 
 **Outcome:** A safe, reusable Debt Baseline instrument exists for review; this does not close Security, Booking, Scanner, Poster ACL or Stable Business release gates. Owner approval remains required for any later Merge/Deploy or protected business modification.
+
+## 26 Nov 2026 ICT — V2 reproducible inventory (Draft continuation, not release)
+
+V2 corrects audit false-confidence cases: one read per eight fixed source paths per audit; malformed JSON and wrong object/scripts shape remain UNKNOWN instead of zero; empty/whitespace Vercel ignoreCommand no longer passes; literal Node syntax check chain metrics distinguish unique/duplicate targets, unrecognized segments and fixed tracked JavaScript paths without explicit checks. Unknown shell syntax is advisory partial evidence, not proof of absent CI coverage. Reports never execute commands, follow arbitrary command paths, emit arbitrary target names, secrets or source snippets. Default exit stays 0, existing --strict-browser exits 2 for browser marker regressions; new opt-in --strict-inventory exits 3 for missing tracked modules/config or inventory findings, with browser exit precedence. Output schema version 2; warnings_total now includes inventory findings. No runtime or workflow wiring.
+
+Native isolated Node v22.16.0: original exact two blobs verified and original 8/8 tests passed; modified syntax checks and 14/14 targeted node:test cases passed (six added cases including malformed shape, duplicate, partial shell, read-once, strict exit). Local tested source blob 904849d061ae56ae7433033387ed8a5c59f9b876 and tests fae24c94e4484cf3aee6796b6564b256a9362781 match the GitHub-created blob IDs. Strict inventory on missing-source fixture exits 3. No full repo checkout: GitHub network DNS unavailable in isolated container; actual code:context, full regression, independent Reviewer and CI not claimed. Do not merge until these are admitted. Scope stays in the same existing Draft #809; no new PR or dependency, package.json/workflow/runtime changes.
+
+Fresh exact-ref GitHub source inspection (direct static measurement, not execution of V2 against a full checkout):
+| Metric | main ad69ffa15caa3fcaf0e14580e370433c26ba663f | release #886 8e4ba9b35eb6b4a4b102aa70a4122c4d8d5ff58f |
+|---|---:|---:|
+| script.js physical lines | 1934 | 1939 |
+| admin/admin.js | 3734 | 3783 |
+| apps-script/Code.gs | 3281 | 4515 |
+| api/kk-data.js | 498 | 499 |
+| server/admin-sheet-fallback.js | 418 | 435 |
+| package scripts | 42 | 42 |
+| check command characters | 7380 | 7379 |
+| literal node --check commands / unique | 149/149 | 149/149 |
+| duplicate / unrecognized segments | 0/0 | 0/0 |
+
+Both source snapshots retain the two browser static guard witnesses, explicit checks for all four tracked JS modules, configured ignoreCommand and two GViz/CSV marker occurrences each in the two legacy server readers. Code.gs grew 1234 lines (~37.6%) and exceeds the 3400 review threshold by 1115; do not split the release candidate merely to reduce LOC. After canonical native release, prioritize a contract-preserving modularization with bound-GAS deployment manifest, exact source identity, transaction/locking and regression parity; existing 149 explicit checks currently have no duplicate, so do not remove syntax coverage simply to shorten package.json. Old 28 Oct live evidence above is historical only, not current verification.
+
+Governance: #866 and stacked #876 were converted from non-draft RELEASE HOLD to Draft and read back at unchanged source SHA. Neither exact head is ancestor of #886 and their source differs; preserve legacy semantics/rollback references until reviewed, no bulk closure. Master #49 remains release authority. No merge/deploy, provider sends, data/Booking/Owner Lock changes, additional paid service or automation change.

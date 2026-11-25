@@ -29,7 +29,7 @@ function fixture(overrides = {}) {
 test('source-only inventory remains deterministic and has no network or business data', () => {
   const f = fixture();
   const report = Debt.audit(f.root, f.io);
-  assert.equal(report.version, 1);
+  assert.equal(report.version, 2);
   assert.equal(report.audit_mode, 'STATIC_READ_ONLY');
   assert.equal(report.summary.tracked_modules, 5);
   assert.deepEqual(report.summary.browser_guard_regressions, []);
@@ -90,4 +90,60 @@ test('strict browser option returns 2 for regressions and zero for guarded fixtu
   assert.equal(Debt.main(['node', 'audit.cjs', '--strict-browser'], broken.io, {write:x=>{strictOutput += x;}}, broken.root), 2);
   assert.deepEqual(JSON.parse(normalOutput).summary.browser_guard_regressions, []);
   assert.deepEqual(JSON.parse(strictOutput).summary.browser_guard_regressions, ['BROWSER_API_ONLY_CONFIG_MISSING']);
+});
+
+test('each of eight fixed source paths is read once per audit', () => {
+  const f = fixture();
+  const reads = new Map();
+  const original = f.io.readFileSync;
+  f.io.readFileSync = (abs, enc) => {
+    reads.set(abs, (reads.get(abs) || 0) + 1);
+    return original(abs, enc);
+  };
+  Debt.audit(f.root, f.io);
+  assert.equal(reads.size, 8);
+  assert.ok([...reads.values()].every(count => count === 1));
+});
+test('malformed JSON and wrong root or scripts shape are unknown, not zero', () => {
+  for (const source of ['{', 'null', '[]', '{"scripts":[]}', '{"scripts":{"check":true}}']) {
+    const f = fixture({'package.json': source});
+    const out = Debt.audit(f.root, f.io);
+    assert.equal(out.package_metrics.script_count, null);
+    assert.equal(out.package_metrics.syntax_check_characters, null);
+    assert.ok(out.summary.inventory_findings.includes('PACKAGE_SCRIPTS_UNKNOWN'));
+  }
+});
+test('blank or malformed ignoreCommand is not a positive deployment witness', () => {
+  for (const [source, expected] of [['{}', false], ['{"ignoreCommand":"  "}', false], ['{"ignoreCommand":true}', null], ['[]', null]]) {
+    const f = fixture({'vercel.json': source});
+    assert.equal(Debt.audit(f.root, f.io).deployment_metrics.preview_ignore_command_present, expected);
+  }
+});
+test('literal check chain counts duplicate commands and only fixed missing paths', () => {
+  const f = fixture({'package.json': JSON.stringify({scripts:{check:'node --check script.js && node --check ./script.js && node --check api/kk-data.js'}})});
+  const out = Debt.audit(f.root, f.io);
+  assert.deepEqual(out.package_metrics.syntax_check_chain, {
+    explicit_command_count: 3, unique_target_count: 2, duplicate_command_count: 1,
+    unrecognized_segment_count: 0, tracked_js_missing_explicit_check: ['admin/admin.js','server/admin-sheet-fallback.js']
+  });
+  assert.ok(out.summary.inventory_findings.includes('SYNTAX_CHECK_DUPLICATE_TARGETS'));
+});
+test('complex shell syntax is partial evidence; no arbitrary path read or raw command output', () => {
+  const secret = 'SYNTHETIC_SECRET_20261126';
+  const f = fixture({'package.json': JSON.stringify({scripts:{check:`node --check script.js && echo ${secret} && node --check ../../secret.js`}})});
+  const out = Debt.audit(f.root, f.io);
+  assert.equal(out.package_metrics.syntax_check_chain.unrecognized_segment_count, 2);
+  assert.equal(out.package_metrics.syntax_check_chain.tracked_js_missing_explicit_check, null);
+  assert.ok(out.summary.inventory_findings.includes('SYNTAX_CHECK_PARTIAL_COVERAGE_UNKNOWN'));
+  assert.doesNotMatch(JSON.stringify(out), /SYNTHETIC_SECRET|secret\.js/);
+});
+test('default exit remains advisory; opt-in inventory exit is distinct from browser exit', () => {
+  const f = fixture({'package.json': '{}'});
+  const out = {write:()=>{}};
+  assert.equal(Debt.main(['node','audit.cjs'], f.io, out, f.root), 0);
+  assert.equal(Debt.main(['node','audit.cjs','--strict-inventory'], f.io, out, f.root), 3);
+  const good = fixture({'package.json': JSON.stringify({scripts:{check:'node --check script.js && node --check admin/admin.js && node --check api/kk-data.js && node --check server/admin-sheet-fallback.js'}})});
+  assert.equal(Debt.main(['node','audit.cjs','--strict-inventory'], good.io, out, good.root), 0);
+  const bad = fixture({'config.js':null, 'package.json':'{}'});
+  assert.equal(Debt.main(['node','audit.cjs','--strict-inventory','--strict-browser'], bad.io, out, bad.root), 2);
 });
