@@ -31,10 +31,12 @@ test('monthly discovery includes bounded broad fallbacks when exact month querie
  assert.equal(new Set(all).size,all.length);
 });
 
-test('smart operational query plan stays intentionally small and leaves exhaustive coverage to audit',()=>{
+test('smart operational query plan bounds noncritical tiers and leaves exhaustive coverage to audit',()=>{
  const r=P.buildOperational({month:'2026-10',location:'Bangkok Metropolitan Region Thailand'});
  assert.equal(r.mode,'SMART_OPERATIONAL');
- assert.equal(r.gap_tasks.length,16);
+ const expected=P.OPERATIONAL_TIERS.reduce((n,t)=>n+(P.OPERATIONAL_EXPANDED_TIERS.includes(t)?P.TIER_TERMS[t].length:1),0);
+ assert.equal(r.gap_tasks.length,expected);
+ assert.equal(new Set(r.gap_tasks.map(t=>t.source_id)).size,expected);
  assert.equal(r.operational_tiers.length,16);
  assert.equal(r.audit_required,true);
  assert.ok(r.gap_tasks.every(x=>x.source_id.startsWith('smart-')));
@@ -69,4 +71,18 @@ test('issue 879 direct named-source variants survive monthly plan assembly',()=>
   assert.equal(task.stop_condition,'EXECUTE_AND_RECORD_RECEIPT',id);
  }
  assert.equal(p.production_writes,0);
+});
+
+test('critical operational sub-intents are independent tasks and cannot be skipped by a generic hit',()=>{
+ const p=P.buildOperational({month:'2026-12'});
+ for(const tier of P.OPERATIONAL_EXPANDED_TIERS){
+  const tasks=p.gap_tasks.filter(x=>x.source_tier===tier);
+  assert.equal(tasks.length,P.TIER_TERMS[tier].length,tier);
+  for(const term of P.TIER_TERMS[tier])assert.ok(tasks.some(x=>x.query.startsWith(term+' ')),term);
+ }
+ assert.equal(p.gap_tasks.filter(x=>x.source_tier==='PRESS_BRAND').length,8);
+ assert.ok(p.gap_tasks.filter(x=>x.source_tier==='CAMPAIGN_LEAD_TIME').every(x=>x.date_window.end==='2027-01-31'));
+ assert.equal(p.audit_required,true);
+ assert.equal(p.production_writes,0);
+ assert.ok(p.gap_tasks.every(x=>!x.providers.includes('EXA')));
 });
