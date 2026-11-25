@@ -154,6 +154,12 @@ module.exports=async function handler(req,res){
   if(gate) return AdminSecurity.handleGate(req,res,gate);
   if(!AdminSecurity.authorizeApi(req,res)) return;
 
+  if(req.method==='GET'&&action==='customerHistory'){
+    try{
+      const history=await require('../server/rental-dashboard-core.js').readCustomerHistoryProjection();
+      return replyJson(res,200,{ok:true,data:history});
+    }catch(_){return replyJson(res,503,{ok:false,error:'CRM history unavailable',error_code:'CRM_HISTORY_UNAVAILABLE'});}
+  }
   if(req.method==='GET'&&action==='writeControlHealth'){
     return handleDirectWriterHealth(res);
   }
