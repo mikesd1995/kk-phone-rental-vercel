@@ -45,15 +45,21 @@ function build(input={}){
  for(const task of universe.tasks)gap_tasks.push({source_tier:task.source_tier,source_id:task.source_id,query:task.query,query_variants:task.query_variants,providers:task.providers,stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:task.required,date_window:{start:range.start_date,end:range.end_date}});
  return {version:VERSION,mode:'ULTRA_DEEP_MONTH_LONG_TAIL',range,location,gap_tasks,source_universe_version:universe.version,source_universe_task_count:universe.tasks.length,required_tiers:Object.keys(TIER_TERMS),learned_query_count:learned.length,hot_fandom_query_count:hotFandoms.length,production_writes:0,authoritative:false,verifier_required:true};
 }
+// Critical commercial intents must be independent tasks: a first usable hit
+// for a generic tier must not suppress lucky-fan/BL-GL/campaign sub-intents.
+// Keep noncritical tiers at one task; the exhaustive audit remains separate.
+const OPERATIONAL_EXPANDED_TIERS=Object.freeze(['ARTIST_AGENCY','MALL_COMMUNITY','FAN_EVENT','CEREMONY','PRESS_BRAND','CAMPAIGN_LEAD_TIME','VISUAL_SCHEDULE']);
 function buildOperational(input={}){
  const range=monthRange(input),location=text(input.location)||'Bangkok Metropolitan Region Thailand',learned=Array.isArray(input.learned_query_terms)?input.learned_query_terms:[],hotFandoms=(Array.isArray(input.hot_fandom_terms)?input.hot_fandom_terms:[]).map(text).filter(Boolean).slice(0,6),gap_tasks=[];
  for(const source_tier of OPERATIONAL_TIERS){
-  const term=(TIER_TERMS[source_tier]||[])[0];if(!term)continue;
+  const terms=TIER_TERMS[source_tier]||[];
+  const selected=OPERATIONAL_EXPANDED_TIERS.includes(source_tier)?terms:terms.slice(0,1);
+  for(const [termIndex,term] of selected.entries()){
   const qs=queryVariantsForTerm(term,range,location,learned);
   const liveNationEligible=['OFFICIAL','TICKETING','VENUE','ARTIST_AGENCY','ORGANIZER_PROMOTER','PUBLIC_CALENDAR'].includes(source_tier);
   gap_tasks.push({
    source_tier,
-   source_id:'smart-'+source_tier.toLowerCase().replace(/_/g,'-'),
+   source_id:'smart-'+source_tier.toLowerCase().replace(/_/g,'-')+(termIndex?'-intent-'+(termIndex+1):''),
    query:qs[0],
    query_variants:qs.slice(1,4),
    providers:[...(liveNationEligible?['LIVENATION_PUBLIC']:[]),'BING_RSS','OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA'],
@@ -62,6 +68,7 @@ function buildOperational(input={}){
    date_window:{start:range.start_date,end:source_tier==='CAMPAIGN_LEAD_TIME'?leadTimeEnd(range):range.end_date},
    campaign_lead_time:source_tier==='CAMPAIGN_LEAD_TIME'
   });
+  }
  }
  for(const fandom of hotFandoms){
   gap_tasks.push({
@@ -73,7 +80,7 @@ function buildOperational(input={}){
   });
  }
  return {
-  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V3',
+  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V4',
   mode:'SMART_OPERATIONAL',
   range,location,gap_tasks,
   operational_tiers:[...OPERATIONAL_TIERS],hot_fandom_query_count:hotFandoms.length,
@@ -83,4 +90,4 @@ function buildOperational(input={}){
   verifier_required:true
  };
 }
-module.exports={VERSION,TIER_TERMS,OPERATIONAL_TIERS,monthRange,leadTimeEnd,queryVariantsForTerm,build,buildOperational};
+module.exports={VERSION,TIER_TERMS,OPERATIONAL_TIERS,OPERATIONAL_EXPANDED_TIERS,monthRange,leadTimeEnd,queryVariantsForTerm,build,buildOperational};
