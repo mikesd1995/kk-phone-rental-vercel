@@ -325,7 +325,13 @@ module.exports._test={eventMetadata,parseHelper,aggregate,eventMonth,coreCsv,bui
 
 /** Authorized Admin CRM projection. Reuse the existing Core read transport.
  * Never expose through the public storefront or aggregate analytics response. */
-async function readCustomerHistoryProjection(env=process.env,read=coreCsv){
+async function readCustomerHistoryPrivateCsv(sheetId,sheet,range,env=process.env){
+  // CRM history includes customer identity and must never use legacy public GViz.
+  // Keep aggregate analytics compatibility separate from this private projection.
+  CorePrivacy.requireExplicitPrivateSource(sheetId,env);
+  return CorePrivacy.readCsv({sheetId,sheet,range,env});
+}
+async function readCustomerHistoryProjection(env=process.env,read=readCustomerHistoryPrivateCsv){
   const sheetId=String(env.GOOGLE_SHEET_ID||DEFAULT_SHEET_ID).trim();
   const rows=parseCsv(await read(sheetId,"_Rental_Dashboard_Data","A1:O",env));
   const expected=["Source","Booking ID","Created At","Booking Status","Event ID","Event Name","Event Date","Customer Key","Customer Name","Phone","Channel","Package Type","Payment Status","Amount Received","Event Month"];

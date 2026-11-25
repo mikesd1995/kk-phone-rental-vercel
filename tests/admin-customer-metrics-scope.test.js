@@ -67,3 +67,13 @@ test('history route follows existing authenticated admin API guard',()=>{
   assert.ok(api.indexOf('if(!AdminSecurity.authorizeApi(req,res)) return;')<api.indexOf("action==='customerHistory'"));
   assert.match(api,/req\.method==='GET'&&action==='customerHistory'/);
 });
+
+
+test('history projection never falls back to public GViz without private source readiness',async(t)=>{
+  const {readCustomerHistoryProjection}=require('../server/rental-dashboard-core.js');
+  const fetchMock=t.mock.method(globalThis,'fetch',async()=>{throw new Error('UNEXPECTED_NETWORK');});
+  await assert.rejects(readCustomerHistoryProjection({}),/CORE_PRIVATE_CUTOVER_NOT_ENABLED/);
+  await assert.rejects(readCustomerHistoryProjection({KK_CORE_SHEET_REQUIRE_PRIVATE:'1'}),/CORE_PRIVATE_SHEET_ID_NOT_CONFIGURED/);
+  await assert.rejects(readCustomerHistoryProjection({KK_CORE_SHEET_REQUIRE_PRIVATE:'1',GOOGLE_SHEET_ID:'fixture',KK_CORE_PRIVATE_TRANSPORT:'none'}),/CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED/);
+  assert.equal(fetchMock.mock.callCount(),0);
+});
