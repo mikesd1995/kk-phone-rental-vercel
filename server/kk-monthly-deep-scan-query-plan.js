@@ -30,8 +30,15 @@ function queryVariantsForTerm(term,range,location,learned=[]){
  return [...new Set([compact+' '+labels.en+' '+location,compact+' '+labels.th+' กรุงเทพ ปริมณฑล',compact+' Bangkok',compact+' Nonthaburi',compact+' Pathum Thani',compact+' Samut Prakan',compact,...learned.map(text)])].filter(Boolean);
 }
 function monthRange(input={}){
- const raw=text(input.month);let y,m;
- if(/^\d{4}-\d{2}$/.test(raw)){[y,m]=raw.split('-').map(Number);}else{const base=/^\d{4}-\d{2}-\d{2}$/.test(text(input.current_date))?new Date(text(input.current_date)+'T00:00:00Z'):new Date();y=base.getUTCFullYear();m=base.getUTCMonth()+2;if(m===13){m=1;y++;}}
+ const raw=text(input.month),date=text(input.current_date);let y,m;
+ if(raw){
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(raw)||Number(raw.slice(0,4))<1000)throw new RangeError('INVALID_SCAN_MONTH');
+  [y,m]=raw.split('-').map(Number);
+ }else{
+  const base=date?new Date(date+'T00:00:00Z'):new Date();
+  if(date&&(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(base.getTime())||base.toISOString().slice(0,10)!==date))throw new RangeError('INVALID_SCAN_CURRENT_DATE');
+  y=base.getUTCFullYear();m=base.getUTCMonth()+2;if(m===13){m=1;y++;}
+ }
  const last=new Date(Date.UTC(y,m,0)).getUTCDate(),mm=String(m).padStart(2,'0');return {month:y+'-'+mm,start_date:y+'-'+mm+'-01',end_date:y+'-'+mm+'-'+String(last).padStart(2,'0')};
 }
 function leadTimeEnd(range){const [y,m]=range.month.split('-').map(Number),ny=m===12?y+1:y,nm=m===12?1:m+1,last=new Date(Date.UTC(ny,nm,0)).getUTCDate();return ny+'-'+String(nm).padStart(2,'0')+'-'+String(last).padStart(2,'0');}

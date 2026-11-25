@@ -113,3 +113,30 @@ test('exhaustive mode reports uninspected provider overflow rather than silently
  assert.equal(r.candidates.length,Exec.MAX_RESULTS);assert.equal(r.candidate_truncated,true);
  assert.equal(r.dropped_uninspected_row_count,1);assert.equal(r.dropped_unique_candidate_count,0);
 });
+
+test('malformed provider payload cannot masquerade as a successful empty search',async()=>{
+ const r=await Exec.executeGapTask({query:'q',providers:['BING_RSS','DDG_HTML']},{providers:{
+  BING_RSS:async()=>({error:'unavailable'}),
+  DDG_HTML:async()=>({candidates:[]})
+ }});
+ assert.deepEqual(r.attempts.map(x=>x.status),['PROVIDER_ERROR','NO_EVIDENCE']);
+ assert.equal(r.attempts[0].error_class,'PROVIDER_RESPONSE_INVALID');
+});
+test('null candidate row is invalid evidence rather than an empty receipt',async()=>{
+ const r=await Exec.executeGapTask({query:'q',providers:['BING_RSS']},{providers:{BING_RSS:async()=>[null]}});
+ assert.equal(r.attempts[0].status,'PROVIDER_ERROR');
+ assert.equal(r.attempts[0].error_class,'PROVIDER_RESPONSE_INVALID');
+});
+test('operational result overflow is visible and cannot resolve a plan',async()=>{
+ const rows=Array.from({length:Exec.MAX_RESULTS+1},(_,i)=>({title:'Event '+i,source_url:'https://example.com/'+i}));
+ const out=await Exec.executeGapPlan({gap_tasks:[{query:'q',providers:['BING_RSS']}]},{providers:{BING_RSS:async()=>rows}});
+ assert.equal(out.status,'GAPS_REMAIN');
+ assert.equal(out.results[0].candidate_truncated,true);
+ assert.equal(out.results[0].dropped_uninspected_row_count,1);
+ assert.equal(out.results[0].candidates.length,Exec.MAX_RESULTS);
+});
+test('empty plan is never reported resolved',async()=>{
+ const out=await Exec.executeGapPlan({gap_tasks:[]});
+ assert.equal(out.status,'GAPS_REMAIN');
+ assert.equal(out.production_writes,0);
+});

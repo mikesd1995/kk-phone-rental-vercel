@@ -86,3 +86,11 @@ test('critical operational sub-intents are independent tasks and cannot be skipp
  assert.equal(p.production_writes,0);
  assert.ok(p.gap_tasks.every(x=>!x.providers.includes('EXA')));
 });
+
+test('invalid explicit scan month fails closed instead of scanning a different month',()=>{
+ for(const month of ['2026-00','2026-13','2026-2','nonsense'])assert.throws(()=>P.monthRange({month}),/INVALID_SCAN_MONTH/);
+});
+test('invalid reference date fails closed and December rollover is exact',()=>{
+ for(const current_date of ['2026-02-30','2026-13-01','invalid'])assert.throws(()=>P.monthRange({current_date}),/INVALID_SCAN_CURRENT_DATE/);
+ assert.deepEqual(P.monthRange({current_date:'2026-12-31'}),{month:'2027-01',start_date:'2027-01-01',end_date:'2027-01-31'});
+});
