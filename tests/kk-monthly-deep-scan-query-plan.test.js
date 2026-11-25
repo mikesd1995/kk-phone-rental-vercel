@@ -59,3 +59,14 @@ test('named source universe fallbacks survive monthly execution-plan assembly fo
  assert.equal(p.production_writes,0);
  assert.equal(p.verifier_required,true);
 });
+
+test('issue 879 direct named-source variants survive monthly plan assembly',()=>{
+ const p=P.build({month:'2026-12'});
+ for(const id of ['twelveplus-th','dentiste-th','mflow-theseries','ngernnn-artist','theconcert-ticketing','aksra-theatre-king-power','thai-summit-tower-events','smooth-life-tower-events']){
+  const task=p.gap_tasks.find(x=>x.source_id===id);
+  assert.ok(task,id);assert.equal(task.required,true,id);
+  assert.ok(task.query_variants.some(q=>q.includes('ธันวาคม 2569')),id);
+  assert.equal(task.stop_condition,'EXECUTE_AND_RECORD_RECEIPT',id);
+ }
+ assert.equal(p.production_writes,0);
+});
