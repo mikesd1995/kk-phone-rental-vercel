@@ -1,0 +1,94 @@
+name: Admin CRM theme and customer metric acceptance
+on:
+  pull_request:
+    branches: [main]
+    paths: ['admin/**','tests/admin-customer-metrics-scope.test.js','.github/workflows/admin-theme-baseline.yml']
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    if: github.head_ref == 'feat/admin-dark-theme-887'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run code:context -- "Admin CRM persistent dark mode theme analytics accessibility contrast"
+      - run: node --check admin/admin.js && node --check admin/admin-theme.js && node --test tests/admin-customer-metrics-scope.test.js
+      - run: npm run code:test -- "Admin CRM customer history booking count archive and dark theme"
+      - run: npm test
+      - run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.55.0
+      - name: Render both themes and invoke registered visual QA
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/kk-theme-http.log 2>&1 &
+          trap 'kill $! 2>/dev/null || true' EXIT
+          for n in $(seq 1 20); do curl -fsS http://127.0.0.1:4173/admin/index.html >/dev/null && break; sleep 0.5; done
+          node <<'NODE'
+          const fs=require('node:fs');
+          const cp=require('node:child_process');
+          const {chromium}=require('playwright');
+          const E=require('./scripts/storefront-evidence.cjs');
+          (async()=>{
+            const dir='artifacts/admin-theme-acceptance';
+            fs.mkdirSync(dir,{recursive:true});
+            const sourceSha=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+            const files=cp.execFileSync('git',['ls-files','-z','admin'],{encoding:'utf8'}).split('\0').filter(Boolean).sort();
+            const identity={digest:E.hash(JSON.stringify(files.map(p=>[p,E.hash(fs.readFileSync(p))])))};
+            const browser=await chromium.launch({channel:'chrome',headless:true});
+            try{
+              const assert=require('node:assert/strict');
+              for(const [width,height] of [[320,568],[375,812],[390,844],[430,932],[480,932],[768,1024],[1024,768],[1440,900]]){
+                const page=await browser.newPage({viewport:{width,height},colorScheme:'light'});
+                await page.route('**/*',route=>{
+                  const url=new URL(route.request().url());
+                  const type=route.request().resourceType();
+                  return url.origin==='http://127.0.0.1:4173'&&(['document','stylesheet','image','font'].includes(type)||url.pathname==='/admin/admin-theme.js')?route.continue():route.abort();
+                });
+                const errors=[];page.on('pageerror',e=>errors.push(e.message));
+                for(const [file,card,show] of [['index.html','.pro-hero','appPanel'],['rental-analytics.html','.card','']]){
+                  await page.goto('http://127.0.0.1:4173/admin/'+file);
+                  if(show)await page.evaluate(id=>{document.getElementById('loginPanel').classList.add('hidden');document.getElementById(id).classList.remove('hidden');},show);
+                  const control=page.locator('#adminThemePreference');
+                  for(const theme of ['light','dark']){
+                    await control.selectOption(theme);
+                    assert.equal(await page.locator('html').getAttribute('data-admin-theme'),theme);
+                    const measured=await page.evaluate(sel=>({document_scroll_width_px:document.documentElement.scrollWidth,content_width_px:innerWidth,body_background:getComputedStyle(document.body).backgroundColor,card_background:getComputedStyle(document.querySelector(sel)).backgroundColor,foreground:getComputedStyle(document.querySelector(sel)).color,control_height:document.querySelector('#adminThemePreference').getBoundingClientRect().height}),card);
+                    const luminance=v=>{const n=v.match(/[0-9.]+/g);return n?0.2126*Number(n[0])+0.7152*Number(n[1])+0.0722*Number(n[2]):NaN;};
+                    const findings=[];
+                    if(theme==='dark'&&(!(luminance(measured.body_background)<80)||!(luminance(measured.card_background)<110)))findings.push({code:'ADMIN_BRIGHT_SURFACE',severity:'P1',evidence:JSON.stringify(measured)});
+                    if(theme==='light'&&!(luminance(measured.body_background)>180))findings.push({code:'LIGHT_MODE_REGRESSION',severity:'P1',evidence:JSON.stringify(measured)});
+                    if(measured.control_height<43) findings.push({code:'THEME_TARGET_SMALL',severity:'P1',evidence:JSON.stringify(measured)});
+                    await page.screenshot({path:dir+'/'+file+'-'+width+'-'+theme+'.png'});
+                    const input={surface:'admin_static_fixture',viewport:{width,height},metrics:{document_scroll_width_px:measured.document_scroll_width_px,content_width_px:measured.content_width_px},screenshot_observations:findings};
+                    const result=await E.invokeWithEvidence('storefront_visual_qa',input,{outputDir:dir,sourceSha,identity});
+                    console.log(JSON.stringify({file,theme,width,measured,status:result.status,result:result.result}));
+                    assert.equal(result.result.pass,true);
+                  }
+                  await page.reload();
+                  assert.equal(await page.locator('html').getAttribute('data-admin-theme'),'dark');
+                  await control.selectOption('system');
+                  await page.emulateMedia({colorScheme:'dark'});
+                  await page.waitForFunction(()=>document.documentElement.dataset.adminTheme==='dark');
+                  await page.emulateMedia({colorScheme:'light'});
+                  await page.waitForFunction(()=>document.documentElement.dataset.adminTheme==='light');
+                }
+                assert.deepEqual(errors,[]);
+                await page.close();
+              }
+            }finally{await browser.close();}
+          })().catch(e=>{console.error(e);process.exitCode=1;});
+          NODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: admin-theme-acceptance-evidence
+          path: artifacts/admin-theme-acceptance/
+          retention-days: 3
+          if-no-files-found: warn
