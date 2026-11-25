@@ -77,3 +77,31 @@ test('history projection never falls back to public GViz without private source 
   await assert.rejects(readCustomerHistoryProjection({KK_CORE_SHEET_REQUIRE_PRIVATE:'1',GOOGLE_SHEET_ID:'fixture',KK_CORE_PRIVATE_TRANSPORT:'none'}),/CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED/);
   assert.equal(fetchMock.mock.callCount(),0);
 });
+
+
+test('CRM default reader uses only the configured private Apps Script transport, including failure',async(t)=>{
+  const {readCustomerHistoryProjection}=require('../server/rental-dashboard-core.js');
+  const url='https://script.google.com/macros/s/synthetic_fixture/exec';
+  const env={GOOGLE_SHEET_ID:'fixture',KK_CORE_SHEET_REQUIRE_PRIVATE:'1',
+    KK_CORE_PRIVATE_TRANSPORT:'apps-script',KK_ADMIN_SCRIPT_URL:url,
+    KK_CORE_PRIVATE_READ_KEY:'synthetic_read_key_'.repeat(3),KK_ADMIN_API_KEY:'synthetic_admin_key'};
+  const headers='Source,Booking ID,Created At,Booking Status,Event ID,Event Name,Event Date,Customer Key,Customer Name,Phone,Channel,Package Type,Payment Status,Amount Received,Event Month'.split(',');
+  const values=[headers,['MASTER','M1','2026-11-01','completed','E1','Event 1','2026-11-01','phone:0800000001','Test','0800000001','','phone','paid','690','2026-11']];
+  let fail=false;
+  const fetchMock=t.mock.method(globalThis,'fetch',async(input,options)=>{
+    assert.equal(input,url);
+    assert.equal(options.method,'POST');
+    assert.equal(options.redirect,'manual');
+    assert.deepEqual(JSON.parse(options.body),{action:'privateCoreRead',readKey:env.KK_CORE_PRIVATE_READ_KEY,
+      coreSheetId:'fixture',sheet:'_Rental_Dashboard_Data',range:'A1:O'});
+    return fail?new Response('',{status:503}):new Response(JSON.stringify({ok:true,data:{
+      spreadsheet_id:'fixture',sheet:'_Rental_Dashboard_Data',range:'A1:O',values
+    }}),{status:200,headers:{'Content-Type':'application/json'}});
+  });
+  const result=await readCustomerHistoryProjection(env);
+  assert.deepEqual(result,{master:[{booking_id:'M1',event_id:'E1',booking_status:'completed'}],archive:[]});
+  assert.equal(fetchMock.mock.callCount(),1);
+  fail=true;
+  await assert.rejects(readCustomerHistoryProjection(env),/CORE_APPS_SCRIPT_HTTP_FAILURE/);
+  assert.equal(fetchMock.mock.callCount(),2);
+});
