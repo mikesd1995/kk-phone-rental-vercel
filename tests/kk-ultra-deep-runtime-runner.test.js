@@ -404,3 +404,25 @@ test('operational discovery can proceed without exhaustive audit gates',async()=
  assert.ok(out.candidate_count>0);
  assert.equal(out.production_writes,0);
 });
+
+test('operational discovery holds partial provider coverage despite usable candidates',async()=>{
+ const successful=new Set(['OFFICIAL','TICKETING','VENUE']);
+ const search=async task=>{
+   if(!successful.has(task.source_tier))throw Object.assign(new Error('synthetic provider failure'),{code:'OFFLINE_TEST_FAILURE'});
+   return [{title:'Bangkok Fanmeeting',event_date:'2026-10-20',source_url:'https://proof.example/fanmeeting'}];
+ };
+ const out=await Runner.runOperationalDiscovery(
+   {month:'2026-10',location:'Bangkok Metropolitan Region Thailand'},
+   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+ );
+ assert.equal(out.status,'HOLD_FOR_OPERATIONAL_DISCOVERY');
+ assert.equal(out.operational_ready,false);
+ assert.ok(out.executed_task_count>=3);
+ assert.ok(out.candidate_count>0);
+ assert.equal(out.operational_coverage.complete,false);
+ assert.ok(out.operational_coverage.missing_tasks.some(t=>t.source_tier==='FAN_EVENT'));
+ assert.ok(out.operational_coverage.missing_tasks.some(t=>t.source_tier==='CAMPAIGN_LEAD_TIME'));
+ assert.ok(out.blockers.includes('OPERATIONAL_TASK_COVERAGE_INCOMPLETE'));
+ assert.equal(out.audit_blocking,false);
+ assert.equal(out.production_writes,0);
+});

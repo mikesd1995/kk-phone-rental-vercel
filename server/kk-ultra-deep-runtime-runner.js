@@ -268,17 +268,30 @@ async function runOperationalDiscovery(input={},options={}){
   const detailFollowup=detailFollowupProof(publicProviders);
   proof.candidate_count=candidates.length;
   proof.has_evidence=candidates.length>0;
-  const minimumExecuted=Math.min(3,proof.task_count);
-  const operationalReady=proof.has_evidence&&proof.executed_count>=minimumExecuted;
+  const minimumExecuted=Math.min(3,plan.gap_tasks.length);
+  // A small number of successful searches is not proof that every planned
+  // operational intent ran. Preserve candidates for inspection but fail closed
+  // on missing/truncated task receipts; the separate exhaustive audit stays nonblocking.
+  const missingTasks=plan.gap_tasks.flatMap((task,index)=>{
+    const row=proof.rows[index];
+    return row&&row.executed&&!row.truncated?[]:[{
+      task_index:index,source_id:task.source_id||null,source_tier:task.source_tier,
+      reason:row&&row.truncated?'TRUNCATED':'EXECUTION_UNPROVEN'
+    }];
+  });
+  const coverageComplete=plan.gap_tasks.length>0&&proof.task_count===plan.gap_tasks.length&&proof.complete&&missingTasks.length===0;
+  const operationalReady=proof.has_evidence&&coverageComplete;
   const blockers=[
     ...(!proof.has_evidence?['OPERATIONAL_DISCOVERY_EMPTY']:[]),
-    ...(proof.executed_count<minimumExecuted?['OPERATIONAL_PROVIDER_EVIDENCE_INSUFFICIENT']:[])
+    ...(proof.executed_count<minimumExecuted?['OPERATIONAL_PROVIDER_EVIDENCE_INSUFFICIENT']:[]),
+    ...(!coverageComplete?['OPERATIONAL_TASK_COVERAGE_INCOMPLETE']:[])
   ];
   return {
     version:VERSION,
     mode:'SMART_OPERATIONAL',
     status:operationalReady?'READY_FOR_VERIFIER':'HOLD_FOR_OPERATIONAL_DISCOVERY',
     operational_ready:operationalReady,
+    operational_coverage:{complete:coverageComplete,planned_task_count:plan.gap_tasks.length,missing_tasks:missingTasks},
     audit_required:true,
     audit_blocking:false,
     month:plan.range.month,
