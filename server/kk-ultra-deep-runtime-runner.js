@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V16';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V17';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -25,15 +25,15 @@ function flattenCandidates(execution={}){
   }
   return out;
 }
-function executionProof(execution={}){
+function executionProof(execution={},expectedCount){
   const results=Array.isArray(execution.results)?execution.results:[];
-  const rows=results.map((result,index)=>{
+  const rows=Array.from(results,(result,index)=>{
     const attempts=Array.isArray(result&&result.attempts)?result.attempts:[];
     const executed=attempts.some(attemptExecuted);
-    const truncated=result.candidate_truncated===true||Number(result.dropped_unique_candidate_count)>0;
+    const truncated=!!result&&(result.candidate_truncated===true||Number(result.dropped_unique_candidate_count)>0||Number(result.dropped_uninspected_row_count)>0);
     return {index,executed,truncated,status:text(result&&result.status)||'MISSING'};
   });
-  return {complete:rows.length>0&&rows.every(x=>x.executed&&!x.truncated),task_count:rows.length,executed_count:rows.filter(x=>x.executed).length,truncated_task_count:rows.filter(x=>x.truncated).length,rows};
+  return {complete:rows.length>0&&(expectedCount===undefined||rows.length===expectedCount)&&rows.every(x=>x.executed&&!x.truncated),task_count:rows.length,executed_count:rows.filter(x=>x.executed).length,truncated_task_count:rows.filter(x=>x.truncated).length,rows};
 }
 function sourceUniverseReceipts(plan={},execution={}){
   const tasks=Array.isArray(plan.gap_tasks)?plan.gap_tasks:[];
@@ -43,11 +43,12 @@ function sourceUniverseReceipts(plan={},execution={}){
     const task=tasks[i];if(!task.source_id)continue;
     const result=results[i]||{};
     const attempts=Array.isArray(result.attempts)?result.attempts:[];
-    const executed=attempts.some(attemptExecuted);
+    const truncated=result.candidate_truncated===true||Number(result.dropped_unique_candidate_count)>0||Number(result.dropped_uninspected_row_count)>0;
+    const executed=attempts.some(attemptExecuted)&&!truncated;
     receipts.push({
       source_id:task.source_id,
       executed,
-      status:executed?(result.status==='EVIDENCE_FOUND'?'EVIDENCE_FOUND':'NO_EVIDENCE'):'NOT_BOUND',
+      status:truncated?'TRUNCATED':executed?(result.status==='EVIDENCE_FOUND'?'EVIDENCE_FOUND':'NO_EVIDENCE'):'NOT_BOUND',
       provider:result.provider||null
     });
   }
@@ -312,6 +313,8 @@ async function runOperationalDiscovery(input={},options={}){
 }
 
 async function runMonthlyUltraDeep(input={},options={}){
+  // Reject invalid date inputs before any known-miss probe or provider call.
+  const plan=MonthlyPlan.build(input);
   const publicProviders=options.use_only_injected_providers===true?{}:PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
   const binding=providerBindingState(providers);
@@ -327,7 +330,6 @@ async function runMonthlyUltraDeep(input={},options={}){
     }});
   const knownMissCandidates=flattenCandidates(knownMissExecution);
 
-  const plan=MonthlyPlan.build(input);
   const referencePlan=buildReferencePlan({month:plan.range.month,location:plan.location});
   // Main discovery and the independent reference sweep are read-only and independent after
   // the known-miss probe. Run them concurrently and use the executor's bounded max concurrency
@@ -339,14 +341,14 @@ async function runMonthlyUltraDeep(input={},options={}){
   const receipts=sourceUniverseReceipts(plan,execution);
   const universe=SourceRegistry.buildUniverseProof(receipts);
   const candidates=flattenCandidates(execution);
-  const discoveryProof=executionProof(execution);
+  const discoveryProof=executionProof(execution,plan.gap_tasks.length);
   discoveryProof.candidate_count=candidates.length;
   discoveryProof.has_evidence=candidates.length>0;
   discoveryProof.complete=discoveryProof.complete && discoveryProof.has_evidence;
 
   const referenceCandidates=flattenCandidates(referenceExecution);
   const scopedReferenceCandidates=scopeReferenceCandidates(referenceCandidates,{month:plan.range.month,location:plan.location});
-  const referenceProof=executionProof(referenceExecution);
+  const referenceProof=executionProof(referenceExecution,referencePlan.gap_tasks.length);
   referenceProof.candidate_count=referenceCandidates.length;
   referenceProof.has_evidence=referenceCandidates.length>0;
   referenceProof.complete=referenceProof.complete && referenceProof.has_evidence;
@@ -360,7 +362,7 @@ async function runMonthlyUltraDeep(input={},options={}){
   // Preflight is intentionally evaluated only after the established evidence
   // sequence, so it can gate completion without changing known-miss/discovery/
   // reference ordering or hiding their diagnostics.
-  const preflight=await providerPreflight(providers,input);
+  const preflight=await providerPreflight(providers,{...input,month:plan.range.month});
   binding.preflight=preflight;
 
   // A known miss is recovered if any governed live discovery path finds it.

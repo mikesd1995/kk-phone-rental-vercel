@@ -1,13 +1,13 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_PROVIDER_EXECUTOR_V7';
+const VERSION='KK_ULTRA_DEEP_PROVIDER_EXECUTOR_V8';
 const ALLOWED_PROVIDERS=new Set(['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 const MAX_RESULTS=25;
 const DEFAULT_CONCURRENCY=4;
 const MAX_CONCURRENCY=8;
 function text(v){return String(v==null?'':v).trim();}
 function upper(v){return text(v).toUpperCase();}
-function https(v){try{const u=new URL(text(v));return u.protocol==='https:'?u.toString():'';}catch(_){return '';}}
+function https(v){try{const u=new URL(text(v));return u.protocol==='https:'&&!u.username&&!u.password?u.toString():'';}catch(_){return '';}}
 function queryVariants(task={}){
   const raw=[task.query,...(Array.isArray(task.query_variants)?task.query_variants:[])];
   const seen=new Set();const out=[];

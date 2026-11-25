@@ -140,3 +140,9 @@ test('empty plan is never reported resolved',async()=>{
  assert.equal(out.status,'GAPS_REMAIN');
  assert.equal(out.production_writes,0);
 });
+
+test('credential-bearing injected provider URLs cannot become candidate evidence',async()=>{
+ const r=await Exec.executeGapTask({query:'event',providers:['BING_RSS']},{providers:{BING_RSS:async()=>[{title:'Event',source_url:'https://user:pass@example.com/event'}]}});
+ assert.equal(r.candidates.length,0);
+ assert.equal(r.status,'GAP_UNRESOLVED');
+});

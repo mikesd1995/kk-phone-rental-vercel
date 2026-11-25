@@ -6,13 +6,20 @@ const DetailFollowup=require('./kk-public-event-detail-followup.js');
 const OneBangkok=require('./kk-onebangkok-event-detail.js');
 const {createHash}=require('node:crypto');
 
-const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V12';
+const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V13';
 const MAX_BYTES=1024*1024;
 const DEFAULT_TIMEOUT_MS=12000;
 const DEFAULT_SEARXNG_ENDPOINT='';
 const DDG_MIN_INTERVAL_MS=250;
 const DEFAULT_DDGS_TIMEOUT_MS=10000;
 const DEFAULT_DDGS_MAX_RESULTS=10;
+// Return at most one real overflow row beyond the executor's 25-row cap.
+// The executor records the truncation rather than silently certifying coverage.
+const SEARCH_EVIDENCE_CAP=26;
+function requireProviderRows(rows,code){
+ if(!Array.isArray(rows)||rows.some(row=>!row||typeof row!=='object'||Array.isArray(row))){const e=new Error(code);e.code=code;throw e;}
+ return rows;
+}
 const LIVENATION_EVENTS_ENDPOINT='https://www.livenationtero.co.th/api/search/events?location=bangkok&page=1';
 let ddgLastRequestAt=0;
 let ddgCircuitOpenUntil=0;
@@ -151,11 +158,13 @@ async function fetchPage(url,options={}){
 async function officialDirect(task={},options={}){
  const urls=[task.source_url,...(Array.isArray(task.seed_urls)?task.seed_urls:[])].map(https).filter(Boolean).slice(0,10);
  const out=[];for(const url of urls){try{const body=await fetchPage(url,options);out.push(candidateFromPage(url,body,task));}catch(_){}}
+ if(urls.length&&!out.length){const e=new Error('OFFICIAL_DIRECT_ALL_READS_FAILED');e.code='OFFICIAL_DIRECT_ALL_READS_FAILED';throw e;}
  return out;
 }
 async function rssOrPublicFeed(task={},options={}){
  const urls=(Array.isArray(task.feed_urls)?task.feed_urls:[]).map(https).filter(Boolean).slice(0,10);
- const out=[];for(const url of urls){try{const body=await fetchPage(url,options);const links=[...body.matchAll(/<link[^>]*>(?:<!\[CDATA\[)?(https:\/\/[^<\]\s]+)(?:\]\]>)?<\/link>/gi)].map(m=>https(m[1])).filter(Boolean).slice(0,25);for(const link of links)out.push({title:text(task.query)||null,event_date:null,event_time:null,venue:null,artist:[],source_url:link,confidence:null});}catch(_){}}
+ const out=[];let completed=0;for(const url of urls){try{const body=await fetchPage(url,options);out.push(...parseRssItems(body,task.query));completed++;}catch(_){}}
+ if(urls.length&&!completed){const e=new Error('PUBLIC_FEED_ALL_READS_FAILED');e.code='PUBLIC_FEED_ALL_READS_FAILED';throw e;}
  return out;
 }
 
@@ -202,7 +211,7 @@ function parseDuckDuckGoHtml(body,query=''){
    if(!/(^|\s)(result__a|result-link)(\s|$)/i.test(a.cls)&&!/duckduckgo\.com\/l\//i.test(a.href))continue;
    const url=ddgResultUrl(a.href);if(!url||seen.has(url)||!matchesSearchSiteScope(url,query))continue;
    try{const u=new URL(url);if(/(^|\.)duckduckgo\.com$/i.test(u.hostname))continue;}catch(_){continue;}
-   seen.add(url);out.push({title:a.title||null,event_date:uniqueValue(searchEventDates(a.title)),event_time:null,venue:null,artist:[],source_url:url,confidence:null});if(out.length>=25)break;
+   seen.add(url);out.push({title:a.title||null,event_date:uniqueValue(searchEventDates(a.title)),event_time:null,venue:null,artist:[],source_url:url,confidence:null});if(out.length>=SEARCH_EVIDENCE_CAP)break;
  }
  return out;
 }
@@ -266,7 +275,7 @@ function parseBingHtml(body,query=''){
  for(const block of blocks){
    const anchors=extractAnchors(block);const a=anchors.find(x=>x.href);if(!a)continue;
    const url=bingResultUrl(a.href);if(!url||seen.has(url)||!matchesSearchSiteScope(url,query))continue;seen.add(url);
-   out.push({title:a.title||null,event_date:uniqueValue(searchEventDates(a.title)),event_time:null,venue:null,artist:[],source_url:url,confidence:null});if(out.length>=25)break;
+   out.push({title:a.title||null,event_date:uniqueValue(searchEventDates(a.title)),event_time:null,venue:null,artist:[],source_url:url,confidence:null});if(out.length>=SEARCH_EVIDENCE_CAP)break;
  }
  return out;
 }
@@ -293,7 +302,7 @@ function parseRssItems(body,query=''){
   for(const eventDate of rows){
    const key=sourceUrl+'|'+String(eventDate||'');if(seen.has(key))continue;seen.add(key);
    out.push({title,event_date:eventDate,event_time:null,venue:null,artist:[],source_url:sourceUrl,confidence:null});
-   if(out.length>=25)return out;
+   if(out.length>=SEARCH_EVIDENCE_CAP)return out;
   }
  }
  return out;
@@ -351,16 +360,17 @@ async function fetchLiveNationRows(options={}){
  const body=await fetchPage(LIVENATION_EVENTS_ENDPOINT,{...options,timeout_ms:Number(options.livenation_timeout_ms||options.timeout_ms||8000)});
  let parsed;try{parsed=JSON.parse(body);}catch(_){const e=new Error('LIVENATION_INVALID_JSON');e.code='LIVENATION_INVALID_JSON';throw e;}
  if(parsed&&parsed.hasError===true){const e=new Error('LIVENATION_API_ERROR');e.code='LIVENATION_API_ERROR';throw e;}
- return (Array.isArray(parsed&&parsed.documents)?parsed.documents:[]).map(normalizeLiveNationDocument).filter(Boolean).slice(0,100);
+ return requireProviderRows(parsed&&parsed.documents,'LIVENATION_INVALID_DOCUMENTS').map(normalizeLiveNationDocument).filter(Boolean);
 }
 async function liveNationPublic(task={},options={}){
  const q=text(task.query||task.search_query||task.source_tier);if(!q)return [];
  const loader=typeof options.livenation_loader==='function'?options.livenation_loader:()=>fetchLiveNationRows(options);
- const rows=await loader();
+ const rows=requireProviderRows(await loader(),'LIVENATION_INVALID_DOCUMENTS');
  const month=liveNationTargetMonth(task,q);
  const tokens=liveNationSpecificTokens(q);
  const out=[];
- for(const row of Array.isArray(rows)?rows:[]){
+ for(const row of rows){
+  if(!https(row.source_url)||!matchesSearchSiteScope(row.source_url,q))continue;
   if(month&&!text(row.event_date).startsWith(month+'-'))continue;
   if(tokens.length){
    const hay=[row.title,row.venue,...(Array.isArray(row.artist)?row.artist:[])].map(text).join(' ').toLowerCase();
@@ -368,7 +378,7 @@ async function liveNationPublic(task={},options={}){
    const needed=tokens.length<=2?1:Math.min(2,tokens.length);
    if(hits<needed)continue;
   }
-  out.push(row);if(out.length>=25)break;
+  out.push(row);if(out.length>=SEARCH_EVIDENCE_CAP)break;
  }
  return out;
 }
@@ -378,7 +388,7 @@ async function searxng(task={},options={}){
  const q=text(task.query||task.search_query||task.source_tier);if(!q)return [];
  const u=new URL(endpoint);u.searchParams.set('q',q);u.searchParams.set('format','json');u.searchParams.set('language',text(task.language||'th-TH'));
  const body=await fetchPage(u.toString(),options);let data;try{data=JSON.parse(body);}catch(_){const e=new Error('SEARXNG_INVALID_JSON');e.code='SEARXNG_INVALID_JSON';throw e;}
- return (Array.isArray(data.results)?data.results:[]).slice(0,25).map(r=>({title:text(r.title)||null,event_date:null,event_time:null,venue:null,artist:[],source_url:https(r.url),confidence:null})).filter(r=>r.source_url);
+ return requireProviderRows(data&&data.results,'SEARXNG_INVALID_RESULTS').map(r=>({title:text(r.title)||null,event_date:null,event_time:null,venue:null,artist:[],source_url:https(r.url),confidence:null})).filter(r=>r.source_url&&matchesSearchSiteScope(r.source_url,q)).slice(0,SEARCH_EVIDENCE_CAP);
 }
 
 function execFileJson(command,args,options={}){
@@ -394,8 +404,8 @@ function execFileJson(command,args,options={}){
     return;
    }
    try{
-    const parsed=JSON.parse(String(stdout||'[]'));
-    resolve(Array.isArray(parsed)?parsed:[]);
+    const parsed=JSON.parse(String(stdout||''));
+    resolve(requireProviderRows(parsed,'DDGS_INVALID_RESULTS'));
    }catch(_){
     const err=new Error('DDGS_INVALID_JSON');
     err.code='DDGS_INVALID_JSON';
@@ -492,8 +502,8 @@ async function ddgsTrafilatura(task={},options={}){
  const runner=typeof options.ddgs_runner==='function'?options.ddgs_runner:runDdgsSearch;
  const rows=await runner({query:q,max_results:Number(options.ddgs_max_results||DEFAULT_DDGS_MAX_RESULTS),region:text(task.region||'th-th'),backend:text(options.ddgs_backend||'auto')},options);
  const out=[];
- for(const r of (Array.isArray(rows)?rows:[]).slice(0,25)){
-  const sourceUrl=https(r.source_url||r.href||r.url);if(!sourceUrl)continue;
+ for(const r of requireProviderRows(rows,'DDGS_INVALID_RESULTS').slice(0,SEARCH_EVIDENCE_CAP)){
+  const sourceUrl=https(r.source_url||r.href||r.url);if(!sourceUrl||!matchesSearchSiteScope(sourceUrl,q))continue;
   const title=text(r.title)||null;
   // A result title is the identity-bearing evidence for a specific event page.
   // Do not cross-product a title-specific date with other dates mentioned in the snippet body.

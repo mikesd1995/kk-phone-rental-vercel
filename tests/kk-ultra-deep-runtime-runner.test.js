@@ -426,3 +426,22 @@ test('operational discovery holds partial provider coverage despite usable candi
  assert.equal(out.audit_blocking,false);
  assert.equal(out.production_writes,0);
 });
+
+test('invalid monthly date is rejected before any known-miss or provider calls',async()=>{
+ let calls=0;
+ await assert.rejects(Runner.runMonthlyUltraDeep({month:'2026-13'},{use_only_injected_providers:true,providers:{BING_RSS:async()=>{calls++;return [];}}}),/INVALID_SCAN_MONTH/);
+ assert.equal(calls,0);
+});
+test('execution proof rejects sparse, missing or truncated task results against expected count',()=>{
+ const good={status:'EVIDENCE_FOUND',attempts:[{provider:'BING_RSS',status:'EVIDENCE_FOUND'}]};
+ assert.equal(Runner.executionProof({results:[good]},2).complete,false);
+ assert.equal(Runner.executionProof({results:[good,,good]},3).complete,false);
+ assert.equal(Runner.executionProof({results:[good,null]},2).complete,false);
+ assert.equal(Runner.executionProof({results:[{...good,dropped_uninspected_row_count:1}]},1).complete,false);
+ assert.equal(Runner.executionProof({results:[good]},1).complete,true);
+});
+test('truncated named-source receipt cannot pass the source-universe gate',()=>{
+ const receipts=Runner.sourceUniverseReceipts({gap_tasks:[{source_id:'source-1'}]},{results:[{provider:'BING_RSS',status:'EVIDENCE_FOUND',candidate_truncated:true,attempts:[{provider:'BING_RSS',status:'EVIDENCE_FOUND'}]}]});
+ assert.equal(receipts[0].status,'TRUNCATED');
+ assert.equal(receipts[0].executed,false);
+});
