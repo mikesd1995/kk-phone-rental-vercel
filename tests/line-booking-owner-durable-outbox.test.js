@@ -462,3 +462,153 @@ test('owner decision revalidates exact admission template and quote after initia
   row[19]+=' [KK_TEMPLATE:TPL-X500-PHONE] [KK_QUOTE:1090]';
   assert.equal(valid.decide(decision).booking_status,'confirmed');
 });
+
+
+// Exercise the real GAS cancellation guards and all governed writer paths.
+// No production workbook, receipt, customer or provider is used.
+function cancelFixture(status='confirmed'){
+  const row=makeBooking(status);
+  row[3]='EVT-SYNTHETIC';row[4]='Synthetic';row[8]='phone_only';
+  row[14]=0;row[18]=0;
+  return row;
+}
+function cancelGasHarness(row,options={}){
+  const source=fs.readFileSync(path.join(__dirname,'..','apps-script/Code.gs'),'utf8');
+  const sheet=fakeSheet([[],[],[],[],row.slice()]);
+  let writes=0,releases=0,held=false;
+  const getRange=sheet.getRange.bind(sheet);
+  sheet.getRange=(...args)=>{
+    const range=getRange(...args);
+    const set=range.setValues.bind(range);
+    range.setValues=values=>{writes++;set(values);};
+    return range;
+  };
+  const context={
+    KK:{bookings:'00_Master_Booking'},kkSheet_:()=>sheet,
+    kkAcquireDocumentLock_(){assert.equal(held,false);held=true;return {releaseLock(){held=false;releases++;}};},
+    kkFindBookingRow_:()=>5,
+    kkApiNumber_:value=>Number(value),
+    kkGetEventById_:()=>({event_date:'2026-12-01'}),
+    kkBookingTemplateIdFromNote_:()=>'',kkAssignMissingAssetsForPreparedBooking_:()=>{},
+    kkActiveHold_:()=>false,kkAssertBookingAssetsNotDoubleBooked_:()=>{},
+    kkBookingNoteForUpdate_:(note,previous)=>note+' '+previous,
+    kkLineOwnerOutboxEnabled_:()=>false,
+    kkBookingRequestIdFromNote_:()=> 'line:'+'a'.repeat(48),
+    kkLineNativeConsentApprovalReady_:()=>true,
+    kkBookingRequestId_:()=>'',kkBookingNoteWithRequest_:note=>note,
+    KK_LENS_COMPAT_PATCH_VERSION:'test-version',
+    PropertiesService:{getScriptProperties:()=>({getProperty:()=> 'test-version'})},
+    kkNormalizeTemplateIdForEvent_:()=>{throw Error('unexpected allocation');},
+    SpreadsheetApp:{flush(){if(options.drift)sheet.rows[4][14]=777;}}
+  };
+  vm.createContext(context);
+  for(const name of ['kkAssertCancellationSafety_','kkAssertCancellationReceiptReadback_',
+    'kkApiDecideLineBookingPending_','kkApiCreateBooking_','kkApiUpdateBooking_']){
+    const start=source.indexOf('function '+name+'('),end=source.indexOf('\nfunction ',start+1);
+    assert.ok(start>=0&&end>start,name);
+    vm.runInContext(source.slice(start,end),context,{filename:name+'.gs'});
+  }
+  return {context,sheet,writes:()=>writes,releases:()=>releases};
+}
+test('cancellation: unpaid Admin transition preserves original blank or zero and request note',()=>{
+  for(const amount of ['',0]){
+    const row=cancelFixture();row[14]=amount;
+    const h=cancelGasHarness(row);
+    const result=h.context.kkApiUpdateBooking_({booking_id:BOOKING,booking_status:'cancelled',payment_status:'unpaid',amount_received:0});
+    assert.equal(result.booking_status,'cancelled');
+    assert.deepEqual(h.sheet.rows[4],row.map((value,i)=>i===2?'cancelled':value));
+    assert.equal(h.writes(),1);assert.equal(h.releases(),1);
+  }
+});
+test('cancellation: Admin cannot zero or reclassify receipts or cancel after handover',()=>{
+  const cases=[
+    [13,'paid'],[13,'partial'],[13,'refunded'],[13,''],[14,690],[14,'unknown'],
+    [2,'picked_up'],[2,'returned'],[2,'uploaded'],[2,'completed'],[2,'no_show'],
+    [12,'19:00'],[15,'returned'],[16,'uploaded'],[17,'synthetic-link'],[18,100]
+  ];
+  for(const [column,value] of cases){
+    const row=cancelFixture();row[column]=value;
+    const h=cancelGasHarness(row);
+    assert.throws(()=>h.context.kkApiUpdateBooking_({booking_id:BOOKING,booking_status:'cancelled',payment_status:'unpaid',amount_received:0}),/CANCEL_.*REQUIRES_/);
+    assert.equal(h.writes(),0);assert.equal(h.releases(),1);
+    assert.deepEqual(h.sheet.rows[4],row);
+  }
+});
+test('cancellation: Admin cannot introduce payment or rewrite a historical cancelled receipt',()=>{
+  for(const payload of [{payment_status:'paid',amount_received:690},{payment_status:'unpaid',amount_received:690}]){
+    const h=cancelGasHarness(cancelFixture());
+    assert.throws(()=>h.context.kkApiUpdateBooking_({booking_id:BOOKING,booking_status:'cancelled',...payload}),/CANCEL_RECEIPT_REQUIRES_RECONCILIATION/);
+    assert.equal(h.writes(),0);
+  }
+  const row=cancelFixture('cancelled');row[13]='paid';row[14]=690;
+  const h=cancelGasHarness(row);
+  assert.throws(()=>h.context.kkApiUpdateBooking_({booking_id:BOOKING,payment_status:'unpaid',amount_received:0}),/CANCELLED_RECEIPT_CHANGE_REQUIRES_RECONCILIATION/);
+  assert.equal(h.writes(),0);
+  h.context.kkApiUpdateBooking_({booking_id:BOOKING,customer_name:'Updated synthetic'});
+  assert.equal(h.sheet.rows[4][13],'paid');assert.equal(h.sheet.rows[4][14],690);
+});
+test('cancellation: Admin receipt readback drift fails rather than claiming success',()=>{
+  const h=cancelGasHarness(cancelFixture(),{drift:true});
+  assert.throws(()=>h.context.kkApiUpdateBooking_({booking_id:BOOKING,booking_status:'cancelled'}),/CANCEL_RECEIPT_READBACK_FAILED/);
+  assert.equal(h.writes(),1);assert.equal(h.releases(),1);
+});
+test('cancellation: create cancelled booking is blocked before allocation',()=>{
+  const h=cancelGasHarness(cancelFixture());
+  assert.throws(()=>h.context.kkApiCreateBooking_({event_id:'EVT-SYNTHETIC',template_id:'TPL-SYNTHETIC',customer_name:'Synthetic',booking_status:'cancelled'}),/CANCEL_REQUIRES_EXISTING_BOOKING/);
+  assert.equal(h.writes(),0);assert.equal(h.releases(),1);
+});
+test('cancellation: legacy LINE reject protects receipts and preserves replay identity',()=>{
+  for(const amount of [0,690]){
+    const row=cancelFixture('pending');row[14]=amount;
+    const h=cancelGasHarness(row);
+    const reject={booking_id:BOOKING,decision:'reject'};
+    if(amount){
+      assert.throws(()=>h.context.kkApiDecideLineBookingPending_(reject),/CANCEL_RECEIPT_REQUIRES_RECONCILIATION/);
+      assert.equal(h.writes(),0);assert.deepEqual(h.sheet.rows[4],row);
+    }else{
+      const first=h.context.kkApiDecideLineBookingPending_(reject);
+      assert.equal(first.booking_status,'cancelled');
+      assert.equal(h.context.kkApiDecideLineBookingPending_(reject).idempotent_replay,true);
+      assert.equal(h.writes(),1);assert.equal(h.sheet.rows[4][19],row[19]);
+    }
+  }
+});
+test('cancellation: durable LINE rejects paid or ambiguous receipt before outbox INTENT',()=>{
+  for(const [payment,amount] of [['paid',690],['refunded',0],['unpaid',690],['unpaid','unknown']]){
+    const h=appsScriptHarness();
+    h.bookingSheet.rows[4][13]=payment;h.bookingSheet.rows[4][14]=amount;
+    const old=h.bookingSheet.rows[4].slice();
+    assert.throws(()=>h.decide({booking_id:BOOKING,decision:'reject'}),/CANCEL_RECEIPT_REQUIRES_RECONCILIATION/);
+    assert.equal(h.ledger.rows.length,1);
+    assert.deepEqual(h.bookingSheet.rows[4],old);
+  }
+});
+test('cancellation: durable LINE reject crash recovery, one claim and settlement',()=>{
+  const h=appsScriptHarness(),request={booking_id:BOOKING,decision:'reject'};
+  h.bookingSheet.rows[4][14]=0;
+  h.crashAtFlush(2);
+  assert.throws(()=>h.decide(request),/synthetic crash/);
+  assert.equal(h.bookingSheet.rows[4][2],'cancelled');assert.equal(h.ledger.rows[1][3],'INTENT');
+  h.crashAtFlush(0);
+  const ready=h.decide(request);
+  assert.equal(ready.outbox_state,'READY');
+  const claim={...request,outbox_id:ready.outbox_id,retry_key:RETRY,outbox_dispatch_key:DISPATCH};
+  assert.equal(h.claim(claim).claimed,true);
+  assert.equal(h.claim(claim).claimed,false);
+  assert.equal(h.settle({...claim,delivery_state:'SENT',provider_message_id:'synthetic-cancel'}).outbox_state,'SENT');
+  assert.equal(h.decide(request).outbox_state,'SENT');assert.equal(h.ledger.rows.length,2);
+  assert.equal(h.bookingSheet.rows[4][14],0);
+});
+test('cancellation: receipt drift blocks INTENT recovery or READY delivery, without erasing evidence',()=>{
+  for(const crash of [true,false]){
+    const h=appsScriptHarness(),request={booking_id:BOOKING,decision:'reject'};
+    let ready;
+    if(crash){h.crashAtFlush(2);assert.throws(()=>h.decide(request),/synthetic crash/);h.crashAtFlush(0);}
+    else ready=h.decide(request);
+    h.bookingSheet.rows[4][14]=690;
+    if(crash)assert.throws(()=>h.decide(request),/CANCEL_RECEIPT_REQUIRES_RECONCILIATION/);
+    else assert.throws(()=>h.claim({...request,outbox_id:ready.outbox_id,retry_key:RETRY,outbox_dispatch_key:DISPATCH}),/CANCEL_RECEIPT_REQUIRES_RECONCILIATION/);
+    assert.equal(h.ledger.rows[1][3],crash?'INTENT':'READY');
+    assert.equal(h.bookingSheet.rows[4][14],690);
+  }
+});

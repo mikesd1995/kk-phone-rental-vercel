@@ -3771,6 +3771,43 @@ function kkLineOwnerOutboxEnvelope_(bookingId,decision,canonical,record,replay) 
     delivery_review_required: !record || !['READY','SENT'].includes(String(record.cells[3]))
   };
 }
+// Cancellation is a booking state transition, not a refund or receipt edit.
+// All three governed writers use the same guard under the existing DocumentLock.
+function kkAssertCancellationSafety_(current,next,deliveryOnly) {
+  const norm=v=>String(v==null?'':v).trim().toLowerCase();
+  const zero=v=>v==null||v===''||(typeof v==='number'&&v===0)||(typeof v==='string'&&/^0(?:\.0{1,2})?$/.test(v.trim()));
+  if(norm(next[2])!=='cancelled')return;
+  const prior=norm(current[2]);
+  if(prior==='cancelled'&&!deliveryOnly){
+    // Historical cancellation may have unresolved receipt evidence; allow
+    // nonfinancial edits but never rewrite its original financial cells.
+    if(norm(next[13])!==norm(current[13])||!(next[14]===current[14]||(zero(next[14])&&zero(current[14]))))
+      throw new Error('CANCELLED_RECEIPT_CHANGE_REQUIRES_RECONCILIATION');
+    next[13]=current[13];next[14]=current[14];
+    return;
+  }
+  if(!deliveryOnly&&!['pending','confirmed','prepared'].includes(prior))
+    throw new Error('CANCEL_AFTER_HANDOVER_REQUIRES_REVIEW');
+  if(deliveryOnly&&prior!=='cancelled')throw new Error('CANCEL_DELIVERY_STATE_INVALID');
+  // Do not equate a scheduled pickup time or allocated asset with handover.
+  // Return/file evidence, a Drive link or damage fee are independent blockers.
+  const hasEvidence=row=>!!norm(row[12])||
+    !['','pending','not_returned','none'].includes(norm(row[15]))||
+    !['','pending','not_uploaded','not_sent','not_delivered','none'].includes(norm(row[16]))||
+    !!norm(row[17])||!zero(row[18]);
+  if(hasEvidence(current)||hasEvidence(next))
+    throw new Error('CANCEL_HANDOVER_EVIDENCE_REQUIRES_REVIEW');
+  if(norm(current[13])!=='unpaid'||!zero(current[14])||norm(next[13])!=='unpaid'||!zero(next[14]))
+    throw new Error('CANCEL_RECEIPT_REQUIRES_RECONCILIATION');
+  // Preserve even the distinction between blank and numeric zero.
+  next[13]=current[13];next[14]=current[14];
+}
+function kkAssertCancellationReceiptReadback_(expected,persisted) {
+  if(String(expected[2]||'').trim().toLowerCase()!=='cancelled')return;
+  if(expected[13]!==persisted[13]||expected[14]!==persisted[14])
+    throw new Error('CANCEL_RECEIPT_READBACK_FAILED');
+}
+
 function kkApiDecideLineBookingPendingDurable_(payload) {
   // A generic Admin API key is insufficient to approve a governed LINE booking.
   // Only the signed owner webhook's designated private dispatcher can decide.
@@ -3795,6 +3832,7 @@ function kkApiDecideLineBookingPendingDurable_(payload) {
       // Crash after Booking commit but before READY write: recover the durable
       // intent. Old bookings without an intent are NOT retroactively sent.
       if (record && record.cells[3]==='INTENT') {
+        if(decision==='reject')kkAssertCancellationSafety_(canonical.current,canonical.current.slice(),true);
         const next=record.cells.slice();next[3]='READY';
         record=kkLineOwnerOutboxWrite_(ledger,record.row,next);
       }
@@ -3807,6 +3845,8 @@ function kkApiDecideLineBookingPendingDurable_(payload) {
         terms_confirmation_required:true,idempotent_replay:true,
         outbox_mode:KK_LINE_OWNER_OUTBOX_VERSION_,outbox_id:'',outbox_state:'CONSENT_REQUIRED'};
     }
+    const next=canonical.current.slice();next[2]=target;
+    kkAssertCancellationSafety_(canonical.current,next,false);
     if (record && record.cells[3]!=='INTENT')
       throw new Error('LINE_OWNER_OUTBOX_PENDING_STATE_CONFLICT');
     if (!record) {
@@ -3817,7 +3857,6 @@ function kkApiDecideLineBookingPendingDurable_(payload) {
     }
     kkLineOwnerOutboxAssert_(record,bookingId,decision,outboxId,canonical.contact,canonical.requestId);
     // The INTENT was durably written and read back BEFORE the booking changes.
-    const next=canonical.current.slice();next[2]=target;
     canonical.sh.getRange(canonical.row,1,1,20).setValues([next]);
     SpreadsheetApp.flush();
     const persisted=kkLineOwnerOutboxCanonical_(bookingId);
@@ -3826,6 +3865,7 @@ function kkApiDecideLineBookingPendingDurable_(payload) {
         kkBookingRequestIdFromNote_(persisted.current[19])!==
         kkBookingRequestIdFromNote_(canonical.current[19]))
       throw new Error('LINE_OWNER_OUTBOX_DECISION_READBACK_FAILED');
+    kkAssertCancellationReceiptReadback_(next,persisted.current);
     const ready=record.cells.slice();ready[3]='READY';
     record=kkLineOwnerOutboxWrite_(ledger,record.row,ready);
     return kkLineOwnerOutboxEnvelope_(bookingId,decision,persisted,record,false);
@@ -3865,6 +3905,7 @@ function kkApiClaimLineBookingDecisionDelivery_(payload) {
         outbox_mode:KK_LINE_OWNER_OUTBOX_VERSION_,outbox_state:String(record.cells[3]),claimed:false};
     if (!kkLineOwnerOutboxIsUser_(canonical.contact))
       throw new Error('LINE_OWNER_OUTBOX_RECIPIENT_UNVERIFIED');
+    if(decision==='reject')kkAssertCancellationSafety_(canonical.current,canonical.current.slice(),true);
     const next=record.cells.slice();next[3]='CLAIMED';next[4]=retryKey;
     const claimed=kkLineOwnerOutboxWrite_(ledger,record.row,next);
     return {booking_id:bookingId,decision:decision,outbox_id:outboxId,
@@ -4065,6 +4106,7 @@ function kkApiDecideLineBookingPending_(payload) {
 
     const next = current.slice();
     next[2] = targetStatus;
+    kkAssertCancellationSafety_(current,next,false);
     sh.getRange(row, 1, 1, 20).setValues([next]);
     SpreadsheetApp.flush();
 
@@ -4073,6 +4115,7 @@ function kkApiDecideLineBookingPending_(payload) {
     if (String(persisted[2] || '').toLowerCase().trim() !== targetStatus) throw new Error('Owner decision readback failed: ' + bookingId);
     if (kkBookingRequestIdFromNote_(persisted[19]) !== requestId) throw new Error('LINE request identity readback failed: ' + bookingId);
     if (String(persisted[5] || '').trim() !== customerContact) throw new Error('LINE customer contact readback failed: ' + bookingId);
+    kkAssertCancellationReceiptReadback_(next,persisted);
 
     return {
       row_number: row,
@@ -4119,6 +4162,7 @@ function kkApiCreateBooking_(payload) {
     if (!eventId || !templateId || !customerName) throw new Error('Please fill event_id, template_id and customer_name');
     if (!['pending', 'confirmed', 'prepared', 'picked_up', 'returned', 'uploaded', 'completed', 'no_show', 'cancelled'].includes(bookingStatus)) throw new Error('Invalid booking_status');
     if (!['unpaid', 'partial', 'paid', 'refunded'].includes(paymentStatus)) throw new Error('Invalid payment_status');
+    if(bookingStatus==='cancelled')throw new Error('CANCEL_REQUIRES_EXISTING_BOOKING');
 
     templateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
     const event = kkGetEventById_(eventId);
@@ -4181,6 +4225,7 @@ function kkApiUpdateBooking_(payload) {
     if (payload.booking_note !== undefined) {
       next[19] = kkBookingNoteForUpdate_(payload.booking_note || '',current[19]);
     }
+    kkAssertCancellationSafety_(current,next,false);
     if (!String(next[4] || '').trim()) throw new Error('customer_name is required');
 
     const eventId = String(next[3] || '').trim();
@@ -4217,6 +4262,7 @@ function kkApiUpdateBooking_(payload) {
     if (String(persisted[0] || '').trim() !== bookingId) throw new Error('Booking identity readback failed: ' + bookingId);
     if (String(persisted[2] || '').toLowerCase().trim() !== String(next[2] || '').toLowerCase().trim()) throw new Error('Booking status readback failed: ' + bookingId);
     if (String(persisted[13] || '').toLowerCase().trim() !== String(next[13] || '').toLowerCase().trim()) throw new Error('Booking payment readback failed: ' + bookingId);
+    kkAssertCancellationReceiptReadback_(next,persisted);
     if (String(persisted[9] || '').trim() !== String(next[9] || '').trim() || String(persisted[10] || '').trim() !== String(next[10] || '').trim()) throw new Error('Booking asset readback failed: ' + bookingId);
 
     return { row_number: row, booking_id: persisted[0] || '', booking_status: persisted[2], payment_status: persisted[13], phone_asset_id: persisted[9], lens_asset_id: persisted[10] };
