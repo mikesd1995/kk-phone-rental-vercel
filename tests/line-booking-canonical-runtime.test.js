@@ -228,6 +228,26 @@ test('locked strict Web Package lookup rejects missing or duplicate template bef
   assert.throws(()=>c.kkAssertWebPackageBookable_('EVT-SYNTHETIC','TPL-X500-PHONE',true),/ambiguous/);
 });
 
+test('manual and legacy LINE admission cannot bypass missing or unavailable Web Package rows',()=>{
+  const {context:c}=fixture();
+  const event='EVT-SYNTHETIC', template='TPL-X500-PHONE';
+  const row={package_id:event+'-'+template,event_id:event,price:1090,available_count:1,package_status:'available'};
+  for(const args of [[event,template],[event,template,false],[event,template,true]]){
+    for(const rows of [[],[{...row,event_id:'OTHER-EVENT'}],[{...row,package_id:event+'-WRONG'}],[row,row]]){
+      c.kkApiWebPackageRows_=()=>rows;
+      assert.throws(()=>c.kkAssertWebPackageBookable_(...args),/ambiguous/);
+    }
+    for(const patch of [{available_count:0},{price:0},{package_status:'hidden'}]){
+      c.kkApiWebPackageRows_=()=>[{...row,...patch}];
+      assert.throws(()=>c.kkAssertWebPackageBookable_(...args),/ไม่พร้อมจอง/);
+    }
+    c.kkApiWebPackageRows_=()=>[row];
+    assert.equal(c.kkAssertWebPackageBookable_(...args).price,1090);
+  }
+  assert.doesNotMatch(source,/if \(!eventRows\.length && !requireExact\) return/);
+  assert.doesNotMatch(source,/kkAssertWebPackageBookable_\(eventId, templateId, Boolean\(initial\)\)/);
+});
+
 test('booking price formula honors locked quote before historical price lookup without writing live formulas',()=>{
   const {context:c}=fixture();
   const formula=c.kkFormulaBookingPrice_(47);

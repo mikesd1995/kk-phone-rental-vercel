@@ -2104,10 +2104,10 @@ function kkIsWebPackageBookable_(p) {
   return (status === 'available' || status === 'open') && Number(p.available_count || 0) > 0 && Number(p.price || 0) > 0;
 }
 
-function kkAssertWebPackageBookable_(eventId, templateId, requireExact) {
+function kkAssertWebPackageBookable_(eventId, templateId) {
   const normalizedTemplateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
   const eventRows = kkApiWebPackageRows_().filter(p => String(p.event_id || '').trim() === String(eventId || '').trim());
-  if (!eventRows.length && !requireExact) return;
+  // Missing package data must fail closed for both manual and LINE booking.
   const matches = eventRows.filter(p => {
     const webPackageId = String(p.package_id || '').trim();
     const webTemplateId = kkTemplateIdFromWebPackageId_(webPackageId, p.event_id || eventId);
@@ -3295,7 +3295,7 @@ function kkApiCreateLineBookingPending_(payload) {
     if (String(event.status).toLowerCase() !== 'open') throw new Error('Event is not open: ' + eventId);
     if (!event.active) throw new Error('Event is not active_on_web: ' + eventId);
     if (!pkg.active) throw new Error('Package is inactive: ' + templateId);
-    const webPackage=kkAssertWebPackageBookable_(eventId, templateId, Boolean(initial));
+    const webPackage=kkAssertWebPackageBookable_(eventId, templateId);
     const quotedPrice=initial?kkLineVerifiedQuote_(webPackage,pkg,initial.context.price_display):0;
     const pkgType = String(pkg.package_type || '').toLowerCase().trim();
     if(initial && (!pkgType || pkgType.length>100))throw new Error('LINE_INITIAL_OUTBOX_PACKAGE_TYPE_UNVERIFIED');
