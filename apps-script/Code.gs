@@ -3273,6 +3273,35 @@ function kkLineBookingRequestKey_(requestId) {
   }).join('');
 }
 
+// The old non-outbox replay path must not trust a cached OK or row hint.
+// Bind the authenticated caller's request to the unique canonical pending row.
+function kkLineLegacyReplayReadback_(payload, claim) {
+  const norm = v => String(v == null ? '' : v).trim();
+  const requestId = norm(payload.request_id), eventId = norm(payload.event_id);
+  const templateId = kkNormalizeTemplateIdForEvent_(eventId, payload.template_id);
+  const customerName = norm(payload.customer_name), contact = norm(payload.customer_contact);
+  const phone = norm(payload.customer_phone), pickup = norm(payload.pickup_time);
+  if (!claim || claim.initial_mode || !requestId || claim.request_id !== requestId ||
+      !eventId || norm(claim.event_id) !== eventId || !templateId || norm(claim.template_id) !== templateId ||
+      !customerName || !contact || payload.phone_asset_id || payload.lens_asset_id)
+    throw new Error('LINE_BOOKING_REPLAY_IDENTITY_CONFLICT');
+  for (const [key,value] of [['customer_name',customerName],['customer_contact',contact],['customer_phone',phone]]) {
+    if (Object.prototype.hasOwnProperty.call(claim,key) && norm(claim[key]) !== value)
+      throw new Error('LINE_BOOKING_REPLAY_IDENTITY_CONFLICT');
+  }
+  const bookingId = norm(claim.booking_id), rowHint = Number(claim.row_number);
+  if (!bookingId || !Number.isInteger(rowHint) || rowHint < 5) return null;
+  const unique = kkFindBookingByRequestId_(requestId);
+  if (!unique || unique.row_number !== rowHint || norm(unique.row[0]) !== bookingId ||
+      kkFindBookingRow_(rowHint, bookingId) !== rowHint) return null;
+  const persisted = kkLineBookingClaimReadback_(Object.assign({},claim,{
+    customer_name:customerName,customer_contact:contact,customer_phone:phone
+  }));
+  if (!persisted || kkBookingTemplateIdFromNote_(persisted.row[19]) !== templateId ||
+      norm(persisted.row[11]) !== pickup) return null;
+  return persisted;
+}
+
 function kkLineBookingClaimReadback_(claim) {
   const row = Number(claim && claim.row_number || 0);
   const bookingId = String(claim && claim.booking_id || '').trim();
@@ -3324,8 +3353,10 @@ function kkApiCreateLineBookingPending_(payload) {
       try { existing = JSON.parse(existingRaw); } catch (_) {}
       if (existing && existing.status === 'OK' && existing.booking_id) {
         if(initial)return kkLineInitialOutboxReplay_(payload,existing,initial);
+        const verified = kkLineLegacyReplayReadback_(payload,existing);
+        if (!verified) throw new Error('LINE_BOOKING_REPLAY_CANONICAL_UNVERIFIED');
         return {
-          row_number: Number(existing.row_number || 0),
+          row_number: verified.row_number,
           booking_id: String(existing.booking_id),
           booking_status: 'pending',
           payment_status: 'unpaid',
@@ -3337,7 +3368,7 @@ function kkApiCreateLineBookingPending_(payload) {
       }
       if (existing && existing.status === 'PENDING') {
         if(initial)return kkLineInitialOutboxReplay_(payload,existing,initial);
-        const reconciled = kkLineBookingClaimReadback_(existing);
+        const reconciled = kkLineLegacyReplayReadback_(payload,existing);
         if (reconciled) {
           props.setProperty(requestKey, JSON.stringify(Object.assign({},existing,{
             status: 'OK',

@@ -513,3 +513,45 @@ test('event update rejects duplicate identity, unsafe day changes and historical
   assert.equal(posters,1);assert.equal(writeAttempts,3);assert.equal(dateChecks,2);
   assert.equal(f.mutex.held,false);assert.equal(f.counters.flush,0);
 });
+
+
+test('legacy LINE replay binds cached claims to unique canonical pending booking and exact caller identity',()=>{
+  const f=fixture(),c=f.context;
+  const request='line:'+'a'.repeat(48),event='EVT-SYNTHETIC',template='TPL-X500-PHONE',contact='U'+'b'.repeat(32);
+  const payload={request_id:request,event_id:event,template_id:template,customer_name:'SYNTHETIC',customer_contact:contact,customer_phone:'',pickup_time:'16:00'};
+  const claim={status:'OK',request_id:request,event_id:event,template_id:template,booking_id:'BKG-SYNTHETIC',row_number:5,template_binding_version:'KK_TEMPLATE_BINDING_V1',bound_package_type:'phone_only',quoted_price:0};
+  const row=Array(20).fill('');
+  row[0]=claim.booking_id;row[2]='pending';row[3]=event;row[4]=payload.customer_name;row[5]=contact;row[7]='LINE';row[8]='phone_only';row[11]='16:00';row[13]='unpaid';row[14]=0;
+  row[19]=c.kkBookingNoteWithTemplate_(c.kkBookingNoteWithRequest_('synthetic',request),template,0);
+  let rows=[row.slice()],writeAttempts=0;
+  c.kkLineNativeConsentEnabled_=()=>false;c.kkLineInitialOutboxEnabled_=()=>false;
+  c.kkLineBookingRequestKey_=()=> 'SYNTHETIC_CLAIM';
+  c.kkGetValues_=(name,start,col,width)=>rows.map(r=>r.slice(col-1,col-1+width));
+  c.kkSheet_=()=>({getRange(n){return {getValues:()=>[rows[n-5].slice()],setValues(){writeAttempts++;throw Error('unexpected write');}};}});
+  c.kkFirstEmptyRow_=()=>{writeAttempts++;throw Error('unexpected allocation');};
+  const setClaim=v=>{f.props.SYNTHETIC_CLAIM=JSON.stringify(v);};
+  setClaim(claim);
+  assert.equal(c.kkApiCreateLineBookingPending_(payload).idempotent_replay,true);
+  assert.equal(f.counters.propsWrites,0);
+  for(const patch of [{customer_contact:'U'+'c'.repeat(32)},{customer_name:'OTHER'},{customer_phone:'123'},{pickup_time:'17:00'},{template_id:'TPL-X300-PHONE'},{event_id:'EVT-OTHER'},{phone_asset_id:'PHONE-1'}]){
+    assert.throws(()=>c.kkApiCreateLineBookingPending_({...payload,...patch}),/LINE_BOOKING_REPLAY_(?:IDENTITY_CONFLICT|CANONICAL_UNVERIFIED)/);
+    assert.equal(f.mutex.held,false);
+  }
+  rows[0][2]='confirmed';
+  assert.throws(()=>c.kkApiCreateLineBookingPending_(payload),/CANONICAL_UNVERIFIED/);
+  rows=[row.slice(),row.slice()];
+  assert.throws(()=>c.kkApiCreateLineBookingPending_(payload),/BOOKING_REQUEST_AMBIGUOUS/);
+  rows[1][19]='other';
+  assert.throws(()=>c.kkApiCreateLineBookingPending_(payload),/Duplicate booking_id/);
+  rows=[row.slice()];rows[0][19]=row[19]+' '+c.kkBookingRequestMarker_(request);
+  assert.throws(()=>c.kkApiCreateLineBookingPending_(payload),/BOOKING_REQUEST_AMBIGUOUS/);
+  rows=[row.slice()];setClaim({...claim,initial_mode:'KK_LINE_INITIAL_OUTBOX_V1'});
+  assert.throws(()=>c.kkApiCreateLineBookingPending_(payload),/IDENTITY_CONFLICT/);
+  setClaim({...claim,status:'PENDING',customer_name:payload.customer_name,customer_contact:contact,customer_phone:''});
+  assert.throws(()=>c.kkApiCreateLineBookingPending_({...payload,pickup_time:'18:00'}),/exact readback did not reconcile/);
+  assert.equal(f.counters.propsWrites,0);
+  assert.equal(c.kkApiCreateLineBookingPending_(payload).reconciled,true);
+  assert.equal(f.counters.propsWrites,1);
+  assert.equal(JSON.parse(f.props.SYNTHETIC_CLAIM).status,'OK');
+  assert.equal(writeAttempts,0);assert.equal(f.counters.writes,0);assert.equal(f.mutex.held,false);
+});
