@@ -1,6 +1,6 @@
 'use strict';
 const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
-const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V11';
+const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V12';
 const TIER_TERMS={
  OFFICIAL:['concert fanmeeting fancon showcase mini concert festival Bangkok','คอนเสิร์ต แฟนมีต แฟนคอน โชว์เคส มินิคอนเสิร์ต กรุงเทพ ปริมณฑล','free concert radio station Flex1045 PMCU Siam Halloween multi-day October November Bangkok','ฟรีคอนเสิร์ต สยามฮาโลวีน PMCU Flex 104.5 เทศกาล 30 ตุลาคม 1 พฤศจิกายน ศิลปิน'],
  TICKETING:['Bangkok ticket concert fanmeeting showcase festival','บัตร งานศิลปิน กรุงเทพ ปริมณฑล','KAZZ MARKET activity TutorYim fanmeeting one day trip ticket updated date','LOOKE GELBOYS AllTicket fanmeet onsale event date Thailand'],
@@ -10,7 +10,7 @@ const TIER_TERMS={
  MALL_COMMUNITY:['mall artist event Bangkok Nonthaburi Pathum Thani Samut Prakan','ห้าง กิจกรรม ศิลปิน กรุงเทพ นนทบุรี ปทุมธานี สมุทรปราการ','performance schedule artist mall brand booth Bangkok','ตารางงานศิลปิน performance schedule ห้าง แบรนด์ กรุงเทพ','Siam Center POP ป่ะห์ Halloween free TPOP cover dance 1 November 2026'],
  FAN_EVENT:['fanmeeting fancon fansign meet greet lucky fan birthday final episode premiere artist Bangkok','แฟนมีต แฟนคอน แฟนไซน์ มีตแอนด์กรี๊ด lucky fan วันเกิด final ep premiere ศิลปิน กรุงเทพ','fan gathering birthday project artist Bangkok','รวมพล แฟนคลับ birthday project ศิลปิน กรุงเทพ','BL GL fan meeting fancon final ep first ep screening Bangkok','ซีรีส์วาย ซีรีส์ยูริ final ep first ep แฟนมีต แฟนคอน รวมพล นัดรวมด้อม กรุงเทพ','fansign hi touch hi bye send off group photo fan call Bangkok'],
  CEREMONY:['blessing ceremony launch opening artist Bangkok','บวงสรวง เปิดตัว เปิดงาน ศิลปิน กรุงเทพ','BL GL series บวงสรวง เปิดกล้อง ปิดกล้อง premiere Bangkok'],
- AWARD_RED_CARPET:['award ceremony red carpet Bangkok artist','งานประกาศรางวัล พรมแดง ศิลปิน กรุงเทพ'],
+ AWARD_RED_CARPET:['award ceremony red carpet HOWE Awards MAYA Awards KAZZ Bangkok artist','งานประกาศรางวัล พรมแดง HOWE MAYA KAZZ ศิลปิน กรุงเทพ','official award magazine anniversary ceremony photo red carpet public fan access Bangkok','ตารางงานศิลปิน งานประกาศรางวัล พรมแดง การเข้าพื้นที่ แฟนคลับ กรุงเทพ'],
  PRESS_BRAND:['press conference brand event artist appearance Bangkok','งานแถลงข่าว แบรนด์ ศิลปิน อีเวนต์ กรุงเทพ','lucky fan lucky draw top spender top buyer purchase to win artist Bangkok','ลัคกี้แฟน top spender presenter store opening pop up ศิลปิน กรุงเทพ','buy spend register redeem winner announcement confirmation artist brand Bangkok','ซื้อครบ สะสมยอด ลงทะเบียน ลุ้นสิทธิ์ ประกาศรายชื่อ ยืนยันสิทธิ์ ศิลปิน แบรนด์ กรุงเทพ','private talk workshop polaroid one day trip exclusive benefit artist brand Bangkok','private trip workshop ถ่ายภาพ polaroid พูดคุย ศิลปิน แบรนด์ กรุงเทพ'],
  CAMPAIGN_LEAD_TIME:['artist brand campaign registration winner announcement next month Bangkok','กิจกรรมแบรนด์ ศิลปิน สะสมยอด ประกาศผู้โชคดี งานเดือนหน้า กรุงเทพ','event date next month ticket on sale this month GELBOYS LOOKE Bangkok','LABX DEXX top spender private session cash voucher qualification October event November'],
  VISUAL_SCHEDULE:['artist performance schedule mall brand Bangkok','ตารางงานศิลปิน performance schedule lineup ห้าง แบรนด์ กรุงเทพ','same franchise different date new show Mr Fanboy BUSKING centralworld true5G'],
@@ -22,7 +22,7 @@ const TIER_TERMS={
 };
 const OPERATIONAL_TIERS=Object.freeze([
  'OFFICIAL','TICKETING','ORGANIZER_PROMOTER','VENUE','ARTIST_AGENCY',
- 'MALL_COMMUNITY','FAN_EVENT','CEREMONY','PRESS_BRAND','CAMPAIGN_LEAD_TIME','VISUAL_SCHEDULE','SPORTS_ENTERTAINMENT','SOCIAL','COMPETITOR','ANNOUNCEMENT_CHANGE','PUBLIC_CALENDAR'
+ 'MALL_COMMUNITY','FAN_EVENT','CEREMONY','AWARD_RED_CARPET','PRESS_BRAND','CAMPAIGN_LEAD_TIME','VISUAL_SCHEDULE','SPORTS_ENTERTAINMENT','SOCIAL','COMPETITOR','ANNOUNCEMENT_CHANGE','PUBLIC_CALENDAR'
 ]);
 function text(v){return String(v==null?'':v).trim();}
 function queryVariantsForTerm(term,range,location,learned=[]){
@@ -55,7 +55,7 @@ function buildOperational(input={}){
    source_tier,
    source_id:'smart-'+source_tier.toLowerCase().replace(/_/g,'-'),
    query:qs[0],
-   query_variants:qs.slice(1,4),
+   query_variants:source_tier==='AWARD_RED_CARPET'?[qs[1],TIER_TERMS.AWARD_RED_CARPET[1]+' '+SourceRegistry.monthLabels(range.month).th+' กรุงเทพ',qs[2]]:qs.slice(1,4),
    providers:[...(liveNationEligible?['LIVENATION_PUBLIC']:[]),'BING_RSS','OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA'],
    stop_condition:'FIRST_USABLE_EVIDENCE_OR_BOUNDED_NO_EVIDENCE',
    evidence_required:false,
@@ -73,7 +73,7 @@ function buildOperational(input={}){
   });
  }
  return {
-  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V3',
+  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V4',
   mode:'SMART_OPERATIONAL',
   range,location,gap_tasks,
   operational_tiers:[...OPERATIONAL_TIERS],hot_fandom_query_count:hotFandoms.length,

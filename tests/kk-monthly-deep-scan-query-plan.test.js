@@ -34,10 +34,26 @@ test('monthly discovery includes bounded broad fallbacks when exact month querie
 test('smart operational query plan stays intentionally small and leaves exhaustive coverage to audit',()=>{
  const r=P.buildOperational({month:'2026-10',location:'Bangkok Metropolitan Region Thailand'});
  assert.equal(r.mode,'SMART_OPERATIONAL');
- assert.equal(r.gap_tasks.length,16);
- assert.equal(r.operational_tiers.length,16);
+ assert.equal(r.gap_tasks.length,17);
+ assert.equal(r.operational_tiers.length,17);
  assert.equal(r.audit_required,true);
  assert.ok(r.gap_tasks.every(x=>x.source_id.startsWith('smart-')));
  assert.ok(r.gap_tasks.every(x=>x.query_variants.length<=3));
  assert.ok(r.gap_tasks.some(x=>x.providers.includes('LIVENATION_PUBLIC')));
+});
+
+
+test('HOWE/MAYA award and red-carpet source tier cannot vanish from daily smart discovery',()=>{
+ const monthly=P.build({month:'2026-10'});
+ const smart=P.buildOperational({month:'2026-10'});
+ const award=smart.gap_tasks.filter(t=>t.source_tier==='AWARD_RED_CARPET');
+ assert.equal(award.length,1);
+ assert.equal(award[0].source_id,'smart-award-red-carpet');
+ assert.match(award[0].query,/HOWE Awards/);
+ assert.match(award[0].query,/MAYA Awards/);
+ assert.ok(award[0].query_variants.some(q=>/ประกาศรางวัล.*ตุลาคม 2569/.test(q)));
+ assert.deepEqual(award[0].date_window,{start:'2026-10-01',end:'2026-10-31'});
+ assert.ok(monthly.gap_tasks.some(t=>t.source_tier==='AWARD_RED_CARPET'&&/HOWE Awards/.test(t.query)));
+ assert.equal(smart.verifier_required,true);
+ assert.equal(smart.production_writes,0);
 });

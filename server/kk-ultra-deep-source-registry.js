@@ -1,11 +1,12 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V8';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V9';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
     {source_id:'official-organizer-sites',label:'Official organizer sites',required:true},
-    {source_id:'official-artist-sites',label:'Official artist/group sites',required:true}
+    {source_id:'official-artist-sites',label:'Official artist/group sites',required:true},
+    {source_id:'howe-awards-official',label:'HOWE Magazine awards/red-carpet official information',domain:'howemagazine.com',required:true}
   ]),
   TICKETING:Object.freeze([
     {source_id:'thaiticketmajor',label:'ThaiTicketMajor',domain:'thaiticketmajor.com',required:true},
