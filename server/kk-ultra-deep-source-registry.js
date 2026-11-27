@@ -21,6 +21,7 @@ const REGISTRY=Object.freeze({
     {source_id:'bitec',label:'BITEC / BITEC LIVE',required:true},
     {source_id:'union-hall-mall',label:'Union Hall / Union Mall',required:true},
     {source_id:'iconsiam-hall',label:'ICONSIAM Hall',required:true},
+    {source_id:'iconsiam-river-park-runway',label:'ICONSIAM River Park fashion week runway',required:false},
     {source_id:'mcc-hall',label:'MCC Hall',required:true},
     {source_id:'paragon-hall',label:'Paragon Hall',required:true},
     {source_id:'the-mall-m-grand-hall',label:'The Mall Lifestore / M Grand Hall',required:true},
@@ -44,6 +45,7 @@ const REGISTRY=Object.freeze({
   ]),
   BRAND_SPONSOR:Object.freeze([
     {source_id:'watsons-campaigns',label:'Watsons campaigns',required:true},
+    {source_id:'elle-thailand-runway',label:'ELLE Thailand official runway and celebrity schedule',domain:'ellethailand.com',required:false},
     {source_id:'wetv-campaigns',label:'WeTV campaigns',required:true},
     {source_id:'smtrue-campaigns',label:'SM True campaigns',required:true},
     {source_id:'mall-brand-campaigns',label:'Mall / retail brand campaigns',required:true},
