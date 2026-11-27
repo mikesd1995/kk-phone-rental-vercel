@@ -24,6 +24,7 @@ const REGISTRY=Object.freeze({
     {source_id:'union-hall-mall',label:'Union Hall / Union Mall',required:true},
     {source_id:'iconsiam-hall',label:'ICONSIAM Hall',required:true},
     {source_id:'mcc-hall',label:'MCC Hall',required:true},
+    {source_id:'mgi-hall-bravo-bkk',label:'MGI Hall Bravo BKK concert final episode fan screening',required:true},
     {source_id:'paragon-hall',label:'Paragon Hall',required:true},
     {source_id:'the-mall-m-grand-hall',label:'The Mall Lifestore / M Grand Hall',required:true},
     {source_id:'the-mall-lifestore-plaza-artist-activations',label:'The Mall Lifestore branch plaza artist appearances and Christmas tree lighting',domain:'mcardmall.com',required:true},
@@ -35,6 +36,8 @@ const REGISTRY=Object.freeze({
   ]),
   ARTIST_AGENCY:Object.freeze([
     {source_id:'gmmtv',label:'GMMTV',domain:'gmmtv.com',required:true},
+    {source_id:'star-hunter-gl-final-episodes',label:'STAR HUNTER Entertainment WeTV GL BL final episodes Khom Khlang ข่มขลัง Puinoon Bint',required:true},
+    {source_id:'iqiyi-thailand-platform',label:'iQIYI Thailand official iJOY fan zone and artist showcase',domain:'x.com',required:true},
     {source_id:'one31',label:'one31',domain:'one31.net',required:true},
     {source_id:'domundi-mandee',label:'DOMUNDI / Mandee Work',required:true},
     {source_id:'deehup-house-ticketing',label:'Dee Hup House official fanmeet ticketing',domain:'deehuphouse.com',required:true},
@@ -146,6 +149,9 @@ function buildUniversePlan(input={}){
     // Issue #879: named lead lanes must survive independently of a broad tier search.
     // Search terms are discovery hints, not proof of an official event or access rights.
     const namedRecallQueries={
+      'star-hunter-gl-final-episodes':['STAR HUNTER Entertainment WeTV final episode Khom Khlang '+labels.en,'ข่มขลัง ปุยนุ่น บิ๊นท์ Final EP '+labels.th,'STAR HUNTER artist fan screening ticket announcement'],
+      'mgi-hall-bravo-bkk':['MGI Hall Bravo BKK final episode fan screening '+labels.en,'เอ็มจีไอ ฮอลล์ บราโว่ บีเคเค แฟนมีต '+labels.th,'MGI Hall Bravo BKK concert fan meeting schedule'],
+      'iqiyi-thailand-platform':['site:x.com/iQIYI_Thailand iJOY FAN ZONE artist showcase '+labels.en,'iQIYI Thailand iJOY ลงทะเบียน แฟนโซน พรมเขียว '+labels.th,'site:x.com/iQIYI_Thailand iQIYI iJOY FAN ZONE registration'],
       'twelveplus-th':['site:x.com/TwelvePlusTH AuAu Save lucky fan '+labels.en,'TwelvePlus อู่อู๋ เซฟ ลุ้นสิทธิ์ ประกาศผู้โชคดี '+labels.th,'TwelvePlusTH AuAuSave artist campaign registration winner'],
       'dentiste-th':['site:x.com/Dentiste_X Keng Namping artist workshop '+labels.en,'Dentiste เก่ง น้ำปิง กิจกรรมศิลปิน '+labels.th,'Dentiste_X KengNamping lucky fan workshop'],
       'mflow-theseries':['site:x.com/MflowTheseries Boat Oat fancon '+labels.en,'MFlow โบ๊ท โอ๊ต แฟนคอน '+labels.th,'MflowTheseries BoatOat fancon ticket announcement'],

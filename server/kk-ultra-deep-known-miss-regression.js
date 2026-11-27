@@ -41,7 +41,9 @@ const CORPUS=Object.freeze([
   {case_id:'siam-halloween-20261030',title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',aliases:['siam halloween 2026 flex pmcu','สยามฮาโลวีน flex 2026'],search_queries:['Flex 104.5 PMCU Siam Halloween 30 October 2026 Siam Square'],event_date:'2026-10-30',discovery_months:['2026-11'],miss_class:'FREE_PUBLIC_FESTIVAL_RADIO_CROSSMONTH_GAP'},
   {case_id:'siam-halloween-20261031',title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',aliases:['siam halloween 2026 flex pmcu','สยามฮาโลวีน flex 2026'],search_queries:['Flex 104.5 PMCU Siam Halloween 31 October 2026 Siam Square'],event_date:'2026-10-31',discovery_months:['2026-11'],miss_class:'FREE_PUBLIC_FESTIVAL_RADIO_CROSSMONTH_GAP'},
   {case_id:'siam-halloween-20261101',title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',aliases:['siam halloween 2026 flex pmcu','สยามฮาโลวีน flex 2026'],search_queries:['Flex 104.5 PMCU Siam Halloween 1 November 2026 Siam Square'],event_date:'2026-11-01',discovery_months:['2026-10'],miss_class:'FREE_PUBLIC_FESTIVAL_RADIO_CROSSMONTH_GAP'},
-  {case_id:'jmnk-she-serve-20261121',title:'JMNK SHEเสิร์ฟ CONCERT',aliases:['jmnk she serve concert','jmnk concert november 21 2026'],search_queries:['JMNK SHEเสิร์ฟ Concert Pulse Hall 21 Nov 2026','JMNK Justmine Nika Eventpop ticket public sale Oct31'],event_date:'2026-11-21',discovery_months:['2026-10'],miss_class:'ARTIST_OFFICIAL_SALE_WINDOW_NEXTMONTH_GAP'}
+  {case_id:'jmnk-she-serve-20261121',title:'JMNK SHEเสิร์ฟ CONCERT',aliases:['jmnk she serve concert','jmnk concert november 21 2026'],search_queries:['JMNK SHEเสิร์ฟ Concert Pulse Hall 21 Nov 2026','JMNK Justmine Nika Eventpop ticket public sale Oct31'],event_date:'2026-11-21',discovery_months:['2026-10'],miss_class:'ARTIST_OFFICIAL_SALE_WINDOW_NEXTMONTH_GAP'},
+  {case_id:'khom-khlang-final-20261109',title:'KHOM KHLANG THE FINAL EPISODE',aliases:['khom khlang final episode','khomkhlang final episode','ข่มขลัง the final episode','puinoon bint khom khlang final'],search_queries:['Khom Khlang The Final Episode 9 November 2026 MGI Hall','STAR HUNTER Puinoon Bint KHOM KHLANG FINAL 28 October 2026 AllTicket','ข่มขลัง Final EP ปุยนุ่น บิ๊นท์ 9 พฤศจิกายน 2569'],event_date:'2026-11-09',discovery_months:['2026-10'],miss_class:'STAR_HUNTER_SERIES_FINALE_SOURCE_AND_ONSALE_CROSSMONTH_GAP'},
+  {case_id:'iqiyi-ijoy-th-20261105',title:'iQIYI iJOY TH 2027',aliases:['iqiyi ijoy th 2027','iqiyiijoyth2027','iqiyi fan zone 400','ijoy th 2027 iconsiam','iqiyi green carpet 1600','ijoy green carpet 1600 seats','iqiyi พรมเขียว 1600 ที่นั่ง'],search_queries:['iQIYI_Thailand iQIYI iJOY TH 2027 5 November ICONSIAM','iQIYIiJOYTH2027 FAN ZONE 400 registration October 2026','iQIYI Thailand iJOY Green Carpet 1600 seats register 5 November 2026 ICONSIAM','iQIYI Thailand iJOY artist showcase November 2026'],event_date:'2026-11-05',discovery_months:['2026-10'],miss_class:'PLATFORM_FAN_ZONE_GREEN_CARPET_MULTI_ENTITLEMENT_GAP'}
 ]);
 const FIXTURE_EVIDENCE=Object.freeze({
   'remaster-20261010':{title:'REMASTER CONCERT TIMESHOWBIZ',source_url:'https://www.paragonhall.com/en/events'},
@@ -74,7 +76,9 @@ const FIXTURE_EVIDENCE=Object.freeze({
   'siam-halloween-20261030':{title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',source_url:'https://www.flexconnect.net/category/article/entertainment/'},
   'siam-halloween-20261031':{title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',source_url:'https://www.flexconnect.net/category/article/entertainment/'},
   'siam-halloween-20261101':{title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',source_url:'https://www.flexconnect.net/category/article/entertainment/'},
-  'jmnk-she-serve-20261121':{title:'JMNK SHEเสิร์ฟ CONCERT',source_url:'https://x.com/jmnkofficial'}
+  'jmnk-she-serve-20261121':{title:'JMNK SHEเสิร์ฟ CONCERT',source_url:'https://x.com/jmnkofficial'},
+  'khom-khlang-final-20261109':{title:'KHOM KHLANG THE FINAL EPISODE',source_url:'https://x.com/Khomkhlang_STH/status/2115002593600765972'},
+  'iqiyi-ijoy-th-20261105':{title:'iQIYI iJOY TH 2027',source_url:'https://x.com/iQIYI_Thailand'}
 });
 
 function text(v){return String(v==null?'':v).trim();}

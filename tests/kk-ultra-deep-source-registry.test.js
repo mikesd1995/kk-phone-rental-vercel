@@ -155,3 +155,19 @@ test('duplicate required source receipts fail closed independent of order and ap
  }
  assert.equal(R.buildUniverseProof(good).complete,true);
 });
+
+
+test('Star Hunter, MGI Hall and iQIYI each require separate source coverage',()=>{
+ const plan=R.buildUniversePlan({month:'2027-01'});
+ const receipts=R.allSources().map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ for(const [id,tier] of [['star-hunter-gl-final-episodes','ARTIST_AGENCY'],['mgi-hall-bravo-bkk','VENUE'],['iqiyi-thailand-platform','ARTIST_AGENCY']]){
+  const task=plan.tasks.find(t=>t.source_id===id);
+  assert.ok(task,id); assert.equal(task.source_tier,tier); assert.equal(task.required,true); assert.equal(task.evidence_required,true);
+  assert.match(task.query,/January 2027/); assert.ok(task.query_variants.some(q=>q.includes('มกราคม 2570')));
+  const proof=R.buildUniverseProof(receipts.filter(x=>x.source_id!==id));
+  assert.equal(proof.complete,false); assert.equal(proof.by_tier[tier].complete,false); assert.ok(proof.missing_required_sources.includes(id));
+ }
+ assert.equal(new Set(plan.tasks.map(t=>t.source_id)).size,plan.tasks.length);
+ assert.equal(R.buildUniverseProof(receipts).complete,true);
+ assert.equal(plan.production_writes,0);
+});

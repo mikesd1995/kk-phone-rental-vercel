@@ -3,9 +3,9 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const K=require('../server/kk-ultra-deep-known-miss-regression.js');
 
-const REQUIRED_CASE_IDS=['remaster-20261010', 'pink-aura-20260928', 'minmin-frozen-candy-20260930', 'sport-day-after-match-20261001', 'you-maniac-blind-date-20261003', 'bai-lu-meet-love-20261025', 'tutoryim-updated-20261018', 'scoopify-james-su-20261024', 'tle-firstone-20261022', 'ryo-teeteepor-20261007', 'the-weeknd-20261011', 'mindaryn-20261016', 'klive-bandage-20261017', 'meme-fest-20261017', '0wave-20261021', 'interstellar-live-20261028', 'pixxie-soundscape-20261030', 'nct127-redline-20261031', 'fortreasure-20261129', 'the-mall-christmas-lighting-20261106', 'm-universe-teeteepor-20261209', 'mediheal-jimmy-sea-20261206', 'nine-nine-moment-20261219', 'suho-fancon-20261227', 'illust-fusion-winter-20261212', 'illust-fusion-winter-20261213', 'sing-infinity-20261024', 'love-at-first-trip-20261108', 'elseve-auau-20261120', 'curel-auu-save-20261219', 'tops-beauty-schedule-20261001', 'mrfanboy-busking-20261011', 'teeheng-gen-of-us-20261024', 'gelboys-last-painting-20261122', 'dexx-labx-private-20261122', 'siam-halloween-20261030', 'siam-halloween-20261031', 'siam-halloween-20261101', 'jmnk-she-serve-20261121'];
+const REQUIRED_CASE_IDS=['remaster-20261010', 'pink-aura-20260928', 'minmin-frozen-candy-20260930', 'sport-day-after-match-20261001', 'you-maniac-blind-date-20261003', 'bai-lu-meet-love-20261025', 'tutoryim-updated-20261018', 'scoopify-james-su-20261024', 'tle-firstone-20261022', 'ryo-teeteepor-20261007', 'the-weeknd-20261011', 'mindaryn-20261016', 'klive-bandage-20261017', 'meme-fest-20261017', '0wave-20261021', 'interstellar-live-20261028', 'pixxie-soundscape-20261030', 'nct127-redline-20261031', 'fortreasure-20261129', 'the-mall-christmas-lighting-20261106', 'm-universe-teeteepor-20261209', 'mediheal-jimmy-sea-20261206', 'nine-nine-moment-20261219', 'suho-fancon-20261227', 'illust-fusion-winter-20261212', 'illust-fusion-winter-20261213', 'sing-infinity-20261024', 'love-at-first-trip-20261108', 'elseve-auau-20261120', 'curel-auu-save-20261219', 'tops-beauty-schedule-20261001', 'mrfanboy-busking-20261011', 'teeheng-gen-of-us-20261024', 'gelboys-last-painting-20261122', 'dexx-labx-private-20261122', 'siam-halloween-20261030', 'siam-halloween-20261031', 'siam-halloween-20261101', 'jmnk-she-serve-20261121', 'khom-khlang-final-20261109', 'iqiyi-ijoy-th-20261105'];
 
-test('known-miss corpus preserves all thirty-nine current and historical discovery misses',()=>{
+test('known-miss corpus preserves all forty-one current and historical discovery misses',()=>{
  assert.deepEqual(K.CORPUS.map(x=>x.case_id).sort(),[...REQUIRED_CASE_IDS].sort());
  assert.ok(K.CORPUS.some(x=>x.case_id==='remaster-20261010'));
  assert.ok(K.CORPUS.some(x=>x.case_id==='bai-lu-meet-love-20261025'));
@@ -143,4 +143,21 @@ test('December 2026 newly found official event-days are mandatory in November ea
  const onlyFirst=K.evaluate([{title:first.title,event_date:first.event_date,source_url:'https://if.enterdock.com/infoexpo/'}],[],{month:'2026-12',strict_live:true});
  assert.ok(!onlyFirst.missing_cases.includes(first.case_id));
  assert.ok(onlyFirst.missing_cases.includes('illust-fusion-winter-20261213'));
+});
+
+
+test('Khom Khlang and iQIYI historical misses require exact dated evidence across October and November',()=>{
+ for(const id of ['khom-khlang-final-20261109','iqiyi-ijoy-th-20261105']){
+  const c=K.CORPUS.find(x=>x.case_id===id), f=K.FIXTURE_EVIDENCE[id];
+  assert.ok(c&&f,id); assert.ok(c.discovery_months.includes('2026-10'));
+  for(const month of ['2026-10','2026-11']){
+   const good={title:f.title,event_date:c.event_date,source_url:f.source_url};
+   assert.ok(!K.evaluate([good],[],{month,strict_live:true}).missing_cases.includes(id));
+   for(const bad of [{...good,event_date:'2026-10-05'},{...good,event_date:''},{...good,source_url:''}])
+    assert.ok(K.evaluate([bad],[],{month,strict_live:true}).missing_cases.includes(id));
+   assert.ok(K.evaluate([],[{case_id:id,status:'SOURCE_UNAVAILABLE',executed:true,source_url:f.source_url}],{month,strict_live:true}).missing_cases.includes(id));
+  }
+ }
+ const finale=K.CORPUS.find(x=>x.case_id==='khom-khlang-final-20261109');
+ assert.equal(K.sameCase({title:'KHOM KHLANG Special Episode 5',event_date:'2026-10-05'},finale),false);
 });
