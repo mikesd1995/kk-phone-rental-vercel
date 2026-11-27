@@ -139,12 +139,17 @@ function sameCase(c,caseRow){
   return titleMatch && (!caseRow.event_date || !eventDate || eventDate===caseRow.event_date);
 }
 
+function scopedCases(month){
+  const scanMonth=text(month);
+  return scanMonth?CORPUS.filter(c=>text(c.event_date).startsWith(scanMonth)||(Array.isArray(c.discovery_months)&&c.discovery_months.includes(scanMonth))):CORPUS;
+}
+
 function evaluate(candidates=[],classifications=[],options={}){
   const rows=Array.isArray(candidates)?candidates:[];
   const cls=new Map((Array.isArray(classifications)?classifications:[]).map(x=>[text(x&&x.case_id),x]));
   const scanMonth=text(options.month);
   const strictLive=options.strict_live===true;
-  const scoped=scanMonth?CORPUS.filter(c=>text(c.event_date).startsWith(scanMonth)||(Array.isArray(c.discovery_months)&&c.discovery_months.includes(scanMonth))):CORPUS;
+  const scoped=scopedCases(scanMonth);
   const results=scoped.map(caseRow=>{
     // A repeat show with the same franchise name but no confirmed event date is NOT live proof.
     const matched=rows.find(c=>sameCase(c,caseRow)&&(!strictLive||(date(c&&c.event_date)===caseRow.event_date&&!!text(c.source_url||c.url))));
@@ -177,4 +182,4 @@ function evaluateFixtureRegression(){
   return {...result,proof_type:'DETERMINISTIC_HISTORICAL_FIXTURE'};
 }
 
-module.exports={VERSION,CORPUS,FIXTURE_EVIDENCE,norm,tokens,fuzzyAliasMatch,evaluate,evaluateFixtureRegression,sameCase};
+module.exports={VERSION,CORPUS,FIXTURE_EVIDENCE,norm,tokens,fuzzyAliasMatch,scopedCases,evaluate,evaluateFixtureRegression,sameCase};

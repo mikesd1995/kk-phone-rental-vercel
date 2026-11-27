@@ -106,6 +106,21 @@ test('known-miss plan keeps one task per case and does not concatenate every ali
 });
 
 
+test('month-scoped probes and live acceptance use identical exact and registration-month cases',()=>{
+ for(const month of ['2026-10','2026-11','2026-12','2027-01']){
+  const plan=Runner.buildKnownMissPlan(month);
+  const expected=KnownMiss.evaluate([],[],{month,strict_live:true}).missing_cases.map(id=>'knownmiss:'+id).sort();
+  assert.deepEqual(plan.gap_tasks.map(t=>t.source_id).sort(),expected,month);
+  assert.equal(plan.production_writes,0);
+ }
+ assert.ok(Runner.buildKnownMissPlan('2026-10').gap_tasks.some(t=>t.source_id==='knownmiss:gmmtvnext-generation-happy-20261103'));
+ assert.ok(Runner.buildKnownMissPlan('2026-11').gap_tasks.some(t=>t.source_id==='knownmiss:love-of-siam-musical-20261211'));
+ assert.ok(!Runner.buildKnownMissPlan('2026-12').gap_tasks.some(t=>t.source_id==='knownmiss:gmmtvnext-generation-happy-20261103'));
+ assert.equal(Runner.buildKnownMissPlan('2027-01').gap_tasks.length,0);
+ assert.equal(Runner.buildKnownMissPlan().gap_tasks.length,KnownMiss.CORPUS.length);
+ assert.equal(KnownMiss.evaluateFixtureRegression().complete,true);
+});
+
 test('runtime executes known-miss probes before the broad monthly sweep',async()=>{
  const calls=[];
  const search=async task=>{
@@ -121,7 +136,10 @@ test('runtime executes known-miss probes before the broad monthly sweep',async()
  assert.equal(out.full,true);
  assert.ok(calls[0].startsWith('knownmiss:'));
  const firstNonKnown=calls.findIndex(x=>!x.startsWith('knownmiss:'));
- assert.ok(firstNonKnown>=KnownMiss.CORPUS.length);
+ const expected=KnownMiss.scopedCases('2026-10').map(c=>'knownmiss:'+c.case_id).sort();
+ assert.deepEqual([...new Set(calls.slice(0,firstNonKnown))].sort(),expected);
+ assert.ok(calls.slice(firstNonKnown).every(id=>!id.startsWith('knownmiss:')));
+ assert.ok(expected.length<KnownMiss.CORPUS.length);
 });
 
 test('runtime known-miss gate accepts a governed hit from the main discovery sweep',async()=>{

@@ -81,10 +81,10 @@ function buildReferencePlan(input={}){
     production_writes:0
   };
 }
-function buildKnownMissPlan(){
+function buildKnownMissPlan(month){
   return {
     version:'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V2',
-    gap_tasks:KnownMiss.CORPUS.map(c=>{
+    gap_tasks:KnownMiss.scopedCases(month).map(c=>{
       const phrases=[c.title,...(Array.isArray(c.aliases)?c.aliases:[])].map(text).filter(Boolean);
       const evidenceQueries=(Array.isArray(c.search_queries)?c.search_queries:[]).map(text).filter(Boolean);
       const queries=[...new Set([...evidenceQueries,...phrases.map(v=>v+' Bangkok Thailand')])];
@@ -321,7 +321,8 @@ async function runMonthlyUltraDeep(input={},options={}){
   // Execute the bounded historical probes first. Live HTML search providers may
   // soft-throttle after a large sweep; putting the small regression corpus first
   // prevents broad discovery traffic from starving the recall gate.
-  const knownMissPlan=buildKnownMissPlan();
+  // The live gate is month-scoped; do not spend provider calls on unrelated historical months.
+  const knownMissPlan=buildKnownMissPlan(plan.range.month);
   const knownCases=new Map(KnownMiss.CORPUS.map(row=>['knownmiss:'+row.case_id,row]));
   const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers,
     acceptCandidate:(row,task)=>{
