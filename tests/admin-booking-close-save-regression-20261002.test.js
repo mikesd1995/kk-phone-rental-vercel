@@ -24,8 +24,12 @@ test('unchanged assigned assets are not revalidated for availability on unrelate
   assert.match(apps,/const reactivating = !kkActiveHold_\(currentStatus\)/);
   assert.match(apps,/const phoneChanged = String\(next\[9\]/);
   assert.match(apps,/const lensChanged = String\(next\[10\]/);
-  assert.match(apps,/if \(next\[9\] && \(reactivating \|\| phoneChanged\)\) kkValidateManualAsset_/);
-  assert.match(apps,/if \(next\[10\] && \(reactivating \|\| lensChanged\)\) kkValidateManualAsset_/);
+  const writer=apps.slice(apps.indexOf('function kkApiUpdateBooking_('),apps.indexOf('function kkEnsureSheetWithHeaders_('));
+  assert.match(writer,/const validatePhone = !!String\(next\[9\] \|\| ''\)\.trim\(\) && \(reactivating \|\| phoneChanged\)/);
+  assert.match(writer,/const validateLens = !!String\(next\[10\] \|\| ''\)\.trim\(\) && \(reactivating \|\| lensChanged\)/);
+  assert.match(writer,/if \(\(validatePhone \|\| validateLens\) && !selectedSpec\) selectedSpec = kkGetPackageSpecByType_\(next\[8\]\)/);
+  assert.match(writer,/if \(validatePhone\) kkValidateManualAsset_\(next\[9\], 'phone', kkRequireBookingAssetGroup_\(selectedSpec\.model_group\)/);
+  assert.match(writer,/if \(validateLens\) kkValidateManualAsset_\(next\[10\], 'lens', kkRequireBookingAssetGroup_\(selectedSpec\.lens_group\)/);
   assert.match(apps,/kkAssertBookingAssetsNotDoubleBooked_\(row, next, nextStatus\)/);
 });
 
