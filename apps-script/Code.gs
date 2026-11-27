@@ -2101,7 +2101,9 @@ function kkNormalizeTemplateIdForEvent_(eventId, templateId) {
 function kkIsWebPackageBookable_(p) {
   if (!p) return false;
   const status = String(p.package_status || '').toLowerCase().trim();
-  return (status === 'available' || status === 'open') && Number(p.available_count || 0) > 0 && Number(p.price || 0) > 0;
+  const count = Number(p.available_count || 0);
+  const price = Number(p.price || 0);
+  return (status === 'available' || status === 'open') && Number.isSafeInteger(count) && count > 0 && Number.isFinite(price) && price > 0;
 }
 
 function kkAssertWebPackageBookable_(eventId, templateId) {

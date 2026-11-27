@@ -248,6 +248,30 @@ test('manual and legacy LINE admission cannot bypass missing or unavailable Web 
   assert.doesNotMatch(source,/kkAssertWebPackageBookable_\(eventId, templateId, Boolean\(initial\)\)/);
 });
 
+test('Web Package admission rejects nonfinite prices and malformed or fractional physical counts',()=>{
+  const {context:c}=fixture();
+  const event='EVT-20261226-ALLYMPIC-MAIN', other='EVT-20261226-BUTTERBEAR';
+  const template='TPL-VIVO-X300-PRO-PHONE';
+  const row={package_id:event+'-'+template,event_id:event,price:790,available_count:2,package_status:'available'};
+  for(const count of ['not-a-number',Infinity,'Infinity',-1,0,0.5,1.5,Number.MAX_SAFE_INTEGER+1]){
+    c.kkApiWebPackageRows_=()=>[{...row,available_count:count}];
+    assert.throws(()=>c.kkAssertWebPackageBookable_(event,template),/ไม่พร้อมจอง/);
+  }
+  for(const price of ['not-a-number',Infinity,'Infinity',-1,0,NaN]){
+    c.kkApiWebPackageRows_=()=>[{...row,price}];
+    assert.throws(()=>c.kkAssertWebPackageBookable_(event,template),/ไม่พร้อมจอง/);
+  }
+  c.kkApiWebPackageRows_=()=>[{...row,package_status:'pending'}];
+  assert.throws(()=>c.kkAssertWebPackageBookable_(event,template),/ไม่พร้อมจอง/);
+  c.kkApiWebPackageRows_=()=>[{...row,event_id:other,package_id:other+'-'+template}];
+  assert.throws(()=>c.kkAssertWebPackageBookable_(event,template),/ambiguous/);
+  c.kkApiWebPackageRows_=()=>[row,{...row,package_id:event+'-TPL-ZEISS-2-35X-LENS',package_status:'hidden',available_count:0,price:0}];
+  assert.throws(()=>c.kkAssertWebPackageBookable_(event,'TPL-ZEISS-2-35X-LENS'),/ไม่พร้อมจอง/);
+  assert.equal(c.kkAssertWebPackageBookable_(event,event+'-'+template).price,790);
+  c.kkApiWebPackageRows_=()=>[{...row,available_count:'2',price:'790.50',package_status:'open'}];
+  assert.equal(c.kkAssertWebPackageBookable_(event,template).price,'790.50');
+});
+
 test('booking price formula honors locked quote before historical price lookup without writing live formulas',()=>{
   const {context:c}=fixture();
   const formula=c.kkFormulaBookingPrice_(47);
