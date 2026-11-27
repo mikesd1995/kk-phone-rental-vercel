@@ -186,3 +186,17 @@ test('restored donor recalls preserve cross-month registration and fail closed w
  assert.equal(nine[0].case_id,'nine-nine-moment-20261219');
  assert.ok(nine[0].search_queries.some(q=>q.includes('4 November 2026')));
 });
+
+
+test('strict live recall rejects malformed, insecure and credential-bearing evidence URLs for hits and classifications',()=>{
+ const f=K.CORPUS.find(x=>x.case_id==='remaster-20261010');
+ const options={month:'2026-10',strict_live:true};
+ const row={title:f.title,event_date:f.event_date};
+ for(const source of ['not-a-url','http://example.com/event','https://name:secret@example.com/event','javascript:void(0)',{},'']){
+  assert.ok(K.evaluate([{...row,source_url:source}],[],options).missing_cases.includes(f.case_id));
+  assert.ok(K.evaluate([],[{case_id:f.case_id,executed:true,status:'NOT_ELIGIBLE',evidence_url:source}],options).missing_cases.includes(f.case_id));
+ }
+ assert.ok(!K.evaluate([{...row,source_url:'https://example.com/event'}],[],options).missing_cases.includes(f.case_id));
+ assert.ok(!K.evaluate([],[{case_id:f.case_id,executed:true,status:'NOT_ELIGIBLE',evidence_url:'https://example.com/event'}],options).missing_cases.includes(f.case_id));
+ assert.equal(K.evaluateFixtureRegression().complete,true);
+});

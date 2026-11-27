@@ -139,6 +139,14 @@ function sameCase(c,caseRow){
   return titleMatch && (!caseRow.event_date || !eventDate || eventDate===caseRow.event_date);
 }
 
+// URL shape is a necessary condition for live proof, never verification of its content.
+function parseEvidenceUrl(value){
+  if(typeof value!=='string'||!value.trim())return null;
+  try{
+    const url=new URL(value.trim());
+    return url.protocol==='https:'&&!url.username&&!url.password?url:null;
+  }catch(_){return null;}
+}
 function scopedCases(month){
   const scanMonth=text(month);
   return scanMonth?CORPUS.filter(c=>text(c.event_date).startsWith(scanMonth)||(Array.isArray(c.discovery_months)&&c.discovery_months.includes(scanMonth))):CORPUS;
@@ -152,12 +160,12 @@ function evaluate(candidates=[],classifications=[],options={}){
   const scoped=scopedCases(scanMonth);
   const results=scoped.map(caseRow=>{
     // A repeat show with the same franchise name but no confirmed event date is NOT live proof.
-    const matched=rows.find(c=>sameCase(c,caseRow)&&(!strictLive||(date(c&&c.event_date)===caseRow.event_date&&!!text(c.source_url||c.url))));
+    const matched=rows.find(c=>sameCase(c,caseRow)&&(!strictLive||(date(c&&c.event_date)===caseRow.event_date&&!!parseEvidenceUrl(c.source_url||c.url))));
     const receipt=cls.get(caseRow.case_id);
     const status=text(receipt&&receipt.status).toUpperCase();
     // SOURCE_UNAVAILABLE is a valid historical diagnostic disposition, never live FULL evidence.
     const classified=!!receipt && receipt.executed===true && (strictLive?
-      (['DISCOVERED','NOT_ELIGIBLE'].includes(status)&&!!text(receipt.source_url||receipt.evidence_url)):
+      (['DISCOVERED','NOT_ELIGIBLE'].includes(status)&&!!parseEvidenceUrl(receipt.source_url||receipt.evidence_url)):
       ['DISCOVERED','NOT_ELIGIBLE','SOURCE_UNAVAILABLE'].includes(status));
     const pass=!!matched||classified;
     return {
@@ -182,4 +190,4 @@ function evaluateFixtureRegression(){
   return {...result,proof_type:'DETERMINISTIC_HISTORICAL_FIXTURE'};
 }
 
-module.exports={VERSION,CORPUS,FIXTURE_EVIDENCE,norm,tokens,fuzzyAliasMatch,scopedCases,evaluate,evaluateFixtureRegression,sameCase};
+module.exports={VERSION,CORPUS,FIXTURE_EVIDENCE,norm,tokens,fuzzyAliasMatch,parseEvidenceUrl,scopedCases,evaluate,evaluateFixtureRegression,sameCase};

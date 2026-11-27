@@ -463,3 +463,17 @@ test('truncated named-source receipt cannot pass the source-universe gate',()=>{
  assert.equal(receipts[0].status,'TRUNCATED');
  assert.equal(receipts[0].executed,false);
 });
+
+
+test('reference eligibility rejects impossible dates, invalid URLs and lookalike ticket domains',()=>{
+ const row={title:'ATLAS : RISING UP',event_date:'2026-10-18',source_url:'https://www.eventpop.me/e/999999/atlas'};
+ const options={month:'2026-10'};
+ assert.equal(Runner.referenceScopeDecision(row,options).eligible,true);
+ for(const date of ['2026-10-32','2026-02-30','2026-13-01','not-a-date'])
+  assert.equal(Runner.referenceScopeDecision({...row,event_date:date},{}).reason,'NO_STRUCTURED_DATE');
+ for(const source_url of ['not-a-url','http://eventpop.me/e/test','https://name:secret@eventpop.me/e/test','javascript:void(0)',''])
+  assert.equal(Runner.referenceScopeDecision({...row,source_url},options).reason,'MISSING_SOURCE');
+ for(const source_url of ['https://noteventpop.me/e/test','https://eventpop.me.example/e/test','https://notthaiticketmajor.com/concert/test','https://notticketmelon.com/a/b','https://notsongkick.com/concerts/test','https://notlivenationtero.co.th/show/test'])
+  assert.equal(Runner.referenceScopeDecision({...row,source_url},options).reason,'EVENT_IDENTITY_NOT_STRONG_ENOUGH');
+ assert.equal(Runner.referenceScopeDecision({...row,title:'Concert Bangkok',source_url:'https://example.com/concert'},options).eligible,true);
+});

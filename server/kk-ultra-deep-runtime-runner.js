@@ -105,41 +105,37 @@ const REFERENCE_EVENT_RE=/(concert|fan\s*-?\s*meet|fanmeet|fancon|fansign|showca
 const REFERENCE_NOISE_RE=/(\bcodes?\b|breathwork|masterclass|workshop|webinar|anniversary memories album|เกม|รหัสเกม)/i;
 const REFERENCE_FOREIGN_RE=/(hong\s+kong|singapore|kuala\s+lumpur|manila|jakarta|taipei|tokyo|osaka|seoul|ho\s+chi\s+minh|hanoi)/i;
 
+function hostMatches(host,domain){
+ return host===domain||host.endsWith('.'+domain);
+}
 function trustedEventPath(value){
- try{
-  const u=new URL(text(value));
-  const host=u.hostname.toLowerCase();
-  const path=u.pathname.toLowerCase();
-  if(host.endsWith('eventpop.me')) return /^\/e\//.test(path);
-  if(host.endsWith('thaiticketmajor.com')) return /^\/(concert|performance|event)\//.test(path);
-  if(host.endsWith('ticketmelon.com')) return path.split('/').filter(Boolean).length>=2;
-  if(host.endsWith('livenationtero.co.th')) return /^\/show\//.test(path)||/^\/[^/]*event\//.test(path)||path.includes('/event/');
-  if(host.endsWith('songkick.com')) return path.includes('/concerts/');
-  return false;
- }catch(_){return false;}
+ const u=KnownMiss.parseEvidenceUrl(value);
+ if(!u)return false;
+ const host=u.hostname.toLowerCase(),path=u.pathname.toLowerCase();
+ if(hostMatches(host,'eventpop.me')) return /^\/e\//.test(path);
+ if(hostMatches(host,'thaiticketmajor.com')) return /^\/(concert|performance|event)\//.test(path);
+ if(hostMatches(host,'ticketmelon.com')) return path.split('/').filter(Boolean).length>=2;
+ if(hostMatches(host,'livenationtero.co.th')) return /^\/show\//.test(path)||/^\/[^/]*event\//.test(path)||path.includes('/event/');
+ if(hostMatches(host,'songkick.com')) return path.includes('/concerts/');
+ return false;
 }
 
 function referenceScopeDecision(row={},context={}){
  const title=text(row.title||row.event_name);
  const eventDate=text(row.event_date);
  const month=text(context.month);
- if(!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) return {eligible:false,reason:'NO_STRUCTURED_DATE'};
+ const parsedDate=new Date(eventDate+'T00:00:00Z');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)||!Number.isFinite(parsedDate.getTime())||parsedDate.toISOString().slice(0,10)!==eventDate) return {eligible:false,reason:'NO_STRUCTURED_DATE'};
  if(month&&!eventDate.startsWith(month+'-')) return {eligible:false,reason:'OUTSIDE_TARGET_MONTH'};
+ const url=KnownMiss.parseEvidenceUrl(row.source_url);
+ if(!url)return {eligible:false,reason:'MISSING_SOURCE'};
  if(REFERENCE_NOISE_RE.test(title)) return {eligible:false,reason:'NON_RENTAL_EVENT_NOISE'};
  if(/^\s*home\s*(?:[-|:–—]\s*.*)?$/i.test(title)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
- try{
-  const u=new URL(text(row.source_url));
-  const host=u.hostname.toLowerCase();
-  const path=(u.pathname||'/').toLowerCase();
-  if(host.endsWith('eventpop.me')&&/^\/g(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
-  if(/\/(search|category|categories)(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
- }catch(_){}
- try{
-  const u=new URL(text(row.source_url));
-  const path=(u.pathname||'/').replace(/\/+$/,'')||'/';
-  if(path==='/'&&!trustedEventPath(row.source_url)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
- }catch(_){}
- if(REFERENCE_FOREIGN_RE.test(title)||/\.hk$/i.test((()=>{try{return new URL(text(row.source_url)).hostname}catch(_){return''}})())) return {eligible:false,reason:'OUTSIDE_BANGKOK_SCOPE'};
+ const host=url.hostname.toLowerCase(),path=(url.pathname||'/').toLowerCase();
+ if(hostMatches(host,'eventpop.me')&&/^\/g(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
+ if(/\/(search|category|categories)(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
+ if((path.replace(/\/+$/,'')||'/')==='/'&&!trustedEventPath(row.source_url)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
+ if(REFERENCE_FOREIGN_RE.test(title)||/\.hk$/i.test(host)) return {eligible:false,reason:'OUTSIDE_BANGKOK_SCOPE'};
  if(!REFERENCE_EVENT_RE.test(title)&&!trustedEventPath(row.source_url)) return {eligible:false,reason:'EVENT_IDENTITY_NOT_STRONG_ENOUGH'};
  return {eligible:true,reason:'ELIGIBLE_REFERENCE'};
 }
@@ -168,7 +164,7 @@ function scopeProbeCandidates(rows=[],context={}){
   const decision=referenceScopeDecision(row,context);
   const exactCase=KnownMiss.CORPUS.find(c=>c.event_date===text(row.event_date)&&KnownMiss.sameCase(row,c));
   const inScope=exactCase&&(exactCase.event_date.startsWith(context.month+'-')||(exactCase.discovery_months||[]).includes(context.month));
-  let sourced=false,foreignHost=false;try{const url=new URL(text(row.source_url));sourced=url.protocol==='https:';foreignHost=/\.hk$/i.test(url.hostname);}catch(_){}
+  const url=KnownMiss.parseEvidenceUrl(row.source_url),sourced=!!url,foreignHost=!!url&&/\.hk$/i.test(url.hostname);
   // A known brand/cross-month identity may lack generic concert keywords. Its
   // actual source and exact date are still mandatory; corpus fields are not evidence.
   const foreign=foreignHost||REFERENCE_FOREIGN_RE.test(text(row.title)+' '+text(row.venue));
@@ -220,7 +216,7 @@ async function providerPreflight(providers={},input={}){
    if(REFERENCE_EVENT_RE.test(title)||/(lucky\s*fan|meet\s*(?:&|and)?\s*greet|private\s+(?:session|talk)|brand\s+event|artist\s+(?:event|appearance)|ลัคกี้แฟน|กิจกรรมศิลปิน|ตารางงานศิลปิน)/i.test(title))return true;
    try{
      const host=new URL(text(row.source_url)).hostname.toLowerCase();
-     const trusted=['eventpop.me','thaiticketmajor.com','ticketmelon.com','livenationtero.co.th','songkick.com'].some(domain=>host===domain||host.endsWith('.'+domain));
+     const trusted=['eventpop.me','thaiticketmajor.com','ticketmelon.com','livenationtero.co.th','songkick.com'].some(domain=>hostMatches(host,domain));
      return trusted&&trustedEventPath(row.source_url);
    }catch(_){return false;}
  }});
