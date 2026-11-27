@@ -3,9 +3,9 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const K=require('../server/kk-ultra-deep-known-miss-regression.js');
 
-const REQUIRED_CASE_IDS=['remaster-20261010', 'pink-aura-20260928', 'minmin-frozen-candy-20260930', 'sport-day-after-match-20261001', 'you-maniac-blind-date-20261003', 'bai-lu-meet-love-20261025', 'tutoryim-updated-20261018', 'scoopify-james-su-20261024', 'tle-firstone-20261022', 'ryo-teeteepor-20261007', 'the-weeknd-20261011', 'mindaryn-20261016', 'klive-bandage-20261017', 'meme-fest-20261017', '0wave-20261021', 'interstellar-live-20261028', 'pixxie-soundscape-20261030', 'nct127-redline-20261031', 'fortreasure-20261129', 'the-mall-christmas-lighting-20261106', 'm-universe-teeteepor-20261209', 'mediheal-jimmy-sea-20261206', 'nine-nine-moment-20261219', 'suho-fancon-20261227', 'illust-fusion-winter-20261212', 'illust-fusion-winter-20261213', 'sing-infinity-20261024', 'love-at-first-trip-20261108', 'elseve-auau-20261120', 'curel-auu-save-20261219', 'tops-beauty-schedule-20261001', 'mrfanboy-busking-20261011', 'teeheng-gen-of-us-20261024', 'gelboys-last-painting-20261122', 'dexx-labx-private-20261122', 'siam-halloween-20261030', 'siam-halloween-20261031', 'siam-halloween-20261101', 'jmnk-she-serve-20261121', 'khom-khlang-final-20261109', 'iqiyi-ijoy-th-20261105'];
+const REQUIRED_CASE_IDS=['remaster-20261010', 'pink-aura-20260928', 'minmin-frozen-candy-20260930', 'sport-day-after-match-20261001', 'you-maniac-blind-date-20261003', 'bai-lu-meet-love-20261025', 'tutoryim-updated-20261018', 'scoopify-james-su-20261024', 'tle-firstone-20261022', 'ryo-teeteepor-20261007', 'the-weeknd-20261011', 'mindaryn-20261016', 'klive-bandage-20261017', 'meme-fest-20261017', '0wave-20261021', 'interstellar-live-20261028', 'pixxie-soundscape-20261030', 'nct127-redline-20261031', 'fortreasure-20261129', 'the-mall-christmas-lighting-20261106', 'm-universe-teeteepor-20261209', 'mediheal-jimmy-sea-20261206', 'nine-nine-moment-20261219', 'suho-fancon-20261227', 'illust-fusion-winter-20261212', 'illust-fusion-winter-20261213', 'sing-infinity-20261024', 'love-at-first-trip-20261108', 'elseve-auau-20261120', 'curel-auu-save-20261219', 'tops-beauty-schedule-20261001', 'mrfanboy-busking-20261011', 'teeheng-gen-of-us-20261024', 'gelboys-last-painting-20261122', 'dexx-labx-private-20261122', 'siam-halloween-20261030', 'siam-halloween-20261031', 'siam-halloween-20261101', 'jmnk-she-serve-20261121', 'khom-khlang-final-20261109', 'iqiyi-ijoy-th-20261105','gmmtvnext-generation-happy-20261103','love-of-siam-musical-20261211','blkgem-concert-20261206','ongredients-thomaskong-20261121','beautrium-15th-20261106','journal-fourth-20261110','drpong-zee-20261121'];
 
-test('known-miss corpus preserves all forty-one current and historical discovery misses',()=>{
+test('known-miss corpus preserves all forty-eight current and historical discovery misses',()=>{
  assert.deepEqual(K.CORPUS.map(x=>x.case_id).sort(),[...REQUIRED_CASE_IDS].sort());
  assert.ok(K.CORPUS.some(x=>x.case_id==='remaster-20261010'));
  assert.ok(K.CORPUS.some(x=>x.case_id==='bai-lu-meet-love-20261025'));
@@ -160,4 +160,29 @@ test('Khom Khlang and iQIYI historical misses require exact dated evidence acros
  }
  const finale=K.CORPUS.find(x=>x.case_id==='khom-khlang-final-20261109');
  assert.equal(K.sameCase({title:'KHOM KHLANG Special Episode 5',event_date:'2026-10-05'},finale),false);
+});
+
+
+test('restored donor recalls preserve cross-month registration and fail closed without exact dated evidence',()=>{
+ const restored=["gmmtvnext-generation-happy-20261103","love-of-siam-musical-20261211","blkgem-concert-20261206","ongredients-thomaskong-20261121","beautrium-15th-20261106","journal-fourth-20261110","drpong-zee-20261121"];
+ for(const id of restored){
+  const f=K.CORPUS.find(x=>x.case_id===id);
+  assert.ok(f,id);
+  const e=K.FIXTURE_EVIDENCE[id];
+  assert.ok(e?.source_url.startsWith('https://'),id);
+  const row={title:f.title,event_date:f.event_date,source_url:e.source_url};
+  for(const month of [...new Set([...f.discovery_months,f.event_date.slice(0,7)])]){
+   const check=(rows,receipts=[])=>K.evaluate(rows,receipts,{month,strict_live:true}).missing_cases.includes(id);
+   assert.equal(check([]),true,id+' absent');
+   assert.equal(check([{...row,event_date:''}]),true,id+' missing date');
+   assert.equal(check([{...row,event_date:'2026-12-31'}]),true,id+' wrong date');
+   assert.equal(check([{...row,source_url:''}]),true,id+' missing source');
+   assert.equal(check([],[{case_id:id,status:'SOURCE_UNAVAILABLE',executed:true,source_url:e.source_url}]),true,id+' unavailable');
+   assert.equal(check([row]),false,id+' dated synthetic evidence');
+  }
+ }
+ const nine=K.CORPUS.filter(x=>x.event_date==='2026-12-19'&&/Nine 2026 9 Moment/i.test(x.title));
+ assert.equal(nine.length,1,'same Nine concert retains one canonical case');
+ assert.equal(nine[0].case_id,'nine-nine-moment-20261219');
+ assert.ok(nine[0].search_queries.some(q=>q.includes('4 November 2026')));
 });
