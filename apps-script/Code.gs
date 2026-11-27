@@ -418,13 +418,25 @@ function kkSlug_(text) {
 }
 
 function kkDateObj_(value) {
-  if (value instanceof Date) return value;
-  const raw = String(value == null ? '' : value).trim();
+  if (value instanceof Date) {
+    if (isNaN(value.getTime())) throw new Error('Invalid date: ' + value);
+    return value;
+  }
+  if (typeof value !== 'string' && typeof value !== 'number') throw new Error('Invalid date: ' + value);
+  const raw = String(value).trim();
   const dmy = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  // Date-only values use the script's local calendar, not JS's ambiguous
+  // slash parser or its silent rollover of impossible calendar days.
+  if (!raw || (raw.includes('/') && !dmy)) throw new Error('Invalid date: ' + value);
   const d = dmy
     ? new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]))
-    : new Date(value);
+    : iso ? new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])) : new Date(typeof value === 'string' ? raw : value);
   if (isNaN(d.getTime())) throw new Error('Invalid date: ' + value);
+  const parts = dmy ? [Number(dmy[3]),Number(dmy[2]),Number(dmy[1])] :
+    iso ? [Number(iso[1]),Number(iso[2]),Number(iso[3])] : null;
+  if (parts && (d.getFullYear() !== parts[0] || d.getMonth()+1 !== parts[1] || d.getDate() !== parts[2]))
+    throw new Error('Invalid date: ' + value);
   return d;
 }
 
@@ -540,7 +552,7 @@ function kkUpsertVisibilityLock_(eventId, eventName, eventDate, venue, state, pa
 
 function kkGenerateUniqueEventId_(eventName, eventDate) {
   const base = `EVT-${kkDateKey_(eventDate)}-${kkSlug_(eventName)}`;
-  const events = kkGetValues_(KK.events, 5, 1, 1).flat().filter(String);
+  const events = kkGetValues_(KK.events, 5, 1, 1).flat().map(v => String(v || '').trim()).filter(Boolean);
   if (!events.includes(base)) return base;
   for (let i = 2; i < 100; i++) {
     const id = `${base}-${i}`;
@@ -2031,8 +2043,8 @@ function doGet() {
 
 function kkApiDate_(value) {
   if (!value) return '';
-  const d = value instanceof Date ? value : new Date(value);
-  if (isNaN(d.getTime())) return String(value);
+  let d;
+  try { d = kkDateObj_(value); } catch (_) { return String(value); }
   return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
@@ -2535,20 +2547,22 @@ function kkApiCreateEvent_(payload) {
     const eventName = String(payload.event_name || '').trim();
     const eventDate = payload.event_date;
     const venue = String(payload.venue || '').trim();
-    const posterInfo = kkPosterForWrite_(payload.poster_url || '');
-    const poster = posterInfo.url;
     const status = String(payload.status || 'open').toLowerCase().trim();
     const active = payload.active_on_web === undefined ? true : kkIsTrue_(payload.active_on_web);
     const note = payload.note || '';
     if (!eventName || !eventDate || !venue) throw new Error('Please fill event_name, event_date and venue');
     if (!['open', 'closed'].includes(status)) throw new Error('status must be open or closed');
-    kkEnsureAdminLogSheets_();
-    kkAssertCreateEventHistoryAllowed_(eventName, eventDate, venue);
+    const parsedDate = kkDateObj_(eventDate);
+    kkAssertCreateEventHistoryAllowed_(eventName, parsedDate, venue);
     const priceOverrides = kkNormalizeCreateEventOverrides_(payload.event_price_overrides);
-    const eventId = kkGenerateUniqueEventId_(eventName, eventDate);
+    const eventId = kkGenerateUniqueEventId_(eventName, parsedDate);
     const row = kkFirstEmptyRow_(KK.events, 1, 5, 1, 8);
     const sh = kkSheet_(KK.events);
-    sh.getRange(row, 1, 1, 8).setValues([[eventId, eventName, kkDateObj_(eventDate), venue, poster, status, active, note]]);
+    // Complete admission checks before support-sheet or poster mutations.
+    kkEnsureAdminLogSheets_();
+    const posterInfo = kkPosterForWrite_(payload.poster_url || '');
+    const poster = posterInfo.url;
+    sh.getRange(row, 1, 1, 8).setValues([[eventId, eventName, parsedDate, venue, poster, status, active, note]]);
     const visibilityHistory = kkUpsertVisibilityLock_(eventId, eventName, eventDate, venue, active ? 'SEEN_CORE' : 'LOCKED', payload);
     const overridesCreated = kkWriteEventOverrides_(eventId, priceOverrides);
     const createOverrideApply = kkApplyCreateEventOverridePricesToWebPackages_(eventId, priceOverrides);
@@ -2992,7 +3006,7 @@ function kkApiDeleteAsset_(payload) {
 
 function kkIsPastEventDate_(value) {
   if (!value) return true;
-  const d = kkDateObj_(value);
+  const d = new Date(kkDateObj_(value).getTime());
   d.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);

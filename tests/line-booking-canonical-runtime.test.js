@@ -555,3 +555,58 @@ test('legacy LINE replay binds cached claims to unique canonical pending booking
   assert.equal(JSON.parse(f.props.SYNTHETIC_CLAIM).status,'OK');
   assert.equal(writeAttempts,0);assert.equal(f.counters.writes,0);assert.equal(f.mutex.held,false);
 });
+
+
+test('canonical date parser rejects rollover and normalizes both native calendar formats without mutation',()=>{
+  const f=fixture(),c=f.context;
+  c.Session={getScriptTimeZone:()=> 'Asia/Bangkok'};
+  c.Utilities={formatDate(d,zone,pattern){
+    assert.equal(zone,'Asia/Bangkok');
+    // Verify the parsed calendar components rather than the host test timezone.
+    const parts=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')];
+    return parts.join(pattern==='yyyyMMdd'?'':'-');
+  }};
+  const expected=[['08/11/2026','2026-11-08'],[' 29/02/2024 ','2024-02-29'],['2026-11-08','2026-11-08']];
+  for(const [value,iso] of expected){
+    assert.equal(c.kkApiDate_(value),iso);
+    assert.equal(c.kkDateKey_(value),iso.replace(/-/g,''));
+  }
+  for(const value of ['29/02/2025','31/11/2026','00/10/2026','14/00/2026','14/13/2026','2026-02-29','2026-11-31','11/8/26','',null,true,[],{}]){
+    assert.throws(()=>c.kkDateObj_(value),/Invalid date/);
+  }
+  const native=vm.runInContext("new Date(2026,10,8,15,30)",c),ms=native.getTime();
+  assert.equal(c.kkDateObj_(native),native);
+  c.kkIsPastEventDate_(native);
+  assert.equal(native.getTime(),ms);
+  assert.throws(()=>c.kkDateObj_(vm.runInContext('new Date(NaN)',c)),/Invalid date/);
+  for(const value of ['2026-10-08T03:00:00Z',1791428400000])assert.equal(c.kkDateObj_(value).getTime(),new Date(value).getTime());
+});
+
+test('event creation validates calendar, owner history, override and capacity before poster or support writes',()=>{
+  const f=fixture(),c=f.context;
+  const base={event_name:'SYNTHETIC',event_date:'2027-01-01',venue:'HALL',poster_url:'https://example.invalid/poster.png'};
+  let historyReject=false,overrideReject=false,capacityReject=false,posters=0,support=0,rows=0;
+  c.kkAssertCreateEventHistoryAllowed_=()=>{if(historyReject)throw Error('EVENT_HISTORY_RECREATE_PROHIBITED');};
+  c.kkNormalizeCreateEventOverrides_=()=>{if(overrideReject)throw Error('INVALID_OVERRIDE');return [];};
+  c.kkGenerateUniqueEventId_=()=> 'EVT-20270101-SYNTHETIC';
+  c.kkFirstEmptyRow_=()=>{if(capacityReject)throw Error('NO_CAPACITY');return 5;};
+  c.kkSheet_=()=>({getRange(){return {setValues(v){rows++;assert.equal(v[0][2].getDate(),1);throw Error('SYNTHETIC_WRITE_BOUNDARY');}};}});
+  c.kkEnsureAdminLogSheets_=()=>{support++;};
+  c.kkPosterForWrite_=()=>{posters++;return {url:base.poster_url};};
+  assert.throws(()=>c.kkApiCreateEvent_({...base,event_date:'31/02/2027'}),/Invalid date/);
+  assert.throws(()=>c.kkApiCreateEvent_({...base,status:'invalid'}),/status must be/);
+  historyReject=true;assert.throws(()=>c.kkApiCreateEvent_(base),/RECREATE_PROHIBITED/);historyReject=false;
+  overrideReject=true;assert.throws(()=>c.kkApiCreateEvent_(base),/INVALID_OVERRIDE/);overrideReject=false;
+  capacityReject=true;assert.throws(()=>c.kkApiCreateEvent_(base),/NO_CAPACITY/);capacityReject=false;
+  assert.equal(posters,0);assert.equal(support,0);assert.equal(rows,0);
+  assert.throws(()=>c.kkApiCreateEvent_(base),/SYNTHETIC_WRITE_BOUNDARY/);
+  assert.equal(posters,1);assert.equal(support,1);assert.equal(rows,1);assert.equal(f.mutex.held,false);
+});
+
+test('event identity generation treats padded existing IDs as occupied',()=>{
+ const {context:c}=fixture();
+ c.kkDateKey_=()=> '20270101';
+ c.kkSlug_=()=> 'SYNTHETIC';
+ c.kkGetValues_=()=>[[' EVT-20270101-SYNTHETIC '],['EVT-20270101-SYNTHETIC-2'],['']];
+ assert.equal(c.kkGenerateUniqueEventId_('SYNTHETIC','2027-01-01'),'EVT-20270101-SYNTHETIC-3');
+});
