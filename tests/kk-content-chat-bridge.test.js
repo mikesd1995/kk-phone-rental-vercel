@@ -28,7 +28,7 @@ ${hook}
 💙 ฟรีประกันเครื่อง + ไม่ต้องวางมัดจำ
 📍 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน
 ☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน
-👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/
+งานนี้มีช่วงพิเศษที่แฟนเพลงไม่ควรพลาด เลือกดูรายละเอียดแพ็กเกจกับร้านได้เลย\n👉 จองเลย: https://kk-phone-rental.vercel.app/
 
 #ArtistExample`;
 }
@@ -64,7 +64,12 @@ function payload(){
         price_display:'vivo X300 Pro 690฿ | เพิ่ม Lens +200฿',
         inventory_available:true,
         official_event_hashtag:'#ExampleConcert',
-        verified_hashtags:['#ExampleConcert','#ArtistExample','#เช่ามือถือ']
+        verified_hashtags:['#ExampleConcert','#ArtistExample','#เช่ามือถือ'],
+        cta_style:'lead_then_book_link',
+        recent_context_checked:true,
+        recent_context_source:'chat_drafts',
+        recent_posts:['ตัวอย่างโพสต์ X ก่อนหน้าที่อ่านจากประวัติสนทนา'],
+        event_dna:['verified show theme','fan segment']
       }
     },
     candidates:[
