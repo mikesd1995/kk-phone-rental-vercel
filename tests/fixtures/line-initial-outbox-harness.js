@@ -31,7 +31,7 @@ function harness(options={}){
   SpreadsheetApp:{flush(){flushes++;if(crash===flushes)throw Error('SYNTHETIC_CRASH');}},
   kkAcquireDocumentLock_(){assert.equal(lock,false,'lock must not nest');lock=true;return {releaseLock(){lock=false;}};},
   kkSheet_:name=>{if(name==='00_Master_Booking')return bookings;if(name==='20_Line_Initial_Outbox'&&!options.noLedger)return ledger;throw Error('SYNTHETIC_MISSING_SHEET');},
-  kkFindBookingRow_:(_,id)=>{const i=bookings.rows.findIndex(r=>r[0]===id);if(i<4)throw Error('SYNTHETIC_BOOKING_MISSING');return i+1;},
+  kkGetValues_:(name,start,col,width)=>{assert.equal(name,'00_Master_Booking');return bookings.rows.slice(start-1).map(row=>Array.from({length:width},(_,j)=>row[col-1+j]??''));},
   kkBookingRequestIdFromNote_:v=>(String(v).match(/\[KK_REQ:([A-Za-z0-9._:-]{8,128})\]/)||[])[1]||'',
   kkBookingNoteWithRequest_:(n,r)=>n+' [KK_REQ:'+r+']',
   kkNormalizeTemplateIdForEvent_:(_,t)=>t,
@@ -42,7 +42,7 @@ function harness(options={}){
  };
  vm.createContext(ctx);
  // Real source helpers (not a second implementation of identity/quote logic).
- for(const name of ['kkBookingTemplateIdFromNote_','kkBookingQuotedPriceFromNote_','kkBookingNoteWithTemplate_','kkBookingNoteForUpdate_','kkBookingBindingMatches_','kkLineVerifiedQuote_']){
+ for(const name of ['kkFindBookingRow_','kkBookingRequestMarker_','kkFindBookingByRequestId_','kkBookingTemplateIdFromNote_','kkBookingQuotedPriceFromNote_','kkBookingNoteWithTemplate_','kkBookingNoteForUpdate_','kkBookingBindingMatches_','kkLineVerifiedQuote_']){
   const a=source.indexOf('function '+name+'('), b=source.indexOf('\nfunction ',a+1);
   assert.ok(a>=0&&b>a);
   vm.runInContext(source.slice(a,b),ctx,{filename:name+'.gs'});
