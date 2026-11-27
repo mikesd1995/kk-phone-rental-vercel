@@ -28,3 +28,23 @@ test('Apps Script source and accepted candidate use the same FILTER + COUNTIFS p
     assert.doesNotMatch(block,/IFERROR\(LOOKUP\(2,1\//);
   }
 });
+
+test('direct writer and canonical GAS use uncapped override ranges for independent X500 lens packages',()=>{
+  const p200=direct.webPackagePriceFormula(3103,'TPL-VIVO-X500-PRO-MAX-BUNDLE-200MM');
+  const p400=direct.webPackagePriceFormula(3104,'TPL-VIVO-X500-PRO-MAX-BUNDLE-400MM');
+  for(const [formula,row,own,other] of [[p200,3103,'200MM','400MM'],[p400,3104,'400MM','200MM']]){
+    assert.ok(formula.includes('B'+row));
+    for(const col of ['A','B','C'])assert.ok(formula.includes("'04_Event_Overrides'!$"+col+"$5:$"+col),col);
+    assert.doesNotMatch(formula,/\$1000\b/);
+    assert.ok(formula.includes('TPL-VIVO-X500-PRO-MAX-BUNDLE-'+own));
+    assert.ok(!formula.includes('TPL-VIVO-X500-PRO-MAX-BUNDLE-'+other));
+    assert.match(formula,/INDEX\(FILTER\(/);
+    assert.match(formula,/VLOOKUP\(/);
+  }
+  const vm=require('node:vm');
+  const start=apps.indexOf('function kkWebPackagePriceFormula_');
+  const end=apps.indexOf('\nfunction ',start+10);
+  const gas=vm.runInNewContext(apps.slice(start,end)+'\nkkWebPackagePriceFormula_');
+  assert.equal(gas(3103,'TPL-VIVO-X500-PRO-MAX-BUNDLE-200MM'),p200);
+  assert.equal(gas(3104,'TPL-VIVO-X500-PRO-MAX-BUNDLE-400MM'),p400);
+});

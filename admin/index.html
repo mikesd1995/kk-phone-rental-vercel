@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
+  <script src="/admin/admin-theme.js?v=20261124-1"></script>
   <title>KK Admin CRM Dashboard</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
@@ -11,6 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/admin/admin.css?v=health-triage-20260926" />
+  <link rel="stylesheet" href="/admin/admin-theme.css?v=20261124-1" />
 </head>
 <body>
   <datalist id="venueOptions"></datalist>
@@ -34,6 +36,7 @@
         <span class="nav-section-label">CRM & Operations</span>
         <button class="nav" type="button" data-tab="customers" data-icon="CM">ประวัติลูกค้า</button>
         <button class="nav" type="button" data-tab="inbox" data-icon="IB">Inbox · LINE / X</button>
+        <a class="nav" href="/admin/operations-dashboard.html" data-icon="OD" aria-label="Operations Dashboard read only">แดชบอร์ดงาน · Audit</a>
         <button class="nav" type="button" data-tab="events" data-icon="EV">เพิ่ม/แก้งาน</button>
         <button class="nav" type="button" data-tab="packages" data-icon="PK">ราคา &amp; หน้าบ้าน</button>
         <button class="nav" type="button" data-tab="pricing" data-icon="PC">ตรวจสอบราคา</button>
@@ -58,6 +61,7 @@
           </div>
         </div>
         <div class="top-actions">
+          <label class="admin-theme-control" for="adminThemePreference">ธีม <select id="adminThemePreference" aria-label="ธีมแอดมิน"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
           <span id="unsavedBadge" class="top-badge unsaved-badge hidden">มีข้อมูลยังไม่บันทึก</span>
           <span class="top-badge" title="Admin UI version">v16.7.0 · Pricing Center</span>
           <button id="densityBtn" class="btn secondary" type="button">Compact</button>
@@ -117,6 +121,7 @@
               <button class="btn ghost" type="button" data-tab-jump="customers">ดูประวัติลูกค้า</button>
               <button class="btn ghost" type="button" data-tab-jump="events">เพิ่ม / แก้งาน</button>
               <button class="btn ghost" type="button" data-tab-jump="reports">รายงาน</button>
+              <a class="btn ghost" href="/admin/operations-dashboard.html">Operations Dashboard</a>
             </div>
           </div>
           <div id="operationalAttention" class="card operational-attention hidden" role="status" aria-live="polite">
@@ -945,7 +950,7 @@
 
   <script src="/admin/snapshot-health.js?v=resilience-1"></script>
   <script src="/admin/write-policy.js?v=write-admission-20260924"></script>
-  <script src="/admin/admin.js?v=diagnostic-evidence-authority-20261013"></script>
+  <script src="/admin/admin.js?v=diagnostic-evidence-authority-20261013-customer-metrics-20261124"></script>
   <script src="/admin/inbox-preview.js?v=unified-inbox-v1"></script>
 </body>
 </html>

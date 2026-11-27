@@ -5,6 +5,7 @@
 // only when the Apps Script snapshot upstream is unavailable.
 const privateSheets = require('../api/lib/private-google-sheets.js');
 const CorePrivacy = require('./core-sheet-private-reader.js');
+const {safeHeaderKeys}=require('./core-private-range-contract.js');
 const BookingLifecycleShadow = require('./kk-booking-lifecycle-shadow.js');
 const BookingHandoverSafety=require('./kk-booking-handover-safety.js');
 const FALLBACK_VERSION = 'admin-direct-sheet-readonly-fallback-v3.1';
@@ -51,11 +52,21 @@ function parseCsv(text){
   return rows;
 }
 
+function assertSafeHeaderKeys_(row){
+  const keys=safeHeaderKeys(row);
+  if(!keys){
+    const err=new Error('CORE_PRIVATE_SCHEMA_INVALID');
+    err.code='CORE_PRIVATE_SCHEMA_INVALID';
+    throw err;
+  }
+  return keys;
+}
+
 function rowsAsObjects(csv, requiredHeader, startRow=1){
   const rows=parseCsv(csv);
   const headerIndex=rows.findIndex(r=>String(r[0]||'').trim()===requiredHeader);
   if(headerIndex<0) throw new Error('Fallback schema header not found: '+requiredHeader);
-  const headers=rows[headerIndex].map(v=>String(v||'').trim());
+  const headers=assertSafeHeaderKeys_(rows[headerIndex]);
   const out=[];
   for(let i=headerIndex+1;i<rows.length;i++){
     const r=rows[i];
@@ -84,7 +95,7 @@ function bangkokDay(now){
 }
 function workflowOpen(s){ return ['pending','confirmed','prepared','picked_up','returned','uploaded'].includes(String(s||'').trim().toLowerCase()); }
 function cleanBookingNote(v){
-  return String(v||'').replace(/\s*\[KK_REQ:[A-Za-z0-9._:-]{8,128}\]\s*/g,' ').replace(/\s{2,}/g,' ').trim();
+  return String(v||'').replace(/\s*\[KK_REQ:[A-Za-z0-9._:-]{8,128}\]\s*/g,' ').replace(/\s*\[KK_(?:TEMPLATE|QUOTE):[^\]\r\n]*\]\s*/g,' ').replace(/\s{2,}/g,' ').trim();
 }
 
 function fetchWithTimeout(url, fetchImpl, timeoutMs){
@@ -131,7 +142,7 @@ function valuesAsObjects(values,requiredHeader,startRow=1){
   const rows=Array.isArray(values)?values:[];
   const headerIndex=rows.findIndex(r=>Array.isArray(r) && r.some(v=>String(v||'').trim()===requiredHeader));
   if(headerIndex<0) throw new Error('Fallback private schema header not found: '+requiredHeader);
-  const headers=(rows[headerIndex]||[]).map(v=>String(v||'').trim());
+  const headers=assertSafeHeaderKeys_(rows[headerIndex]);
   const out=[];
   for(let i=headerIndex+1;i<rows.length;i++){
     const r=Array.isArray(rows[i])?rows[i]:[];
@@ -159,7 +170,13 @@ async function readSpecPrivate(sheetId,key,env,fetchImpl){
     err.dataset=key;
     throw err;
   }
-  return valuesAsObjects(values,spec.header,spec.startRow||1);
+  try{
+    return valuesAsObjects(values,spec.header,spec.startRow||1);
+  }catch(err){
+    if(!err.code)err.code='CORE_PRIVATE_SCHEMA_INVALID';
+    err.dataset=key;
+    throw err;
+  }
 }
 
 function modelMap(rows){

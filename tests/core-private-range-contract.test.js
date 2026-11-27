@@ -9,17 +9,14 @@ const Preflight=require('../scripts/core-private-cutover-preflight.cjs');
 const env={KK_CORE_SHEET_REQUIRE_PRIVATE:'1',KK_CORE_PRIVATE_TRANSPORT:'apps-script',
   GOOGLE_SHEET_ID:'fixture-core-only',KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/fixture_only/exec',
   KK_ADMIN_API_KEY:'admin-fixture-only',KK_CORE_PRIVATE_READ_KEY:'reader_fixture_key_abcdefghijklmnopqrstuvwxyz'};
-const publicEvents=['event_id','event_name','event_date_text','venue','poster_image_url','event_note','available_phone_count','available_lens_count','booking_status_for_web','action_for_web','line_message_template'];
-const publicPackages=['package_id','event_id','package_type','model_group','model_display','lens_group','lens_display','price','available_count','package_status','sort_order','web_note','raw_available_count','use_case'];
-const headers={'01_Events':['event_id','event_name'],'00_Master_Booking':['booking_id'],
-  '02_Assets':['asset_id'],'03_Packages':['template_id'],'04_Event_Overrides':['event_id'],
-  '11_Customer_Stats':['customer_key'],'10_Admin_Health_Check':['Check'],
-  'Model_Master':['model_group'],'18_Event_Visibility_Locks':['lock_id'],
-  '_Rental_Dashboard_Data':['Source','Booking ID'],'13_Event_Archive':['archived_at']};
+// Only the canonical Core range contract owns column order; synthetic reader
+// fixtures follow it while separate negative tests intentionally corrupt it.
+const {RANGE_SPECS}=require('../server/core-private-range-contract.js');
 function fixture({sheet,range},withData=true){
-  const width=range.startsWith('A4:J')?10:sheet==='09_Web_Packages'?({N:14,M:13,L:12}[range.slice(-1)]):11;
-  const h=sheet==='08_Web_Ready'?publicEvents.slice(0,width):sheet==='09_Web_Packages'?publicPackages.slice(0,width):headers[sheet];
-  return withData?[h,['PRIVATE_CUSTOMER_VALUE_NEVER_REPORT']]:[h];
+  const spec=RANGE_SPECS.find(s=>s.sheet===sheet&&s.range===range);
+  assert.ok(spec,'fixture must be a registered exact Core private range: '+sheet+'!'+range);
+  const header=[...spec.orderedHeaders];
+  return withData?[header,['PRIVATE_CUSTOMER_VALUE_NEVER_REPORT']]:[header];
 }
 function pairsFromGas(){
   const text=fs.readFileSync(path.join(__dirname,'../apps-script/Code.gs'),'utf8');
@@ -70,11 +67,11 @@ test('all19 Core reader calls cross the existing Apps Script request/response an
   const allow=source.match(/const KK_PRIVATE_CORE_READ_ALLOWLIST = Object\.freeze\([\s\S]*?\n\}\);/);
   const fn=source.match(/function kkApiPrivateCoreRead_\(payload\)\{[\s\S]*?\n\}/);
   let selection,reads=0;
-  const gas=Function('PropertiesService','SpreadsheetApp',allow[0]+'\n'+fn[0]+'\nreturn kkApiPrivateCoreRead_;')(
+  const gas=Function('PropertiesService','kkCanonicalWorkbook_',allow[0]+'\n'+fn[0]+'\nreturn kkApiPrivateCoreRead_;')(
     {getScriptProperties:()=>({getProperty:()=> '1'})},
-    {getActive:()=>({getId:()=>env.GOOGLE_SHEET_ID,getSheetByName:sheet=>({
+    ()=>({getId:()=>env.GOOGLE_SHEET_ID,getSheetByName:sheet=>({
       getLastRow:()=>6,getRange:()=>({getDisplayValues:()=>{reads++;return fixture(selection);}})
-    })})});
+    })}));
   const original=Script.readValues;
   const calls=[];
   Script.readValues=info=>original({...info,fetchImpl:async (url,options)=>{

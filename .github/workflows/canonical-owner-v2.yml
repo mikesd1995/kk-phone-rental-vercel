@@ -3,7 +3,7 @@
   "on": {
     "pull_request": {
       "branches": ["main"],
-      "paths": [".github/workflows/canonical-owner-v2.yml", "server/make-owner-*", "make/telegram-response-adapter/**", "server/kk-make-owner-notify.js", "server/runtime-ledger-oidc-bridge.js", "api/kk-scanner-dispatch.js", "apps-script/kk-agent/**", "supabase/functions/kk-runtime-ledger-oidc-probe/**", "supabase/staging/*owner*.sql", "tests/*owner*.test.js", "tests/fixtures/owner-canonical-capture.synthetic.json", "scripts/test-owner-canonical-native.mjs", "scripts/test-owner-health-attempt-native.mjs", "scripts/test-owner-canonical-loop.mjs", "package.json", "package-lock.json", "vercel.json"]
+      "paths": [".github/workflows/canonical-owner-v2.yml", "server/make-owner-*", "make/telegram-response-adapter/**", "server/kk-make-owner-notify.js", "server/runtime-ledger-oidc-bridge.js", "api/kk-scanner-dispatch.js", "apps-script/kk-agent/**", "supabase/functions/kk-runtime-ledger-oidc-probe/**", "supabase/staging/*owner*.sql", "tests/*owner*.test.js", "tests/fixtures/owner-canonical-capture.synthetic.json", "scripts/test-owner-canonical-native.mjs", "scripts/test-owner-health-attempt-native.mjs", "scripts/test-owner-canonical-loop.mjs", "api/kk-customer-auth.js", "server/kk-customer-*.js", "server/kk-line-booking-terms-receipt.js", "supabase/kk_customer_auth_v1.sql", "tests/kk-customer-*.test.js", "scripts/test-customer-auth-native.mjs", "package.json", "package-lock.json", "vercel.json"]
     },
     "workflow_dispatch": {}
   },
@@ -49,6 +49,11 @@
           "name": "Gateway Apps Script native loop with synthetic provider responses",
           "env": {"PGLITE_MODULE": "file://${{ runner.temp }}/kk-canonical-native/node_modules/@electric-sql/pglite/dist/index.js"},
           "run": "node scripts/test-owner-canonical-loop.mjs --output \"${RUNNER_TEMP}/canonical-owner-loop.json\""
+        },
+        {
+          "name": "Native customer consent SQL, replay and RLS regression",
+          "env": {"PGLITE_MODULE": "file://${{ runner.temp }}/kk-canonical-native/node_modules/@electric-sql/pglite/dist/index.js"},
+          "run": "node scripts/test-customer-auth-native.mjs"
         }
       ]
     }

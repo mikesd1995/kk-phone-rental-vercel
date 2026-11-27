@@ -4,7 +4,12 @@
 // Opt-in only: KK_CORE_SHEET_REQUIRE_PRIVATE=1 after strict owner acceptance.
 const privateSheets=require('../api/lib/private-google-sheets.js');
 const AppsScriptReader=require('./core-sheet-apps-script-reader.js');
+const {RANGE_SPECS,schemaResult}=require('./core-private-range-contract.js');
 const FLAG='KK_CORE_SHEET_REQUIRE_PRIVATE';
+// Exact allowed Core read pairs, shared with owner-bound Apps Script acceptance.
+// Syntactically valid but out-of-contract ranges (especially extra Booking/PII
+// columns) must never reach ANY provider, including legacy service accounts.
+const CORE_READ_RANGE_ALLOWLIST=new Set(RANGE_SPECS.map(s=>s.sheet+'!'+s.range));
 
 function enabled(env=process.env){
   return ['1','true','yes','on'].includes(String(env[FLAG]||'').trim().toLowerCase());
@@ -14,7 +19,9 @@ function state(env=process.env){
   const credentialsReady=!!privateSheets.credentialsFromEnv(env);
   // Never infer service-account from missing config. Owner selected Apps Script;
   // explicitly selected service-account remains legacy compatibility only.
-  const transport=String(env.KK_CORE_PRIVATE_TRANSPORT||'none').trim();
+  // Unknown configuration is untrusted and must never appear in diagnostics.
+  const candidate=String(env.KK_CORE_PRIVATE_TRANSPORT||'none').trim();
+  const transport=['none','apps-script','service-account'].includes(candidate)?candidate:'invalid';
   const appsScriptReady=transport==='apps-script'&&AppsScriptReader.scriptState(env).configured;
   const transportReady=transport==='apps-script'?appsScriptReady:transport==='service-account'?credentialsReady:false;
   return {
@@ -31,7 +38,7 @@ function requireExplicitPrivateSource(sheetId,env=process.env){
   if(!s.strict)throw fail('CORE_PRIVATE_CUTOVER_NOT_ENABLED');
   if(!s.explicitSheetId)throw fail('CORE_PRIVATE_SHEET_ID_NOT_CONFIGURED');
   if(String(sheetId||'').trim()!==s.sheetId)throw fail('CORE_PRIVATE_SHEET_ID_MISMATCH');
-  if(!s.transportReady)throw fail(s.transport==='none'?'CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED':s.transport==='apps-script'?'CORE_APPS_SCRIPT_NOT_CONFIGURED':'CORE_PRIVATE_CREDENTIALS_NOT_CONFIGURED');
+  if(!s.transportReady)throw fail(s.transport==='none'?'CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED':s.transport==='invalid'?'CORE_PRIVATE_TRANSPORT_INVALID':s.transport==='apps-script'?'CORE_APPS_SCRIPT_NOT_CONFIGURED':'CORE_PRIVATE_CREDENTIALS_NOT_CONFIGURED');
   return s.sheetId;
 }
 function verifiedRange(sheet,range){
@@ -40,22 +47,32 @@ function verifiedRange(sheet,range){
   if(!/^[A-Za-z0-9_]+$/.test(tab)||!/^[A-Z]+[1-9]\d*:[A-Z]+\d*$|^[A-Z]+[1-9]\d*:[A-Z]+$|^[A-Z]+:[A-Z]+\d*$|^[A-Z]+:[A-Z]+$/.test(a1)){
     throw fail('CORE_PRIVATE_RANGE_INVALID');
   }
-  return tab+'!'+a1;
+  const exactPair=tab+'!'+a1;
+  if(!CORE_READ_RANGE_ALLOWLIST.has(exactPair))throw fail('CORE_PRIVATE_RANGE_INVALID');
+  return exactPair;
 }
-async function readCsv({sheetId,sheet,range,env=process.env}={}){
+// Validate schema for every authenticated read, not only the one-time owner
+// preflight. Otherwise a later Booking/contact column swap could silently feed
+// positional downstream consumers with corrupted semantics.
+async function readPrivateValidatedValues({sheetId,sheet,range,env=process.env}={}){
   const sid=requireExplicitPrivateSource(sheetId,env);
-  const a1=verifiedRange(sheet,range);
-  if(state(env).transport==='apps-script'){
-    const values=await AppsScriptReader.readValues({sheetId:sid,sheet,range,env});
-    return privateSheets.valuesToCsv(values);
-  }
-  return privateSheets.readValuesCsv({sheetId:sid,range:a1,env});
+  const a1=verifiedRange(sheet,range); // exact owner-approved 19-pair allowlist
+  const spec=RANGE_SPECS.find(s=>s.sheet===String(sheet).trim()&&s.range===String(range).trim());
+  if(!spec)throw fail('CORE_PRIVATE_RANGE_INVALID');
+  const values=state(env).transport==='apps-script'
+    ? await AppsScriptReader.readValues({sheetId:sid,sheet,range,env})
+    : await privateSheets.readValues({sheetId:sid,range:a1,env});
+  // Fail closed and expose only fixed error code; raw cells/PII never in errors.
+  if(!schemaResult(values,spec).ok)throw fail('CORE_PRIVATE_SCHEMA_INVALID');
+  return values;
 }
-async function readValues({sheetId,sheet,range,env=process.env}={}){
-  const sid=requireExplicitPrivateSource(sheetId,env);
-  const a1=verifiedRange(sheet,range);
-  return state(env).transport==='apps-script'
-    ? AppsScriptReader.readValues({sheetId:sid,sheet,range,env})
-    : privateSheets.readValues({sheetId:sid,range:a1,env});
+async function readCsv(options={}){
+  // Both transports use the same Google display values and CSV serializer.
+  // Service-account readValuesCsv was simply valuesToCsv(readValues), so this
+  // does not change CSV formatting or customer-facing projection semantics.
+  return privateSheets.valuesToCsv(await readPrivateValidatedValues(options));
+}
+async function readValues(options={}){
+  return readPrivateValidatedValues(options);
 }
 module.exports={FLAG,enabled,state,requireExplicitPrivateSource,verifiedRange,readCsv,readValues};

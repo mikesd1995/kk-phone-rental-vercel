@@ -42,3 +42,33 @@ test('unconfigured read-only key blocks before provider requests',async()=>{
  await assert.rejects(()=>Reader.readValues({...options,env:{...env,KK_CORE_PRIVATE_READ_KEY:''},fetchImpl:async()=>{count++;throw Error('forbidden')}}),stable('CORE_APPS_SCRIPT_NOT_CONFIGURED'));
  assert.equal(count,0);
 });
+test('private reader accepts bounded multi-chunk JSON without unbounded json parser',async()=>{
+ const bytes=Buffer.from(JSON.stringify({ok:true,data:{spreadsheet_id:env.GOOGLE_SHEET_ID,
+  sheet:options.sheet,range:options.range,values:[['event_id'],['E1']]}}));
+ let jsonReads=0;
+ const body=new ReadableStream({start(c){c.enqueue(bytes.subarray(0,19));c.enqueue(bytes.subarray(19));c.close();}});
+ const rows=await Reader.readValues({...options,fetchImpl:async()=>({ok:true,status:200,
+  headers:{get:()=>String(bytes.length)},body,json:async()=>{jsonReads++;throw Error('UNBOUNDED');}})});
+ assert.deepEqual(rows,[['event_id'],['E1']]);assert.equal(jsonReads,0);
+});
+test('private reader rejects declared oversized response before acquiring a reader',async()=>{
+ let readCount=0,cancelCount=0;
+ await assert.rejects(()=>Reader.readValues({...options,fetchImpl:async()=>({ok:true,status:200,
+  headers:{get:()=>String(9*1024*1024)},body:{getReader(){readCount++;throw Error('NO_READ');},
+   cancel(){cancelCount++;return Promise.resolve();}}})}),stable('CORE_APPS_SCRIPT_RESPONSE_INVALID'));
+ assert.equal(readCount,0);assert.equal(cancelCount,1);
+});
+test('private reader cancels unknown-length stream before parsing more than cap',async()=>{
+ let canceled=false,pulls=0,jsonReads=0;
+ const body=new ReadableStream({pull(c){pulls++;c.enqueue(Buffer.alloc(1024*1024,120));},
+  cancel(){canceled=true;}},{highWaterMark:0});
+ await assert.rejects(()=>Reader.readValues({...options,fetchImpl:async()=>({ok:true,status:200,
+  headers:{get:()=>null},body,json:async()=>{jsonReads++;throw Error('UNBOUNDED');}})}),
+  stable('CORE_APPS_SCRIPT_RESPONSE_INVALID'));
+ assert.equal(canceled,true);assert.ok(pulls<=9);assert.equal(jsonReads,0);
+});
+test('aborted response-body read retains fixed timeout classification',async()=>{
+ const body=new ReadableStream({pull(c){c.error(Object.assign(Error('PRIVATE_MARKER'),{name:'AbortError'}));}});
+ await assert.rejects(()=>Reader.readValues({...options,fetchImpl:async()=>({ok:true,status:200,body})}),
+  stable('CORE_APPS_SCRIPT_TIMEOUT'));
+});

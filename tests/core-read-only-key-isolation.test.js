@@ -58,7 +58,7 @@ test('Apps Script private reader enforces the exact raw key contract',()=>{
 test('read action authenticates separately and cannot dispatch an Admin write with read key',()=>{
   const calls=[];
   const factory=Function(
-    'kkApiRequirePrivateReadKey_','kkApiRequireKey_','kkApiPrivateCoreRead_',
+    'kkApiRequirePrivateReadKey_','kkApiRequireKey_','kkApiPrivateCoreRead_','kkCanonicalWorkbook_',
     'kkApiJson_','kkApiOk_','kkApiFail_','kkErrorLog_','kkAuditLog_','KK_ADMIN_VERSION',
     extract('doPost')+';return doPost;'
   );
@@ -66,12 +66,13 @@ test('read action authenticates separately and cannot dispatch an Admin write wi
     p=>{calls.push('read-auth');if(p.readKey!==READ_KEY)throw Error('private key rejected');},
     p=>{calls.push('admin-auth');if(p.apiKey!==ADMIN_KEY)throw Error('admin key rejected');},
     ()=>{calls.push('read');return {data:{safe:'read-only'}};},
+    ()=>{calls.push('binding');return {getId:()=> 'synthetic'};},
     x=>x, x=>Object.assign({ok:true},x),()=>({ok:false}),
     ()=>{calls.push('error-log')},()=>{calls.push('mutation-log')},'test-version'
   );
   const response=dispatch({postData:{contents:JSON.stringify({action:'privateCoreRead',readKey:READ_KEY})}});
   assert.equal(response.ok,true);
-  assert.deepEqual(calls,['read-auth','read']);
+  assert.deepEqual(calls,['read-auth','binding','read']);
   calls.length=0;
   const denied=dispatch({postData:{contents:JSON.stringify({action:'createBooking',readKey:READ_KEY})}});
   assert.equal(denied.ok,false);
@@ -101,10 +102,10 @@ test('raw error and stack redaction masks both protected credential values',()=>
 });
 test('private reader errors are generic even when upstream error contains protected data',()=>{
  const calls=[];
- const factory=Function('kkApiRequirePrivateReadKey_','kkApiRequireKey_','kkApiPrivateCoreRead_',
+ const factory=Function('kkApiRequirePrivateReadKey_','kkApiRequireKey_','kkApiPrivateCoreRead_','kkCanonicalWorkbook_',
    'kkApiJson_','kkApiOk_','kkApiFail_','kkErrorLog_','kkAuditLog_','KK_ADMIN_VERSION',
    extract('doPost')+';return doPost;');
- const doPost=factory(()=>{},()=>{},()=>{throw Error('sensitive upstream secret');},
+ const doPost=factory(()=>{},()=>{},()=>{throw Error('sensitive upstream secret');},()=>({getId:()=> 'synthetic'}),
     x=>x,x=>Object.assign({ok:true},x),e=>({ok:false,error:e.message}),
     ()=>calls.push('error mutation'),()=>calls.push('audit mutation'),'test-version');
  const res=doPost({postData:{contents:JSON.stringify({action:'privateCoreRead',readKey:READ_KEY})}});

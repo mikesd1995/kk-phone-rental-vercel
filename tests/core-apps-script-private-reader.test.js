@@ -71,7 +71,8 @@ test('no public fallback and reject mismatched IDs, non-Google redirect and unex
 test('server private Core API dispatches explicitly selected Apps Script transport and serializes bounded CSV',async()=>{
  const orig=script.readValues;
  let count=0;
- script.readValues=async()=>{count++;return [['event_id','event_name'],['EVT-A','A']]};
+ const canonical=require('../server/core-private-range-contract.js').RANGE_SPECS.find(s=>s.dataset==='web_ready').orderedHeaders;
+ script.readValues=async()=>{count++;return [Array.from(canonical),['EVT-A','A']]};
  try{
    const v=await core.readValues({env:config,sheetId:env.GOOGLE_SHEET_ID,sheet:'08_Web_Ready',range:'A4:K'});
    const csv=await core.readCsv({env:config,sheetId:env.GOOGLE_SHEET_ID,sheet:'08_Web_Ready',range:'A4:K'});
@@ -80,6 +81,19 @@ test('server private Core API dispatches explicitly selected Apps Script transpo
    assert.equal(count,2);
  }finally{script.readValues=orig}
 });
+test('runtime Apps Script response rejects swapped Booking contact columns with opaque error',async()=>{
+ const original=script.readValues;
+ const contract=require('../server/core-private-range-contract.js').RANGE_SPECS.find(s=>s.dataset==='bookings');
+ const shifted=Array.from(contract.orderedHeaders);[shifted[5],shifted[6]]=[shifted[6],shifted[5]];
+ script.readValues=async()=>[shifted,['SECRET_PRIVATE_CONTACT_SHOULD_NOT_LEAK']];
+ try{
+   for(const call of [core.readValues,core.readCsv]){
+     await assert.rejects(call({env:config,sheetId:env.GOOGLE_SHEET_ID,sheet:contract.sheet,range:contract.range}),
+       e=>e.code==='CORE_PRIVATE_SCHEMA_INVALID'&&!/SECRET_PRIVATE_CONTACT|customer_phone/.test(e.message));
+   }
+ }finally{script.readValues=original;}
+});
+
 test('Apps Script action requires a separate private read key and extra Script Property, exact allowlist, bounded source, and skips request audit logging',()=>{
  assert.match(appSource,/if\(action==='privateCoreRead'\) kkApiRequirePrivateReadKey_\(payload\);/);
  assert.match(appSource,/else kkApiRequireKey_\(payload\);/);
@@ -133,8 +147,8 @@ function simulateScriptRead({property='1',id='private-core-example',lastRow=6}={
  const spreadsheet={getId:()=>id,getSheetByName:name=>name==='08_Web_Ready'?{
    getLastRow:()=>lastRow,getRange:a1=>({getDisplayValues:()=>[['event_id','event_name'],['EVT-1','Concert']]})
  }:null};
- const factory=Function('PropertiesService','SpreadsheetApp',acl[0]+'\n'+fn[0]+'\nreturn kkApiPrivateCoreRead_;');
- return factory(scriptProps,{getActive:()=>spreadsheet});
+ const factory=Function('PropertiesService','kkCanonicalWorkbook_',acl[0]+'\n'+fn[0]+'\nreturn kkApiPrivateCoreRead_;');
+ return factory(scriptProps,()=>spreadsheet);
 }
 test('Apps Script function itself rejects disabled service, spoofed workbook and arbitrary range',()=>{
  const input={coreSheetId:'private-core-example',sheet:'08_Web_Ready',range:'A4:K'};

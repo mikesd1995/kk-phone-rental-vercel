@@ -17,7 +17,7 @@ function writerBody(){
 
 test('LINE intake targets dedicated pending writer, never legacy createBooking',()=>{
   const r=intake.bookingIntent(
-    {webhookEventId:'evt-v4',source:{userId:'U1'}},
+    {webhookEventId:'evt-v4',source:{type:'user',userId:'U'+'a'.repeat(32)}},
     {nickname:'Mint',phone:'0812345678',pickup_time:'16:00'},
     {event_id:'EVT-1',template_id:'TPL-1'}
   );
@@ -89,7 +89,7 @@ test('canonical ID uses current 9.5.13 direct column-A ownership and exact readb
 test('PENDING replay self-reconciles only an exact claimed row and never allocates a replacement',()=>{
   const s=writerBody();
   const pending=s.indexOf("existing.status === 'PENDING'");
-  const reconcile=s.indexOf('kkLineBookingClaimReadback_(existing)',pending);
+  const reconcile=s.indexOf('kkLineLegacyReplayReadback_(payload,existing)',pending);
   const throwAt=s.indexOf('exact readback did not reconcile safely',pending);
   assert.ok(pending>=0&&reconcile>pending&&throwAt>reconcile);
   const helperStart=source.indexOf('function kkLineBookingClaimReadback_');
@@ -108,4 +108,14 @@ test('public LINE webhook activates only the governed owner-approval runtime',()
   assert.match(webhook,/automationReadiness/);
   assert.doesNotMatch(webhook,/action:\s*['"]createBooking['"]/);
   assert.doesNotMatch(webhook,/action:\s*['"]updateBooking['"]/);
+});
+
+test('legacy OK replay requires canonical identity verification before success',()=>{
+ const s=writerBody();
+ const start=s.indexOf("existing.status === 'OK'");
+ const end=s.indexOf("existing.status === 'PENDING'",start);
+ const block=s.slice(start,end);
+ assert.match(block,/kkLineLegacyReplayReadback_\(payload,existing\)/);
+ assert.match(block,/if \(!verified\) throw new Error\('LINE_BOOKING_REPLAY_CANONICAL_UNVERIFIED'\)/);
+ assert.match(block,/row_number: verified\.row_number/);
 });

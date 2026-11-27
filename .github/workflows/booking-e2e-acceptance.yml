@@ -2,15 +2,23 @@ name: Booking E2E Acceptance
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/line-booking-release-candidate-20261112]
     paths:
+      - 'server/line-booking-flex.js'
+      - 'tests/line-card-provider-bounds.test.js'
       - 'server/line-booking-webhook.js'
       - 'server/line-booking-intake.js'
       - 'server/line-booking-owner-approval.js'
+      - 'server/line-booking-deadline.js'
+      - 'server/kk-line-messaging-api.js'
       - 'apps-script/Code.gs'
+      - 'apps-script/staging/Code.gs'
+      - 'tests/kk-staging-private-gas.test.js'
       - 'tests/line-booking-*.test.js'
+      - 'tests/line-identity-owner-outbox-integration.test.js'
       - 'tests/line-webhook*.test.js'
       - 'tests/same-day-inventory-date-normalization.test.js'
+      - 'tests/x500-prestart-stock-generator.test.js'
       - '.github/workflows/booking-e2e-acceptance.yml'
   workflow_dispatch:
 
@@ -44,21 +52,34 @@ jobs:
 
       - name: Syntax
         run: |
+          node --check server/line-booking-flex.js
           node --check server/line-booking-webhook.js
           node --check server/line-booking-intake.js
           node --check server/line-booking-owner-approval.js
+          node --check server/line-booking-deadline.js
           node --check api/line-webhook.js
+          node --check < apps-script/staging/Code.gs
+          node --check < apps-script/Code.gs
 
       - name: Booking E2E targeted regression
         run: |
           node --test \
+            tests/line-booking-flex.test.js \
+            tests/line-card-provider-bounds.test.js \
+            tests/kk-staging-private-gas.test.js \
+            tests/line-booking-canonical-runtime.test.js \
             tests/line-booking-owner-approval.test.js \
+            tests/line-booking-owner-approval-replay-failclosed.test.js \
+            tests/line-booking-owner-approval-upstream-privacy.test.js \
+            tests/line-booking-network-deadline.test.js \
+            tests/line-identity-owner-outbox-integration.test.js \
             tests/line-booking-locked-intake-v4.test.js \
             tests/line-booking-intake.test.js \
             tests/line-booking-inbox-tee.test.js \
             tests/line-webhook.test.js \
             tests/line-webhook-raw-body.test.js \
             tests/same-day-inventory-date-normalization.test.js \
+            tests/x500-prestart-stock-generator.test.js \
             tests/booking-id-primary-close-regression-20261002.test.js
 
       - name: Assert no provider or production acceptance side effects
