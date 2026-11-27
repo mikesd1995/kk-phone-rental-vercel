@@ -121,3 +121,37 @@ test('issue 879 named missed-source lanes require independent coverage receipts'
   assert.ok(proof.missing_required_sources.includes(id),id);
  }
 });
+
+test('Mall Bangkapi outdoor plaza remains explicitly discoverable without increasing the query budget',()=>{
+ const plan=R.buildUniversePlan({month:'2027-01',location:'Bangkok Thailand'});
+ const venue=plan.tasks.find(t=>t.source_id==='the-mall-lifestore-plaza-artist-activations');
+ const brand=plan.tasks.find(t=>t.source_id==='mcard-the-mall-artist-events');
+ assert.equal(venue.source_tier,'VENUE');
+ assert.equal(brand.source_tier,'BRAND_SPONSOR');
+ assert.equal(venue.required,true);
+ assert.equal(brand.required,true);
+ assert.ok(venue.query_variants.some(q=>q.includes('Bangkapi outdoor plaza')&&q.includes('บางกะปิ ลานกลางแจ้ง')&&q.includes('January 2027')&&q.includes('มกราคม 2570')));
+ assert.equal(venue.query_variants.length,brand.query_variants.length);
+ const receipts=R.allSources().map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ for(const task of [venue,brand]){
+  const proof=R.buildUniverseProof(receipts.filter(x=>x.source_id!==task.source_id));
+  assert.equal(proof.complete,false);
+  assert.equal(proof.by_tier[task.source_tier].complete,false);
+  assert.ok(proof.missing_required_sources.includes(task.source_id));
+ }
+});
+
+test('duplicate required source receipts fail closed independent of order and apparent success',()=>{
+ const good=R.allSources().map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ const id='mcard-the-mall-artist-events';
+ for(const duplicate of [{source_id:id,status:'NOT_BOUND',executed:false},{source_id:id,status:'EVIDENCE_FOUND',executed:true}]){
+  for(const receipts of [[duplicate,...good],[...good,duplicate]]){
+   const proof=R.buildUniverseProof(receipts);
+   assert.equal(proof.complete,false);
+   assert.equal(proof.by_tier.BRAND_SPONSOR.complete,false);
+   assert.ok(proof.missing_required_sources.includes(id));
+   assert.equal(proof.sources.find(x=>x.source_id===id).status,'DUPLICATE_RECEIPT');
+  }
+ }
+ assert.equal(R.buildUniverseProof(good).complete,true);
+});

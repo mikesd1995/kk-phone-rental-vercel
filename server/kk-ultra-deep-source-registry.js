@@ -117,7 +117,9 @@ function buildUniversePlan(input={}){
       [domain,'Christmas Tree Lighting Ceremony','artist performance',labels.en].filter(Boolean).join(' '),
       [domain,'พิธีเปิดไฟต้นคริสต์มาส','ศิลปิน','แฟนโซน',labels.th].filter(Boolean).join(' '),
       [domain,'The Mall Lifestore','M Card','fan zone','artist',labels.en].filter(Boolean).join(' '),
-      [domain,'The Mall Lifestore','BL GL TPOP artist appearance',labels.en].filter(Boolean).join(' ')
+      row.source_id==='the-mall-lifestore-plaza-artist-activations'
+        ? [domain,'The Mall Lifestore Bangkapi outdoor plaza','เดอะมอลล์ ไลฟ์สโตร์ บางกะปิ ลานกลางแจ้ง ศิลปิน','BL GL TPOP artist appearance',labels.en,labels.th].filter(Boolean).join(' ')
+        : [domain,'The Mall Lifestore','BL GL TPOP artist appearance',labels.en].filter(Boolean).join(' ')
     ]:[];
     const decemberRecallQueries={
       'mcard-future-event-spend-winner-cycle':[
@@ -183,22 +185,26 @@ function buildUniversePlan(input={}){
 }
 
 function buildUniverseProof(receipts=[]){
-  const byId=new Map();
+  const byId=new Map(),duplicateIds=new Set();
   for(const row of Array.isArray(receipts)?receipts:[]){
     const id=text(row&&row.source_id);
     if(!id) continue;
+    // Each planned source has exactly one aggregate receipt. Do not let a
+    // later duplicate hide an earlier failed or incomplete execution.
+    if(byId.has(id))duplicateIds.add(id);
     byId.set(id,row);
   }
   const sources=allSources().map(source=>{
     const receipt=byId.get(source.source_id);
     const status=upper(receipt&&receipt.status);
     const executed=receipt&&receipt.executed===true;
-    const pass=!!receipt && executed && ACCEPTED_STATUSES.has(status);
+    const duplicate=duplicateIds.has(source.source_id);
+    const pass=!!receipt && !duplicate && executed && ACCEPTED_STATUSES.has(status);
     return {
       source_id:source.source_id,
       source_tier:source.source_tier,
       required:source.required===true,
-      status:status||'MISSING',
+      status:duplicate?'DUPLICATE_RECEIPT':status||'MISSING',
       executed:!!executed,
       pass
     };
