@@ -2601,14 +2601,26 @@ function kkRestoreWebPackagePricesForEvent_(snapshot) {
   return restored;
 }
 
+// Web Package stock formulas derive the reservation day from immutable
+// EVT-YYYYMMDD identity, not the editable event date. Cross-day moves need
+// a coordinated identity migration, not an in-place date-only write.
+function kkAssertEventStockDayIdentity_(eventId, eventDate) {
+  const match = String(eventId || '').trim().match(/^EVT-(\d{8})-/);
+  if (!match || match[1] !== String(kkDateKey_(eventDate)))
+    throw new Error('EVENT_DATE_ID_MIGRATION_REQUIRED');
+}
+
 function kkApiUpdateEvent_(payload) {
   const lock = kkAcquireDocumentLock_('update event', 12000);
   try {
     const eventId = String(payload.event_id || '').trim();
     if (!eventId) throw new Error('event_id is required');
+    const rows = kkGetValues_(KK.events, 5, 1, 8);
+    const matches = rows.filter(r => String(r[0] || '').trim() === eventId);
+    if (matches.length > 1) throw new Error('EVENT_ID_AMBIGUOUS');
+    if (!matches.length) throw new Error('Event not found: ' + eventId);
     const priceSnapshot = kkSnapshotWebPackagePricesForEvent_(eventId);
     const sh = kkSheet_(KK.events);
-    const rows = kkGetValues_(KK.events, 5, 1, 8);
     for (let i = 0; i < rows.length; i++) {
       if (String(rows[i][0] || '').trim() !== eventId) continue;
       const rowNumber = i + 5;
@@ -2616,18 +2628,19 @@ function kkApiUpdateEvent_(payload) {
       if (payload.event_name) current[1] = String(payload.event_name).trim();
       if (payload.event_date) {
         const nextEventDate = kkDateObj_(payload.event_date);
+        if (!kkSameDate_(current[2], nextEventDate)) kkAssertEventStockDayIdentity_(eventId, nextEventDate);
         kkAssertEventDateChangeSafe_(eventId, nextEventDate);
         current[2] = nextEventDate;
       }
       if (payload.venue) current[3] = String(payload.venue).trim();
-      const posterInfo = payload.poster_url ? kkPosterForWrite_(payload.poster_url) : { url: '', drive_file_id: '', public_checked: false };
-      if (payload.poster_url) current[4] = posterInfo.url;
       if (payload.status) {
         const nextEventStatus = String(payload.status).toLowerCase().trim();
         if (!['open', 'closed'].includes(nextEventStatus)) throw new Error('status must be open or closed');
         current[5] = nextEventStatus;
       }
       const active = kkApiBoolOrBlank_(payload.active_on_web);
+      // Historical hidden drift can be retained for audit, but cannot reopen.
+      if (active === true) kkAssertEventStockDayIdentity_(eventId, current[2]);
       const currentActive = kkIsTrue_(current[6]);
       const ownerReopenIntent = String(payload.visibility_owner_intent || '').trim() === 'explicit_owner_reopen';
       const visibilityHistory = kkFindVisibilityHistory_(eventId, current[1], current[2], current[3]);
@@ -2639,6 +2652,9 @@ function kkApiUpdateEvent_(payload) {
       }
       if (active !== '') current[6] = active;
       if (payload.note !== undefined && payload.note !== '') current[7] = payload.note;
+      // Reject unsafe identity/date/visibility requests before poster writes.
+      const posterInfo = payload.poster_url ? kkPosterForWrite_(payload.poster_url) : { url: '', drive_file_id: '', public_checked: false };
+      if (payload.poster_url) current[4] = posterInfo.url;
       sh.getRange(rowNumber, 1, 1, 8).setValues([current]);
       let visibilityLockState = '';
       if (active === false) {

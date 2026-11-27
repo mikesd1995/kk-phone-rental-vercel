@@ -477,3 +477,39 @@ test('event date moves block cross-column collisions and unknown-date reservatio
   bookings[1]=row('EVT-OTHER','','PHONE-1','cancelled');
   assert.equal(c.kkAssertEventDateChangeSafe_('EVT-MOVE',day),true);
 });
+
+
+test('event update rejects duplicate identity, unsafe day changes and historical drift reopening before poster or row writes',()=>{
+  const f=fixture(),c=f.context;
+  const id='EVT-20270101-SYNTHETIC',day='2027-01-01',other='2027-01-02';
+  const event=[id,'SYNTHETIC',day,'VENUE','','open',true,''];
+  let rows=[event.slice()], snapshots=0,posters=0,writeAttempts=0,dateChecks=0;
+  c.kkGetValues_=()=>rows;
+  c.kkSnapshotWebPackagePricesForEvent_=()=>{snapshots++;return [];};
+  c.kkSheet_=()=>({getRange(){return {setValues(){writeAttempts++;throw Error('SYNTHETIC_WRITE_BOUNDARY');}};}});
+  c.kkDateObj_=v=>v;
+  c.kkDateKey_=v=>String(v).replace(/-/g,'');
+  c.kkSameDate_=(a,b)=>a===b;
+  c.kkAssertEventDateChangeSafe_=()=>{dateChecks++;return true;};
+  c.kkFindVisibilityHistory_=()=>null;
+  c.kkPosterForWrite_=()=>{posters++;return {url:'https://example.invalid/synthetic.png'};};
+  const poster_url='https://example.invalid/synthetic.png';
+  rows=[event.slice(),event.slice()];
+  assert.throws(()=>c.kkApiUpdateEvent_({event_id:id,poster_url}),/EVENT_ID_AMBIGUOUS/);
+  assert.equal(snapshots,0);
+  rows=[event.slice()];
+  assert.throws(()=>c.kkApiUpdateEvent_({event_id:id,event_date:other,poster_url}),/EVENT_DATE_ID_MIGRATION_REQUIRED/);
+  assert.equal(posters,0);assert.equal(writeAttempts,0);assert.equal(dateChecks,0);
+  rows[0][2]=other;rows[0][6]=false;rows[0][5]='closed';
+  assert.throws(()=>c.kkApiUpdateEvent_({event_id:id,active_on_web:true,visibility_owner_intent:'explicit_owner_reopen',poster_url}),/EVENT_DATE_ID_MIGRATION_REQUIRED/);
+  assert.equal(posters,0);assert.equal(writeAttempts,0);
+  // Historical hidden records may still be annotated without reopening stock.
+  assert.throws(()=>c.kkApiUpdateEvent_({event_id:id,note:'SYNTHETIC ANNOTATION'}),/SYNTHETIC_WRITE_BOUNDARY/);
+  assert.equal(posters,0);assert.equal(writeAttempts,1);
+  // Correcting back to the encoded date and true same-day edits proceed.
+  assert.throws(()=>c.kkApiUpdateEvent_({event_id:id,event_date:day,poster_url}),/SYNTHETIC_WRITE_BOUNDARY/);
+  rows=[event.slice()];
+  assert.throws(()=>c.kkApiUpdateEvent_({event_id:id,event_date:day}),/SYNTHETIC_WRITE_BOUNDARY/);
+  assert.equal(posters,1);assert.equal(writeAttempts,3);assert.equal(dateChecks,2);
+  assert.equal(f.mutex.held,false);assert.equal(f.counters.flush,0);
+});
