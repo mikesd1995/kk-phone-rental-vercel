@@ -1545,12 +1545,28 @@ function kkBookedAssetIdsForDate_(eventDate, excludeRow) {
   return booked;
 }
 
+// Physical asset IDs are global identities, independent of type or model.
+function kkAssetIdentityCounts_(rows) {
+  const counts = new Map();
+  for (const row of rows) {
+    const id = String(row[0] || '').trim();
+    if (id) counts.set(id, (counts.get(id) || 0) + 1);
+  }
+  return counts;
+}
+
+function kkAssetHeldByBooking_(booked, assetId) {
+  return ['phone', 'lens'].some(type =>
+    Object.prototype.hasOwnProperty.call(booked[type] || {}, assetId) && !!booked[type][assetId]);
+}
+
 function kkFindAvailableAsset_(assetType, modelGroup, eventDate) {
   const type = String(assetType || '').toLowerCase();
   const model = String(modelGroup || '').trim();
   if (!model || model === 'NONE') return '';
   const booked = kkBookedAssetIdsForDate_(eventDate);
   const rows = kkGetValues_(KK.assets, 5, 1, 7);
+  const counts = kkAssetIdentityCounts_(rows);
   for (const r of rows) {
     const assetId = String(r[0] || '').trim();
     const rowType = String(r[1] || '').toLowerCase().trim();
@@ -1559,7 +1575,8 @@ function kkFindAvailableAsset_(assetType, modelGroup, eventDate) {
     const rentable = kkAssetIsRentableAvailable_(status, r[6]);
     if (!assetId || rowType !== type || !kkAssetModelMatches_(type, rowModel, model) || !rentable) continue;
     if (!kkAssetDateEligible_(assetId,type,eventDate)) continue;
-    if (booked[type] && booked[type][assetId]) continue;
+    if (counts.get(assetId) !== 1) throw new Error('ASSET_ID_AMBIGUOUS');
+    if (kkAssetHeldByBooking_(booked, assetId)) continue;
     return assetId;
   }
   throw new Error(`No available ${type} asset for model ${model} on ${kkDateKey_(eventDate)}`);
@@ -1572,6 +1589,7 @@ function kkValidateManualAsset_(assetId, assetType, modelGroup, eventDate, exclu
   const model = String(modelGroup || '').trim();
   const rows = kkGetValues_(KK.assets, 5, 1, 7);
   const booked = kkBookedAssetIdsForDate_(eventDate, excludeRow);
+  if ((kkAssetIdentityCounts_(rows).get(assetId) || 0) > 1) throw new Error('ASSET_ID_AMBIGUOUS');
   let found = false;
 
   for (const r of rows) {
@@ -1585,7 +1603,7 @@ function kkValidateManualAsset_(assetId, assetType, modelGroup, eventDate, exclu
     if (rowType !== type) throw new Error(`${assetId} is not a ${type} asset`);
     if (!kkAssetModelMatches_(type, rowModel, model)) throw new Error(`${assetId} model is ${rowModel}, expected compatible ${model}`);
     if (!rentable || !kkAssetDateEligible_(assetId,type,eventDate)) throw new Error(`${assetId} is not rentable/available on the event date`);
-    if (booked[type] && booked[type][assetId]) throw new Error(`${assetId} is already booked on ${kkDateKey_(eventDate)}`);
+    if (kkAssetHeldByBooking_(booked, assetId)) throw new Error(`${assetId} is already booked on ${kkDateKey_(eventDate)}`);
     return;
   }
   if (!found) throw new Error(`Asset not found: ${assetId}`);
@@ -2972,8 +2990,9 @@ function kkAssertBookingAssetsNotDoubleBooked_(rowNumber, bookingRow, nextStatus
   if (!eventId) throw new Error('Booking missing event_id');
   const event = kkGetEventById_(eventId);
   const booked = kkBookedAssetIdsForDate_(event.event_date, rowNumber);
-  if (phoneId && booked.phone[phoneId]) throw new Error('Cannot reactivate booking: phone is already booked on this event date: ' + phoneId);
-  if (lensId && booked.lens[lensId]) throw new Error('Cannot reactivate booking: lens is already booked on this event date: ' + lensId);
+  if (phoneId && lensId && phoneId === lensId) throw new Error('BOOKING_ASSET_SHAPE_INVALID');
+  if (phoneId && kkAssetHeldByBooking_(booked, phoneId)) throw new Error('Cannot reactivate booking: phone is already booked on this event date: ' + phoneId);
+  if (lensId && kkAssetHeldByBooking_(booked, lensId)) throw new Error('Cannot reactivate booking: lens is already booked on this event date: ' + lensId);
 }
 
 

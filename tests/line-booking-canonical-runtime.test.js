@@ -377,3 +377,35 @@ test('booking price formula honors locked quote before historical price lookup w
   assert.match(formula,/SUMIFS\('09_Web_Packages'/);
   assert.ok(formula.indexOf('KK_QUOTE')<formula.indexOf('SUMIFS'));
 });
+
+
+test('physical asset allocation and manual validation reject ambiguous global IDs and cross-column holds',()=>{
+  const f=fixture(), c=f.context;
+  const day='2027-01-01', group='VIVO_X500_PRO_MAX';
+  const phone=['PHONE-101','phone',group,'','available','',true];
+  const next=['PHONE-102','phone',group,'','available','',true];
+  const wrong=[' PHONE-101 ','lens','ZEISS_400MM','','retired','',false];
+  let rows=[phone,next], holds={phone:{},lens:{}};
+  c.kkGetValues_=()=>rows;
+  c.kkBookedAssetIdsForDate_=()=>holds;
+  c.kkAssetDateEligible_=()=>true;
+  c.kkDateKey_=()=>20270101;
+  assert.equal(c.kkFindAvailableAsset_('phone',group,day),'PHONE-101');
+  assert.doesNotThrow(()=>c.kkValidateManualAsset_('PHONE-101','phone',group,day));
+  for(const duplicate of [phone.slice(),wrong]){
+    rows=[phone,next,duplicate];
+    assert.throws(()=>c.kkFindAvailableAsset_('phone',group,day),/ASSET_ID_AMBIGUOUS/);
+    assert.throws(()=>c.kkValidateManualAsset_('PHONE-101','phone',group,day),/ASSET_ID_AMBIGUOUS/);
+    assert.doesNotThrow(()=>c.kkValidateManualAsset_('PHONE-102','phone',group,day));
+  }
+  rows=[phone,next];holds={phone:{},lens:{'PHONE-101':true}};
+  assert.equal(c.kkFindAvailableAsset_('phone',group,day),'PHONE-102');
+  assert.throws(()=>c.kkValidateManualAsset_('PHONE-101','phone',group,day),/already booked/);
+  c.kkGetEventById_=()=>({event_date:day});
+  const row=Array(20).fill('');row[3]='EVT-SYNTHETIC';row[9]='PHONE-101';
+  assert.throws(()=>c.kkAssertBookingAssetsNotDoubleBooked_(5,row,'confirmed'),/already booked/);
+  holds={phone:{},lens:{}};row[10]='PHONE-101';
+  assert.throws(()=>c.kkAssertBookingAssetsNotDoubleBooked_(5,row,'confirmed'),/BOOKING_ASSET_SHAPE_INVALID/);
+  row[10]='';assert.doesNotThrow(()=>c.kkAssertBookingAssetsNotDoubleBooked_(5,row,'confirmed'));
+  assert.equal(f.counters.writes,0);
+});
