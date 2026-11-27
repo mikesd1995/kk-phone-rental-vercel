@@ -688,7 +688,7 @@ function kkIsTrue_(v) {
 }
 
 function kkActiveHold_(status) {
-  return ['pending', 'confirmed', 'prepared', 'picked_up'].includes(String(status || '').toLowerCase());
+  return ['pending', 'confirmed', 'prepared', 'picked_up'].includes(String(status || '').toLowerCase().trim());
 }
 
 function kkAssetIsRentableAvailable_(statusValue, rentableValue) {
@@ -1456,6 +1456,24 @@ function kkGetPackageSpecByType_(packageType) {
   throw new Error('No package master found for package_type: ' + wanted);
 }
 
+// Keep count-only pending/confirmed holds valid, but require physical assignments
+// before preparation/handover; extra or identical asset IDs are never valid.
+function kkAssertBookingAssetShape_(row, requireAssigned) {
+  const type = String(row[8] || '').toLowerCase().trim();
+  const phone = String(row[9] || '').trim(), lens = String(row[10] || '').trim();
+  const needsPhone = type === 'phone_only' || type === 'phone_lens_bundle';
+  const needsLens = type === 'lens_only' || type === 'phone_lens_bundle';
+  if ((!needsPhone && !needsLens) || (!needsPhone && phone) || (!needsLens && lens) ||
+      (phone && phone === lens) || (requireAssigned && ((needsPhone && !phone) || (needsLens && !lens))))
+    throw new Error('BOOKING_ASSET_SHAPE_INVALID');
+}
+
+function kkRequireBookingAssetGroup_(value) {
+  const group = String(value || '').trim();
+  if (!group || group.toUpperCase() === 'NONE') throw new Error('BOOKING_ASSET_SHAPE_INVALID');
+  return group;
+}
+
 function kkAssignMissingAssetsForPreparedBooking_(bookingRow, nextStatus, eventDate) {
   const status = String(nextStatus || '').toLowerCase().trim();
   // Pending/confirmed bookings reserve stock by package count. A physical Asset ID is
@@ -1463,6 +1481,7 @@ function kkAssignMissingAssetsForPreparedBooking_(bookingRow, nextStatus, eventD
   if (!['prepared', 'picked_up'].includes(status)) return bookingRow;
 
   const next = bookingRow;
+  kkAssertBookingAssetShape_(next, false);
   const packageType = String(next[8] || '').toLowerCase().trim();
   const needsPhone = packageType === 'phone_only' || packageType === 'phone_lens_bundle';
   const needsLens = packageType === 'lens_only' || packageType === 'phone_lens_bundle';
@@ -1472,18 +1491,32 @@ function kkAssignMissingAssetsForPreparedBooking_(bookingRow, nextStatus, eventD
   const spec=selectedTemplateId?kkGetPackageByTemplateId_(selectedTemplateId):kkGetPackageSpecByType_(packageType);
   if(String(spec.package_type||'').toLowerCase().trim()!==packageType)throw new Error('Booking template/type mismatch');
   if (needsPhone && !String(next[9] || '').trim()) {
-    next[9] = kkFindAvailableAsset_('phone', spec.model_group, eventDate);
+    next[9] = kkFindAvailableAsset_('phone', kkRequireBookingAssetGroup_(spec.model_group), eventDate);
   }
   if (needsLens && !String(next[10] || '').trim()) {
-    next[10] = kkFindAvailableAsset_('lens', spec.lens_group, eventDate);
+    next[10] = kkFindAvailableAsset_('lens', kkRequireBookingAssetGroup_(spec.lens_group), eventDate);
   }
+  kkAssertBookingAssetShape_(next, true);
   return next;
 }
 
 function kkEventDateMap_() {
-  const map = {};
-  kkGetValues_(KK.events, 5, 1, 3).forEach(r => { if (r[0]) map[String(r[0]).trim()] = r[2]; });
+  const map = Object.create(null);
+  kkGetValues_(KK.events, 5, 1, 3).forEach(r => {
+    const id = String(r[0] || '').trim();
+    if (!id) return;
+    // Duplicate event IDs cannot establish a reliable reservation date.
+    map[id] = Object.prototype.hasOwnProperty.call(map, id) ? null : r[2];
+  });
   return map;
+}
+
+// A physical hold with an orphaned/ambiguous/unparseable event date is
+// conservatively treated as a collision for that ID on any date.
+function kkPhysicalHoldMayOverlapDate_(storedDate, targetDate) {
+  if (!storedDate) return true;
+  try { return kkSameDate_(storedDate, targetDate); }
+  catch (_) { return true; }
 }
 
 function kkAssertEventDateChangeSafe_(eventId, nextEventDate) {
@@ -1494,7 +1527,7 @@ function kkAssertEventDateChangeSafe_(eventId, nextEventDate) {
 
   const eventDates = kkEventDateMap_();
   const bookings = kkGetValues_(KK.bookings, 5, 1, 20);
-  const moving = { phone: {}, lens: {} };
+  const moving = { phone: Object.create(null), lens: Object.create(null) };
 
   bookings.forEach(r => {
     const status = String(r[2] || '').toLowerCase().trim();
@@ -1509,15 +1542,15 @@ function kkAssertEventDateChangeSafe_(eventId, nextEventDate) {
   bookings.forEach(r => {
     const status = String(r[2] || '').toLowerCase().trim();
     const otherEventId = String(r[3] || '').trim();
-    if (!kkActiveHold_(status) || !otherEventId || otherEventId === eid) return;
+    if (!kkActiveHold_(status) || otherEventId === eid) return;
     const otherDate = eventDates[otherEventId];
-    if (!otherDate || !kkSameDate_(otherDate, nextEventDate)) return;
+    if (!kkPhysicalHoldMayOverlapDate_(otherDate, nextEventDate)) return;
     const phoneId = String(r[9] || '').trim();
     const lensId = String(r[10] || '').trim();
-    if (phoneId && moving.phone[phoneId]) {
+    if (phoneId && kkAssetHeldByBooking_(moving, phoneId)) {
       throw new Error('EVENT_DATE_ASSET_COLLISION: ' + phoneId + ' is already reserved by ' + otherEventId + ' on ' + kkDateKey_(nextEventDate));
     }
-    if (lensId && moving.lens[lensId]) {
+    if (lensId && kkAssetHeldByBooking_(moving, lensId)) {
       throw new Error('EVENT_DATE_ASSET_COLLISION: ' + lensId + ' is already reserved by ' + otherEventId + ' on ' + kkDateKey_(nextEventDate));
     }
   });
@@ -1527,7 +1560,7 @@ function kkAssertEventDateChangeSafe_(eventId, nextEventDate) {
 
 function kkBookedAssetIdsForDate_(eventDate, excludeRow) {
   const eventDates = kkEventDateMap_();
-  const booked = { phone: {}, lens: {} };
+  const booked = { phone: Object.create(null), lens: Object.create(null) };
   const skipRow = Number(excludeRow || 0);
   const rows = kkGetValues_(KK.bookings, 5, 3, 9);
   rows.forEach((r, i) => {
@@ -1538,7 +1571,7 @@ function kkBookedAssetIdsForDate_(eventDate, excludeRow) {
     const phoneId = r[7];
     const lensId = r[8];
     if (!kkActiveHold_(status)) return;
-    if (!eventDates[String(eventId).trim()] || !kkSameDate_(eventDates[String(eventId).trim()], eventDate)) return;
+    if (!kkPhysicalHoldMayOverlapDate_(eventDates[String(eventId || '').trim()], eventDate)) return;
     if (phoneId) booked.phone[String(phoneId).trim()] = true;
     if (lensId) booked.lens[String(lensId).trim()] = true;
   });
@@ -4293,8 +4326,9 @@ function kkApiUpdateBooking_(payload) {
     // still have blank physical Asset IDs. When admin clicks “เตรียมแล้ว” (prepared)
     // or “รับแล้ว” (picked_up), assign the missing phone/lens automatically.
     const selectedTemplateId=kkBookingTemplateIdFromNote_(next[19]);
-    const selectedSpec=selectedTemplateId?kkGetPackageByTemplateId_(selectedTemplateId):null;
+    let selectedSpec=selectedTemplateId?kkGetPackageByTemplateId_(selectedTemplateId):null;
     if(selectedSpec&&String(selectedSpec.package_type||'').toLowerCase().trim()!==String(next[8]||'').toLowerCase().trim())throw new Error('Booking template/type mismatch');
+    if (kkActiveHold_(nextStatus)) kkAssertBookingAssetShape_(next, false);
     kkAssignMissingAssetsForPreparedBooking_(next, nextStatus, event.event_date);
 
     if (kkActiveHold_(nextStatus)) {
@@ -4306,8 +4340,13 @@ function kkApiUpdateBooking_(payload) {
       const reactivating = !kkActiveHold_(currentStatus);
       const phoneChanged = String(next[9] || '').trim() !== String(current[9] || '').trim();
       const lensChanged = String(next[10] || '').trim() !== String(current[10] || '').trim();
-      if (next[9] && (reactivating || phoneChanged)) kkValidateManualAsset_(next[9], 'phone', selectedSpec?selectedSpec.model_group:'', event.event_date, row);
-      if (next[10] && (reactivating || lensChanged)) kkValidateManualAsset_(next[10], 'lens', selectedSpec?selectedSpec.lens_group:'', event.event_date, row);
+      const validatePhone = !!String(next[9] || '').trim() && (reactivating || phoneChanged);
+      const validateLens = !!String(next[10] || '').trim() && (reactivating || lensChanged);
+      // Do not use an empty model as a wildcard for legacy bookings when
+      // assigning or reactivating assets. Ambiguous legacy rows need review.
+      if ((validatePhone || validateLens) && !selectedSpec) selectedSpec = kkGetPackageSpecByType_(next[8]);
+      if (validatePhone) kkValidateManualAsset_(next[9], 'phone', kkRequireBookingAssetGroup_(selectedSpec.model_group), event.event_date, row);
+      if (validateLens) kkValidateManualAsset_(next[10], 'lens', kkRequireBookingAssetGroup_(selectedSpec.lens_group), event.event_date, row);
     }
     kkAssertBookingAssetsNotDoubleBooked_(row, next, nextStatus);
 

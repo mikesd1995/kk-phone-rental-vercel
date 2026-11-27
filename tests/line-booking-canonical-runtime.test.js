@@ -409,3 +409,71 @@ test('physical asset allocation and manual validation reject ambiguous global ID
   row[10]='';assert.doesNotThrow(()=>c.kkAssertBookingAssetsNotDoubleBooked_(5,row,'confirmed'));
   assert.equal(f.counters.writes,0);
 });
+
+
+test('manual booking update rejects wrong shape and legacy wildcard before canonical row write',()=>{
+  const f=fixture(), c=f.context;
+  const spec={package_type:'phone_only',model_group:'VIVO_X500_PRO_MAX',lens_group:'NONE'};
+  const row=Array(20).fill('');
+  row[0]='BKG-SYNTHETIC';row[2]='confirmed';row[3]='EVT-SYNTHETIC';row[4]='SYNTHETIC';
+  row[8]='phone_only';row[13]='unpaid';row[14]=0;
+  row[19]=c.kkBookingNoteWithTemplate_('synthetic','TPL-X500-PHONE',790);
+  let current=row.slice(), writes=0, allocations=0, validations=[];
+  c.kkFindBookingRow_=()=>5;
+  c.kkSheet_=()=>({getRange(){return {getValues:()=>[current.slice()],setValues(v){writes++;current=v[0].slice();}};}});
+  c.kkGetEventById_=()=>({event_date:'2027-01-01'});
+  c.kkGetPackageByTemplateId_=()=>spec;
+  c.kkGetPackageSpecByType_=()=>{throw Error('BOOKING_TEMPLATE_OWNER_REVIEW_REQUIRED');};
+  c.kkFindAvailableAsset_=()=>{allocations++;return 'PHONE-101';};
+  c.kkValidateManualAsset_=(id,type,group)=>validations.push([id,type,group]);
+  c.kkBookedAssetIdsForDate_=()=>({phone:{},lens:{}});
+  assert.throws(()=>c.kkApiUpdateBooking_({lens_asset_id:'LENS-101'}),/BOOKING_ASSET_SHAPE_INVALID/);
+  assert.equal(writes,0);assert.equal(allocations,0);assert.equal(f.mutex.held,false);
+  current[19]='legacy';
+  assert.throws(()=>c.kkApiUpdateBooking_({phone_asset_id:'PHONE-101'}),/TEMPLATE_OWNER_REVIEW_REQUIRED/);
+  assert.equal(writes,0);assert.equal(validations.length,0);
+  current=row.slice();
+  const result=c.kkApiUpdateBooking_({booking_status:'prepared'});
+  assert.equal(result.phone_asset_id,'PHONE-101');assert.equal(writes,1);
+  assert.deepEqual(validations,[['PHONE-101','phone','VIVO_X500_PRO_MAX']]);
+  c.kkApiUpdateBooking_({customer_name:'SYNTHETIC UPDATED'});
+  assert.equal(writes,2);assert.equal(validations.length,1);
+  current=row.slice();c.kkFindAvailableAsset_=()=> '';
+  assert.throws(()=>c.kkApiUpdateBooking_({booking_status:'prepared'}),/BOOKING_ASSET_SHAPE_INVALID/);
+  assert.equal(writes,2);assert.equal(f.mutex.held,false);
+});
+
+test('physical holds with ambiguous or orphan event dates reserve only their IDs across dates',()=>{
+  const f=fixture(),c=f.context;
+  const day='2027-01-01',other='2027-01-02';
+  let events=[['EVT-MOVE','',other],['EVT-OTHER','',day],['EVT-DUP','',other],[' EVT-DUP ','',day],['EVT-BAD','','invalid']];
+  const make=(status,event,phone='',lens='')=>[status,event,'','','','','',phone,lens];
+  let bookings=[make('confirmed ','EVT-OTHER','PHONE-1'),make('pending','EVT-DUP','','PHONE-2'),make('prepared','MISSING','PHONE-3'),make('confirmed','EVT-BAD','PHONE-4'),make('cancelled','MISSING','PHONE-5'),make('confirmed','EVT-MOVE','PHONE-6')];
+  c.kkGetValues_=(name)=>name==='01_Events'?events:bookings;
+  c.kkSameDate_=(a,b)=>{if(a==='invalid')throw Error('bad date');return a===b;};
+  let held=c.kkBookedAssetIdsForDate_(day);
+  for(const id of ['PHONE-1','PHONE-2','PHONE-3','PHONE-4'])assert.equal(c.kkAssetHeldByBooking_(held,id),true,id);
+  for(const id of ['PHONE-5','PHONE-6','PHONE-7'])assert.equal(c.kkAssetHeldByBooking_(held,id),false,id);
+  held=c.kkBookedAssetIdsForDate_(day,5);
+  assert.equal(c.kkAssetHeldByBooking_(held,'PHONE-1'),false);
+  assert.equal(f.counters.writes,0);
+});
+
+test('event date moves block cross-column collisions and unknown-date reservations',()=>{
+  const {context:c}=fixture();
+  const day='2027-01-01',other='2027-01-02';
+  c.kkGetEventById_=()=>({event_date:other});
+  c.kkSameDate_=(a,b)=>a===b;
+  c.kkDateKey_=()=>20270101;
+  const events=[['EVT-MOVE','',other],['EVT-OTHER','',day]];
+  const row=(event,phone,lens,status='confirmed')=>{const r=Array(20).fill('');r[2]=status;r[3]=event;r[9]=phone;r[10]=lens;return r;};
+  let bookings=[row('EVT-MOVE','PHONE-1',''),row('EVT-OTHER','','PHONE-1')];
+  c.kkGetValues_=name=>name==='01_Events'?events:bookings;
+  assert.throws(()=>c.kkAssertEventDateChangeSafe_('EVT-MOVE',day),/EVENT_DATE_ASSET_COLLISION/);
+  bookings[1]=row('ORPHAN','','PHONE-1');
+  assert.throws(()=>c.kkAssertEventDateChangeSafe_('EVT-MOVE',day),/EVENT_DATE_ASSET_COLLISION/);
+  bookings[1]=row('ORPHAN','','PHONE-2');
+  assert.equal(c.kkAssertEventDateChangeSafe_('EVT-MOVE',day),true);
+  bookings[1]=row('EVT-OTHER','','PHONE-1','cancelled');
+  assert.equal(c.kkAssertEventDateChangeSafe_('EVT-MOVE',day),true);
+});
