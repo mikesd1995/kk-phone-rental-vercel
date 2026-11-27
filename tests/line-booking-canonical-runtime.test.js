@@ -318,6 +318,58 @@ test('manual booking replay requires unique request marker and matching booking 
   assert.equal(f.mutex.held,false);
 });
 
+test('master event and package identity lookups reject duplicate and blank IDs',()=>{
+  const f=fixture(), c=f.context;
+  const event=['EVT-SYNTHETIC','STAGING','2027-01-01','SYNTHETIC','','open',true,'',''];
+  const pkg=['TPL-X500-PHONE','VIVO_X500_PRO_MAX','phone_only','NONE',790,'SYNTHETIC','',true,'',''];
+  for(const [lookup,row,id,error,missing] of [
+    ['kkGetEventById_',event,event[0],/EVENT_ID_AMBIGUOUS/,/Event not found/],
+    ['kkGetPackageByTemplateId_',pkg,pkg[0],/BOOKING_TEMPLATE_AMBIGUOUS/,/Template\/package not found/]
+  ]){
+    c.kkGetValues_=()=>[row];
+    assert.ok(c[lookup](id));
+    c.kkGetValues_=()=>[row,row.slice()];
+    assert.throws(()=>c[lookup](id),error);
+    c.kkGetValues_=()=>[row,['']];
+    assert.throws(()=>c[lookup](''),missing);
+    assert.throws(()=>c[lookup]('UNKNOWN'),missing);
+  }
+  assert.equal(f.counters.writes,0);
+});
+
+test('manual booking rejects incompatible physical asset shape before reserving or writing',()=>{
+  const f=fixture({props:{KK_LENS_COMPAT_PATCH_VERSION:LENS_VERSION}}), c=f.context;
+  const event='EVT-SYNTHETIC', template='TPL-X500-PHONE';
+  const payload={event_id:event,template_id:template,customer_name:'SYNTHETIC'};
+  const phone={active:true,package_type:'phone_only',model_group:'VIVO_X500_PRO_MAX',lens_group:'NONE'};
+  const lens={active:true,package_type:'lens_only',model_group:'NONE',lens_group:'ZEISS_235X'};
+  const bundle={...phone,package_type:'phone_lens_bundle',lens_group:'ZEISS_235X'};
+  c.kkGetEventById_=()=>({event_date:'2027-01-01',status:'open',active:true});
+  c.kkIsPastEventDate_=()=>false;
+  c.kkAssertWebPackageBookable_=()=>({price:790,available_count:2});
+  let allocations=0,validations=0;
+  c.kkValidateManualAsset_=()=>{validations++;};
+  c.kkFindAvailableAsset_=type=>{allocations++;return type==='phone'?'PHONE-1':'LENS-1';};
+  c.kkFirstEmptyRow_=()=>{throw Error('SYNTHETIC_WRITE_BOUNDARY');};
+  for(const [spec,patch] of [[phone,{lens_asset_id:'LENS-1'}],[lens,{phone_asset_id:'PHONE-1'}],[{...phone,model_group:'NONE'},{}],[{...bundle,lens_group:''},{}],[{...phone,package_type:'unknown'},{}]]){
+    c.kkGetPackageByTemplateId_=()=>spec;
+    assert.throws(()=>c.kkApiCreateBooking_({...payload,...patch}),/BOOKING_ASSET_SHAPE_INVALID/);
+    assert.equal(f.mutex.held,false);
+  }
+  assert.equal(allocations,0);assert.equal(validations,0);
+  for(const spec of [phone,lens,bundle]){
+    c.kkGetPackageByTemplateId_=()=>spec;
+    assert.throws(()=>c.kkApiCreateBooking_(payload),/SYNTHETIC_WRITE_BOUNDARY/);
+  }
+  c.kkGetPackageByTemplateId_=()=>phone;
+  c.kkFindAvailableAsset_=()=> '';
+  assert.throws(()=>c.kkApiCreateBooking_(payload),/BOOKING_ASSET_SHAPE_INVALID/);
+  c.kkGetPackageByTemplateId_=()=>bundle;
+  c.kkFindAvailableAsset_=()=> 'DUPLICATE-ID';
+  assert.throws(()=>c.kkApiCreateBooking_(payload),/BOOKING_ASSET_SHAPE_INVALID/);
+  assert.equal(f.counters.writes,0);assert.equal(f.counters.flush,0);assert.equal(f.mutex.held,false);
+});
+
 test('booking price formula honors locked quote before historical price lookup without writing live formulas',()=>{
   const {context:c}=fixture();
   const formula=c.kkFormulaBookingPrice_(47);

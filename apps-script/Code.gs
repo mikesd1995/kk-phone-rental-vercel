@@ -1413,23 +1413,23 @@ function kkRepairLensCompatibilityPatch() {
 }
 
 function kkGetEventById_(eventId) {
+  const id = String(eventId || '').trim();
   const rows = kkGetValues_(KK.events, 5, 1, 9);
-  for (const r of rows) {
-    if (String(r[0]).trim() === String(eventId).trim()) {
-      return { event_id: r[0], event_name: r[1], event_date: r[2], venue: r[3], status: r[5], active: kkIsTrue_(r[6]), data_health: r[8] };
-    }
-  }
-  throw new Error('Event not found: ' + eventId);
+  const matches = id ? rows.filter(r => String(r[0] || '').trim() === id) : [];
+  if (matches.length > 1) throw new Error('EVENT_ID_AMBIGUOUS');
+  if (!matches.length) throw new Error('Event not found: ' + eventId);
+  const r = matches[0];
+  return { event_id: r[0], event_name: r[1], event_date: r[2], venue: r[3], status: r[5], active: kkIsTrue_(r[6]), data_health: r[8] };
 }
 
 function kkGetPackageByTemplateId_(templateId) {
+  const id = String(templateId || '').trim();
   const rows = kkGetValues_(KK.packages, 5, 1, 10);
-  for (const r of rows) {
-    if (String(r[0]).trim() === String(templateId).trim()) {
-      return { template_id: r[0], model_group: r[1], package_type: r[2], lens_group: r[3], standard_price: r[4], display_name: r[5], active: kkIsTrue_(r[7]), use_case: r[9] || '' };
-    }
-  }
-  throw new Error('Template/package not found: ' + templateId);
+  const matches = id ? rows.filter(r => String(r[0] || '').trim() === id) : [];
+  if (matches.length > 1) throw new Error('BOOKING_TEMPLATE_AMBIGUOUS');
+  if (!matches.length) throw new Error('Template/package not found: ' + templateId);
+  const r = matches[0];
+  return { template_id: r[0], model_group: r[1], package_type: r[2], lens_group: r[3], standard_price: r[4], display_name: r[5], active: kkIsTrue_(r[7]), use_case: r[9] || '' };
 }
 
 function kkGetPackageSpecByType_(packageType) {
@@ -4206,10 +4206,18 @@ function kkApiCreateBooking_(payload) {
     kkAssertWebPackageBookable_(eventId, templateId);
 
     const pkgType = String(pkg.package_type || '').toLowerCase().trim();
+    const needsPhone = pkgType === 'phone_only' || pkgType === 'phone_lens_bundle';
+    const needsLens = pkgType === 'lens_only' || pkgType === 'phone_lens_bundle';
+    const validGroup = value => !!String(value || '').trim() && String(value).trim().toUpperCase() !== 'NONE';
+    if ((!needsPhone && !needsLens) || (needsPhone && !validGroup(pkg.model_group)) ||
+        (needsLens && !validGroup(pkg.lens_group)) || (!needsPhone && phoneAssetId) || (!needsLens && lensAssetId))
+      throw new Error('BOOKING_ASSET_SHAPE_INVALID');
     if (phoneAssetId) kkValidateManualAsset_(phoneAssetId, 'phone', pkg.model_group, event.event_date);
     if (lensAssetId) kkValidateManualAsset_(lensAssetId, 'lens', pkg.lens_group, event.event_date);
     if ((pkgType === 'phone_only' || pkgType === 'phone_lens_bundle') && !phoneAssetId) phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date);
     if ((pkgType === 'lens_only' || pkgType === 'phone_lens_bundle') && !lensAssetId) lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date);
+    if ((needsPhone && !phoneAssetId) || (needsLens && !lensAssetId) || (phoneAssetId && phoneAssetId === lensAssetId))
+      throw new Error('BOOKING_ASSET_SHAPE_INVALID');
 
     const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
     const bookingId = kkGenerateUniqueBookingId_(event.event_date);
