@@ -288,6 +288,36 @@ test('shared API numeric parser rejects nonfinite and nonscalar payment or price
   }
 });
 
+test('manual booking replay requires unique request marker and matching booking identity before returning success',()=>{
+  const f=fixture(), c=f.context;
+  const event='EVT-SYNTHETIC', template='TPL-X500-PHONE', request='manual-synthetic-0001';
+  const row=Array(20).fill('');
+  row[0]='BOOK-SYNTHETIC'; row[2]='completed'; row[3]=event;
+  row[4]='SYNTHETIC'; row[5]='synthetic-contact'; row[6]='0000000000';
+  row[19]=c.kkBookingNoteWithTemplate_(c.kkBookingNoteWithRequest_('',request),template,0);
+  const payload={request_id:request,event_id:event,template_id:template,customer_name:'SYNTHETIC',customer_contact:'synthetic-contact',customer_phone:'0000000000'};
+  c.kkGetValues_=()=>[row];
+  assert.equal(c.kkApiCreateBooking_(payload).idempotent_replay,true);
+  assert.equal(c.kkApiCreateBooking_({...payload,template_id:event+'-'+template}).booking_id,'BOOK-SYNTHETIC');
+  for(const patch of [{event_id:'OTHER'},{template_id:'TPL-X300-PHONE'},{customer_name:'OTHER'},{customer_contact:'OTHER'},{customer_phone:'OTHER'},{event_id:''},{template_id:''},{customer_name:''}]){
+    assert.throws(()=>c.kkApiCreateBooking_({...payload,...patch}),/BOOKING_REQUEST_IDENTITY_CONFLICT/);
+    assert.equal(f.mutex.held,false);
+  }
+  const legacy=row.slice();legacy[19]=c.kkBookingNoteWithRequest_('',request);
+  c.kkGetValues_=()=>[legacy];
+  assert.throws(()=>c.kkApiCreateBooking_(payload),/BOOKING_REQUEST_IDENTITY_CONFLICT/);
+  c.kkGetValues_=()=>[row,row.slice()];
+  assert.throws(()=>c.kkApiCreateBooking_(payload),/BOOKING_REQUEST_AMBIGUOUS/);
+  for(const marker of [request,'manual-synthetic-0002']){
+    const bad=row.slice();bad[19]+=' [KK_REQ:'+marker+']';
+    c.kkGetValues_=()=>[bad];
+    assert.throws(()=>c.kkApiCreateBooking_(payload),/BOOKING_REQUEST_AMBIGUOUS/);
+  }
+  assert.equal(f.counters.writes,0);
+  assert.equal(f.counters.flush,0);
+  assert.equal(f.mutex.held,false);
+});
+
 test('booking price formula honors locked quote before historical price lookup without writing live formulas',()=>{
   const {context:c}=fixture();
   const formula=c.kkFormulaBookingPrice_(47);

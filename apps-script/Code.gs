@@ -3045,12 +3045,35 @@ function kkFindBookingByRequestId_(requestId) {
   const marker = kkBookingRequestMarker_(requestId);
   if (!marker) return null;
   const rows = kkGetValues_(KK.bookings, 5, 1, 20);
+  let match = null;
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i] || [];
-    if (String(row[19] || '').indexOf(marker) < 0) continue;
-    return { row_number: i + 5, row: row };
+    const note = String(row[19] || '');
+    if (note.indexOf(marker) < 0) continue;
+    const markers = Array.from(note.matchAll(/\[KK_REQ:([A-Za-z0-9._:-]{8,128})\]/g));
+    if (match || markers.length !== 1 || markers[0][1] !== requestId)
+      throw new Error('BOOKING_REQUEST_AMBIGUOUS');
+    match = { row_number: i + 5, row: row };
   }
-  return null;
+  return match;
+}
+
+function kkAssertManualBookingReplayIdentity_(row, payload) {
+  const eventId = String(payload.event_id || '').trim();
+  const templateId = kkNormalizeTemplateIdForEvent_(eventId, payload.template_id);
+  const storedTemplate = kkBookingTemplateIdFromNote_(row[19]);
+  const name = String(payload.customer_name || '').trim();
+  if (!eventId || !templateId || !storedTemplate || !name ||
+      String(row[3] || '').trim() !== eventId || storedTemplate !== templateId ||
+      String(row[4] || '').trim() !== name)
+    throw new Error('BOOKING_REQUEST_IDENTITY_CONFLICT');
+  // Contact fields are optional, but a provided identity must not contradict
+  // the stored booking. Never compare mutable status, payment or asset state.
+  for (const [key,index] of [['customer_contact',5],['customer_phone',6]]) {
+    const value = String(payload[key] || '').trim();
+    if (value && String(row[index] || '').trim() !== value)
+      throw new Error('BOOKING_REQUEST_IDENTITY_CONFLICT');
+  }
 }
 
 function kkBookingIdValues_() {
@@ -4144,7 +4167,10 @@ function kkApiCreateBooking_(payload) {
   try {
     const requestId = kkBookingRequestId_(payload);
     const prior = requestId ? kkFindBookingByRequestId_(requestId) : null;
-    if (prior) return kkBookingCreateResult_(prior.row_number, prior.row, true);
+    if (prior) {
+      kkAssertManualBookingReplayIdentity_(prior.row, payload);
+      return kkBookingCreateResult_(prior.row_number, prior.row, true);
+    }
 
     const eventId = String(payload.event_id || '').trim();
     let templateId = String(payload.template_id || '').trim();
