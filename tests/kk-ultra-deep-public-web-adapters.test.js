@@ -390,3 +390,14 @@ test('DDGS process cannot disguise empty or malformed stdout as a successful emp
  }
  assert.deepEqual(await A.execFileJson('synthetic',[],{execFileImpl:(cmd,args,opts,cb)=>cb(null,'[]','')}),[]);
 });
+
+test('required direct source rejects wrong redirect, login, malformed URL and failed canonical read despite good seeds',async()=>{
+ const task={direct_url:'https://official.example/calendar',seed_urls:['https://mirror.example/event'],required:true};
+ let calls=[];const html=(body,status=200,headers={})=>new Response(body,{status,headers:{'content-type':'text/html',...headers}});
+ for(const answer of [()=>html('denied',403),()=>html('<title>Log in</title>'),()=>html('',302,{location:'https://mirror.example/event'}),()=>html('',302,{location:'/login'})]){
+  calls=[];await assert.rejects(A.officialDirect(task,{fetchFn:async url=>{calls.push(url);return answer();}}));assert.deepEqual(calls,[task.direct_url]);
+ }
+ await assert.rejects(A.officialDirect({...task,direct_url:'http://official.example/'},{fetchFn:async()=>{throw Error('unexpected fetch');}}),/OFFICIAL_DIRECT_INVALID_URL/);
+ assert.deepEqual(await A.officialDirect(task,{fetchFn:async()=>html('<title>Organizer Calendar</title>')}),[]);
+ const rows=await A.officialDirect(task,{fetchFn:async()=>html('<title>Real Event</title><dt>Event Date</dt><dd>20 December 2026</dd>')});assert.equal(rows[0].event_date,'2026-12-20');
+});

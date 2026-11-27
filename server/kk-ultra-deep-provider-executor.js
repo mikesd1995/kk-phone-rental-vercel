@@ -37,12 +37,14 @@ function taskConcurrency(options={}){
 async function executeGapTask(task={},options={}){
   const providers=(Array.isArray(task.providers)?task.providers:[]).map(upper).filter(p=>ALLOWED_PROVIDERS.has(p));
   const attempts=[];
-  const exhaust=task.stop_condition==='EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS';
+  const namedReceipt=!!task.direct_url||task.source_id==='smart-iqiyi-thailand-platform';
+  const exhaust=namedReceipt||task.stop_condition==='EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS';
   const collected=[],seen=new Set();let firstProvider=null,dropped=0,uninspected=0;
   for(const provider of providers){
     const fn=options.providers&&options.providers[provider];
     if(typeof fn!=='function'){attempts.push({provider,status:'NOT_BOUND'});continue;}
-    for(const query of queryVariants(task)){
+    const variants=provider==='OFFICIAL_DIRECT'&&task.direct_url?[text(task.query)||null]:queryVariants(task);
+    for(const query of variants){
       const callTask=query===null?{...task,provider}:{...task,provider,query};
       try{
         const raw=await fn(callTask);
@@ -66,6 +68,9 @@ async function executeGapTask(task={},options={}){
         }
       }catch(error){attempts.push({provider,status:'PROVIDER_ERROR',error_class:text(error&&(error.code||error.name))||'ERROR',query});}
     }
+    // Inspect every bounded variant for the first indexed provider with
+    // evidence. Do not run all fallback providers after a usable receipt.
+    if(namedReceipt&&provider!=='OFFICIAL_DIRECT'&&attempts.some(a=>a.provider===provider&&a.status==='EVIDENCE_FOUND'))break;
   }
   if(exhaust)return {version:VERSION,status:collected.length?'EVIDENCE_FOUND':'GAP_UNRESOLVED',provider:firstProvider,source_tier:upper(task.source_tier),candidates:collected,attempts,candidate_truncated:dropped>0||uninspected>0,dropped_unique_candidate_count:dropped,dropped_uninspected_row_count:uninspected,authoritative:false,verifier_required:true,production_writes:0};
   return {version:VERSION,status:'GAP_UNRESOLVED',provider:null,source_tier:upper(task.source_tier),candidates:[],attempts,candidate_truncated:uninspected>0,dropped_unique_candidate_count:0,dropped_uninspected_row_count:uninspected,authoritative:false,verifier_required:true,production_writes:0};

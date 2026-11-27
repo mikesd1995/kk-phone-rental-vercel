@@ -49,7 +49,7 @@ function build(input={}){
   gap_tasks.push({source_tier:'FANDOM_GRAPH',source_id:'fandom-'+fandom.toLowerCase().replace(/[^a-z0-9ก-๙]+/gi,'-').slice(0,60),query:fandom+' fanmeeting fancon fansign brand event birthday Bangkok '+range.month,query_variants:[fandom+' เช่ามือถือ กรุงเทพ '+range.month,fandom+' lucky fan meet greet กรุงเทพ '+range.month,fandom+' added show sold out Bangkok '+range.month],providers:['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','EXA'],stop_condition:'EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS',evidence_required:true,date_window:{start:range.start_date,end:range.end_date}});
  }
   const universe=SourceRegistry.buildUniversePlan({month:range.month,location});
- for(const task of universe.tasks)gap_tasks.push({source_tier:task.source_tier,source_id:task.source_id,query:task.query,query_variants:task.query_variants,providers:task.providers,stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:task.required,date_window:{start:range.start_date,end:range.end_date}});
+ for(const task of universe.tasks)gap_tasks.push({source_tier:task.source_tier,source_id:task.source_id,query:task.query,query_variants:task.query_variants,providers:task.providers,...(task.direct_url?{direct_url:task.direct_url}:{}),stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:task.required,date_window:{start:range.start_date,end:range.end_date}});
  return {version:VERSION,mode:'ULTRA_DEEP_MONTH_LONG_TAIL',range,location,gap_tasks,source_universe_version:universe.version,source_universe_task_count:universe.tasks.length,required_tiers:Object.keys(TIER_TERMS),learned_query_count:learned.length,hot_fandom_query_count:hotFandoms.length,production_writes:0,authoritative:false,verifier_required:true};
 }
 // Critical commercial intents must be independent tasks: a first usable hit
@@ -77,6 +77,16 @@ function buildOperational(input={}){
   });
   }
  }
+ // Explicit bounded source-specific lane: cross-month registration can
+ // precede a future event. Direct access is required for the exhaustive
+ // audit; daily operation requires indexed coverage without certifying it.
+ const labels=SourceRegistry.monthLabels(range.month),next=SourceRegistry.monthLabels(leadTimeEnd(range).slice(0,7));
+ gap_tasks.push({source_tier:'ARTIST_AGENCY',source_id:'smart-iqiyi-thailand-platform',
+  query:'site:x.com/iQIYI_Thailand iJOY FAN ZONE registration '+labels.en,
+  query_variants:['site:x.com/iQIYI_Thailand iJOY ลงทะเบียน แฟนโซน '+labels.th,'site:x.com/iQIYI_Thailand iJOY FAN ZONE '+next.en,'iQIYI Thailand artist showcase ICONSIAM '+next.en],
+  providers:['BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA'],
+  stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:true,campaign_lead_time:true,
+  date_window:{start:range.start_date,end:leadTimeEnd(range)}});
  for(const fandom of hotFandoms){
   gap_tasks.push({
    source_tier:'FANDOM_GRAPH',source_id:'smart-fandom-'+fandom.toLowerCase().replace(/[^a-z0-9ก-๙]+/gi,'-').slice(0,50),

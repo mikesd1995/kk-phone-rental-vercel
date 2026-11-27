@@ -146,3 +146,10 @@ test('credential-bearing injected provider URLs cannot become candidate evidence
  assert.equal(r.candidates.length,0);
  assert.equal(r.status,'GAP_UNRESOLVED');
 });
+
+test('required direct source fetched once, all bounded indexed variants run, fallback stops after evidence',async()=>{
+ const task={source_id:'iqiyi-thailand-platform',direct_url:'https://x.com/iQIYI_Thailand',query:'one',query_variants:['two'],providers:['OFFICIAL_DIRECT','BING_RSS','DDG_HTML'],stop_condition:'EXECUTE_AND_RECORD_RECEIPT'};
+ const calls=[];const provider=async t=>{calls.push(t.provider+':'+t.query);return t.provider==='BING_RSS'&&t.query==='two'?[{title:'Event',event_date:'2026-12-20',source_url:'https://official.example/event'}]:[];};
+ const r=await Exec.executeGapTask(task,{providers:{OFFICIAL_DIRECT:provider,BING_RSS:provider,DDG_HTML:provider}});
+ assert.deepEqual(calls,['OFFICIAL_DIRECT:one','BING_RSS:one','BING_RSS:two']);assert.equal(r.candidates.length,1);assert.equal(r.candidate_truncated,false);
+});

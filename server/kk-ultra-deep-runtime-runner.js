@@ -44,11 +44,13 @@ function sourceUniverseReceipts(plan={},execution={}){
     const result=results[i]||{};
     const attempts=Array.isArray(result.attempts)?result.attempts:[];
     const truncated=result.candidate_truncated===true||Number(result.dropped_unique_candidate_count)>0||Number(result.dropped_uninspected_row_count)>0;
-    const executed=attempts.some(attemptExecuted)&&!truncated;
+    const searched=attempts.some(attemptExecuted);
+    const directVerified=!task.direct_url||attempts.some(a=>text(a.provider).toUpperCase()==='OFFICIAL_DIRECT'&&['EVIDENCE_FOUND','NO_EVIDENCE'].includes(text(a.status).toUpperCase()));
+    const executed=searched&&directVerified&&!truncated;
     receipts.push({
       source_id:task.source_id,
       executed,
-      status:truncated?'TRUNCATED':executed?(result.status==='EVIDENCE_FOUND'?'EVIDENCE_FOUND':'NO_EVIDENCE'):'NOT_BOUND',
+      status:truncated?'TRUNCATED':!directVerified?'DIRECT_SOURCE_NOT_VERIFIED':executed?(result.status==='EVIDENCE_FOUND'?'EVIDENCE_FOUND':'NO_EVIDENCE'):'NOT_BOUND',
       provider:result.provider||null
     });
   }

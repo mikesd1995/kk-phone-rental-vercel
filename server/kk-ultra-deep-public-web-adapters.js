@@ -156,6 +156,28 @@ async function fetchPage(url,options={}){
  }
 }
 async function officialDirect(task={},options={}){
+ // A required direct URL is a distinct source visit. A successful mirror,
+ // redirect to login, or generic undated homepage cannot stand in for it.
+ if(task.direct_url){
+  const canonical=https(task.direct_url);
+  if(!canonical){const e=new Error('OFFICIAL_DIRECT_INVALID_URL');e.code='OFFICIAL_DIRECT_INVALID_URL';throw e;}
+  const expected=new URL(canonical);
+  const guard=value=>{
+   const safe=https(value);if(!safe)return false;
+   const u=new URL(safe);
+   return u.origin===expected.origin&&u.pathname.replace(/\/$/,'')===expected.pathname.replace(/\/$/,'')&&u.search===expected.search;
+  };
+  const body=await fetchPage(canonical,{...options,require_status:200,require_html:true,redirect_guard:guard,max_redirects:2});
+  const markup=pageEvidenceMarkup(body);
+  const title=cleanHtml((markup.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||'');
+  if(!title||/^(?:log\s*in|sign\s*in|just a moment|access denied|attention required|captcha|something went wrong)/i.test(title)){
+   const e=new Error('OFFICIAL_DIRECT_CONTENT_UNVERIFIED');e.code='OFFICIAL_DIRECT_CONTENT_UNVERIFIED';throw e;
+  }
+  // A first-party visit alone is not an event candidate. Preserve the
+  // existing structured event-field parser and require a dated identity.
+  const candidate=candidateFromPage(canonical,body,task);
+  return candidate.title&&candidate.event_date?[candidate]:[];
+ }
  const urls=[task.source_url,...(Array.isArray(task.seed_urls)?task.seed_urls:[])].map(https).filter(Boolean).slice(0,10);
  const out=[];for(const url of urls){try{const body=await fetchPage(url,options);out.push(candidateFromPage(url,body,task));}catch(_){}}
  if(urls.length&&!out.length){const e=new Error('OFFICIAL_DIRECT_ALL_READS_FAILED');e.code='OFFICIAL_DIRECT_ALL_READS_FAILED';throw e;}
