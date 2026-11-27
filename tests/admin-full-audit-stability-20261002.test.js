@@ -14,7 +14,8 @@ test('createBooking is request-idempotent before allocating stock or writing a r
   const block=apps.slice(start,end);
   assert.match(block,/const requestId = kkBookingRequestId_\(payload\)/);
   assert.match(block,/const prior = requestId \? kkFindBookingByRequestId_\(requestId\) : null/);
-  assert.match(block,/if \(prior\) return kkBookingCreateResult_\(prior\.row_number, prior\.row, true\)/);
+  assert.match(block,/if \(prior\) \{\s*kkAssertManualBookingReplayIdentity_\(prior\.row, payload\);\s*return kkBookingCreateResult_\(prior\.row_number, prior\.row, true\);\s*\}/);
+  assert.ok(block.indexOf('kkAssertManualBookingReplayIdentity_') < block.indexOf('kkFindAvailableAsset_'));
   assert.ok(block.indexOf('if (prior)') < block.indexOf('kkFindAvailableAsset_'));
 });
 

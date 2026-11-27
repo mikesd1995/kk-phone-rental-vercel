@@ -30,7 +30,8 @@ test('atomic Booking create idempotency remains in candidate and is promoted to 
   const canonicalCreate=canonical.slice(canonicalStart,canonicalEnd);
   assert.match(canonicalCreate,/kkAcquireDocumentLock_\('write operation', 12000\)/);
   assert.match(canonicalCreate,/kkFindBookingByRequestId_\(requestId\)/);
-  assert.match(canonicalCreate,/if \(prior\) return kkBookingCreateResult_\(prior\.row_number, prior\.row, true\)/);
+  assert.match(canonicalCreate,/if \(prior\) \{\s*kkAssertManualBookingReplayIdentity_\(prior\.row, payload\);\s*return kkBookingCreateResult_\(prior\.row_number, prior\.row, true\);\s*\}/);
+  assert.ok(canonicalCreate.indexOf('kkAssertManualBookingReplayIdentity_') < canonicalCreate.indexOf('kkFindAvailableAsset_'));
 });
 
 test('request id is bounded and persisted in Booking note inside the locked transaction',()=>{
