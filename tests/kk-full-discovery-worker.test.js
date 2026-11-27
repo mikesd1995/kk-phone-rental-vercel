@@ -172,3 +172,27 @@ test('independent reconciliation gap blocks FULL',async()=>{
  assert.equal(r.quality_evidence.reconciliation.reconciliation_gap_count,1);
  assert.ok(r.blockers.includes('RECONCILIATION_GAPS_REMAIN'));
 });
+
+test('Ultra Deep cannot report FULL when exact M Card source was skipped, even if all eight source tiers ran',async()=>{
+ const tiers=Worker.ULTRA_DEEP_REQUIRED_SOURCE_TIERS;
+ const observations=tiers.map((tier,i)=>obsTier('mall-direct-proof-'+i,tier,'UNCHANGED'));
+ const receipts=universeReceipts();
+ const mcard=receipts.find(x=>x.source_id==='mcard-the-mall-artist-events');
+ assert.ok(mcard);
+ mcard.executed=false;
+ mcard.status='NOT_BOUND';
+ const r=await Worker.runFullDiscovery({
+  scan_mode:'ULTRA_DEEP',
+  observations,
+  provider_results:tiers.map(()=>result([])),
+  source_universe_receipts:receipts,
+  reconciliation_reference_candidates:[],
+  known_miss_probe_candidates:knownMissProbeCandidates()
+ },{sourceWatchOptions:{nowMs:Date.parse(NOW)}});
+ assert.equal(r.status,'BLOCKED_INCOMPLETE_SOURCE_COVERAGE');
+ assert.equal(r.handoff.handoff_state,'HOLD_FOR_COVERAGE');
+ assert.equal(r.source_coverage.complete,true);
+ assert.equal(r.quality_evidence.source_universe_proof.complete,false);
+ assert.ok(r.quality_evidence.source_universe_proof.missing_required_sources.includes('mcard-the-mall-artist-events'));
+ assert.equal(r.production_writes,0);
+});

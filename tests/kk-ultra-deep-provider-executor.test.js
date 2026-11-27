@@ -113,3 +113,43 @@ test('exhaustive mode reports uninspected provider overflow rather than silently
  assert.equal(r.candidates.length,Exec.MAX_RESULTS);assert.equal(r.candidate_truncated,true);
  assert.equal(r.dropped_uninspected_row_count,1);assert.equal(r.dropped_unique_candidate_count,0);
 });
+
+test('malformed provider payload cannot masquerade as a successful empty search',async()=>{
+ const r=await Exec.executeGapTask({query:'q',providers:['BING_RSS','DDG_HTML']},{providers:{
+  BING_RSS:async()=>({error:'unavailable'}),
+  DDG_HTML:async()=>({candidates:[]})
+ }});
+ assert.deepEqual(r.attempts.map(x=>x.status),['PROVIDER_ERROR','NO_EVIDENCE']);
+ assert.equal(r.attempts[0].error_class,'PROVIDER_RESPONSE_INVALID');
+});
+test('null candidate row is invalid evidence rather than an empty receipt',async()=>{
+ const r=await Exec.executeGapTask({query:'q',providers:['BING_RSS']},{providers:{BING_RSS:async()=>[null]}});
+ assert.equal(r.attempts[0].status,'PROVIDER_ERROR');
+ assert.equal(r.attempts[0].error_class,'PROVIDER_RESPONSE_INVALID');
+});
+test('operational result overflow is visible and cannot resolve a plan',async()=>{
+ const rows=Array.from({length:Exec.MAX_RESULTS+1},(_,i)=>({title:'Event '+i,source_url:'https://example.com/'+i}));
+ const out=await Exec.executeGapPlan({gap_tasks:[{query:'q',providers:['BING_RSS']}]},{providers:{BING_RSS:async()=>rows}});
+ assert.equal(out.status,'GAPS_REMAIN');
+ assert.equal(out.results[0].candidate_truncated,true);
+ assert.equal(out.results[0].dropped_uninspected_row_count,1);
+ assert.equal(out.results[0].candidates.length,Exec.MAX_RESULTS);
+});
+test('empty plan is never reported resolved',async()=>{
+ const out=await Exec.executeGapPlan({gap_tasks:[]});
+ assert.equal(out.status,'GAPS_REMAIN');
+ assert.equal(out.production_writes,0);
+});
+
+test('credential-bearing injected provider URLs cannot become candidate evidence',async()=>{
+ const r=await Exec.executeGapTask({query:'event',providers:['BING_RSS']},{providers:{BING_RSS:async()=>[{title:'Event',source_url:'https://user:pass@example.com/event'}]}});
+ assert.equal(r.candidates.length,0);
+ assert.equal(r.status,'GAP_UNRESOLVED');
+});
+
+test('required direct source fetched once, all bounded indexed variants run, fallback stops after evidence',async()=>{
+ const task={source_id:'iqiyi-thailand-platform',direct_url:'https://x.com/iQIYI_Thailand',query:'one',query_variants:['two'],providers:['OFFICIAL_DIRECT','BING_RSS','DDG_HTML'],stop_condition:'EXECUTE_AND_RECORD_RECEIPT'};
+ const calls=[];const provider=async t=>{calls.push(t.provider+':'+t.query);return t.provider==='BING_RSS'&&t.query==='two'?[{title:'Event',event_date:'2026-12-20',source_url:'https://official.example/event'}]:[];};
+ const r=await Exec.executeGapTask(task,{providers:{OFFICIAL_DIRECT:provider,BING_RSS:provider,DDG_HTML:provider}});
+ assert.deepEqual(calls,['OFFICIAL_DIRECT:one','BING_RSS:one','BING_RSS:two']);assert.equal(r.candidates.length,1);assert.equal(r.candidate_truncated,false);
+});

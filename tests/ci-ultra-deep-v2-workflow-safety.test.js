@@ -32,7 +32,7 @@ function assertSourceOnlyCommands(source){
   'node --test tests/ci-ultra-deep-v2-workflow-safety.test.js',
   'npm run check',
   'node --test tests/kk-ultra-deep-full-loop-v2.test.js',
-  'node --test tests/kk-ultra-deep-*.test.js tests/kk-public-event-detail-followup.test.js tests/kk-onebangkok-event-detail.test.js tests/kk-knownmiss-identity-boundary.test.js tests/kk-public-search-availability.test.js',
+  'node --test tests/kk-ultra-deep-*.test.js tests/kk-monthly-deep-scan-query-plan.test.js tests/kk-public-event-detail-followup.test.js tests/kk-onebangkok-event-detail.test.js tests/kk-knownmiss-identity-boundary.test.js tests/kk-public-search-availability.test.js',
   'npm run test:ultradeep:recall']);
  const blocks=runBlocks(source);assert.equal(blocks.length,6);
  for(const block of blocks)assert.ok(allowed.has(block),'non-source-only workflow command: '+block);
@@ -129,4 +129,12 @@ test('detail-only and regression-only changes trigger and execute the added safe
  for(const file of ['tests/kk-ultra-deep-*.test.js','tests/kk-public-event-detail-followup.test.js','tests/kk-onebangkok-event-detail.test.js','tests/kk-knownmiss-identity-boundary.test.js','tests/kk-public-search-availability.test.js']){
   assert.ok(commands.includes(file),'missing executed safety suite: '+file);
  }
+});
+
+test('monthly scan planner changes trigger and execute the source-only planner regression',()=>{
+ const s=contents();
+ for(const file of ['server/kk-monthly-deep-scan-query-plan.js','tests/kk-monthly-deep-scan-query-plan.test.js']){
+  assert.ok(s.includes("'"+file+"'"),'missing PR path trigger: '+file);
+ }
+ assert.ok(runBlocks(s).some(block=>block.startsWith('node --test ')&&block.includes('tests/kk-monthly-deep-scan-query-plan.test.js')));
 });

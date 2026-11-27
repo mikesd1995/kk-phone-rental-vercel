@@ -3,6 +3,8 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const Runner=require('../server/kk-ultra-deep-runtime-runner.js');
 const KnownMiss=require('../server/kk-ultra-deep-known-miss-regression.js');
+// A synthetic source visit is distinct from an indexed-search receipt.
+const direct=async task=>{assert.ok(task.direct_url);return [];};
 
 let liveTransportCalls=0;
 const discoveryEnvKeys=['KK_SEARXNG_ENDPOINT','KK_DDGS_TRAFILATURA_ENABLED'];
@@ -51,7 +53,7 @@ test('runtime runner can prove FULL only from executed provider evidence',async(
    }
    return [{title:'Shared Reference Concert Bangkok',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
- const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS});
+ const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search,OFFICIAL_DIRECT:direct},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS});
  assert.equal(out.status,'READY_FOR_VERIFIER');
  assert.equal(out.full,true);
  assert.equal(out.provider_binding.unknown_url_search_bound,true);
@@ -83,7 +85,7 @@ test('runtime known-miss probe can recover through an alias-only query without w
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:direct},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.status,'READY_FOR_VERIFIER');
  assert.equal(out.full,true);
@@ -106,6 +108,21 @@ test('known-miss plan keeps one task per case and does not concatenate every ali
 });
 
 
+test('month-scoped probes and live acceptance use identical exact and registration-month cases',()=>{
+ for(const month of ['2026-10','2026-11','2026-12','2027-01']){
+  const plan=Runner.buildKnownMissPlan(month);
+  const expected=KnownMiss.evaluate([],[],{month,strict_live:true}).missing_cases.map(id=>'knownmiss:'+id).sort();
+  assert.deepEqual(plan.gap_tasks.map(t=>t.source_id).sort(),expected,month);
+  assert.equal(plan.production_writes,0);
+ }
+ assert.ok(Runner.buildKnownMissPlan('2026-10').gap_tasks.some(t=>t.source_id==='knownmiss:gmmtvnext-generation-happy-20261103'));
+ assert.ok(Runner.buildKnownMissPlan('2026-11').gap_tasks.some(t=>t.source_id==='knownmiss:love-of-siam-musical-20261211'));
+ assert.ok(!Runner.buildKnownMissPlan('2026-12').gap_tasks.some(t=>t.source_id==='knownmiss:gmmtvnext-generation-happy-20261103'));
+ assert.equal(Runner.buildKnownMissPlan('2027-01').gap_tasks.length,0);
+ assert.equal(Runner.buildKnownMissPlan().gap_tasks.length,KnownMiss.CORPUS.length);
+ assert.equal(KnownMiss.evaluateFixtureRegression().complete,true);
+});
+
 test('runtime executes known-miss probes before the broad monthly sweep',async()=>{
  const calls=[];
  const search=async task=>{
@@ -116,12 +133,15 @@ test('runtime executes known-miss probes before the broad monthly sweep',async()
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:direct},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.full,true);
  assert.ok(calls[0].startsWith('knownmiss:'));
  const firstNonKnown=calls.findIndex(x=>!x.startsWith('knownmiss:'));
- assert.ok(firstNonKnown>=KnownMiss.CORPUS.length);
+ const expected=KnownMiss.scopedCases('2026-10').map(c=>'knownmiss:'+c.case_id).sort();
+ assert.deepEqual([...new Set(calls.slice(0,firstNonKnown))].sort(),expected);
+ assert.ok(calls.slice(firstNonKnown).every(id=>!id.startsWith('knownmiss:')));
+ assert.ok(expected.length<KnownMiss.CORPUS.length);
 });
 
 test('runtime known-miss gate accepts a governed hit from the main discovery sweep',async()=>{
@@ -142,7 +162,7 @@ test('runtime known-miss gate accepts a governed hit from the main discovery swe
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand',known_miss_classifications:classifications},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:direct},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.known_miss_regression.complete,true);
  assert.equal(out.known_miss_live_recall.complete,false);
@@ -188,7 +208,7 @@ test('deterministic historical regression remains complete even when live recall
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:direct},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.known_miss_regression.complete,true);
  assert.ok(out.known_miss_live_recall.passed<out.known_miss_live_recall.case_count);
@@ -208,7 +228,7 @@ test('empty current-month discovery blocks FULL even when provider calls execute
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:direct},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.discovery_proof.has_evidence,false);
  assert.ok(out.blockers.includes('DISCOVERY_EVIDENCE_EMPTY'));
@@ -394,7 +414,7 @@ test('operational discovery can proceed without exhaustive audit gates',async()=
    : [];
  const out=await Runner.runOperationalDiscovery(
    {month:'2026-10',location:'Bangkok Metropolitan Region Thailand'},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:direct},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.mode,'SMART_OPERATIONAL');
  assert.equal(out.status,'READY_FOR_VERIFIER');
@@ -404,3 +424,69 @@ test('operational discovery can proceed without exhaustive audit gates',async()=
  assert.ok(out.candidate_count>0);
  assert.equal(out.production_writes,0);
 });
+
+test('operational discovery holds partial provider coverage despite usable candidates',async()=>{
+ const successful=new Set(['OFFICIAL','TICKETING','VENUE']);
+ const search=async task=>{
+   if(!successful.has(task.source_tier))throw Object.assign(new Error('synthetic provider failure'),{code:'OFFLINE_TEST_FAILURE'});
+   return [{title:'Bangkok Fanmeeting',event_date:'2026-10-20',source_url:'https://proof.example/fanmeeting'}];
+ };
+ const out=await Runner.runOperationalDiscovery(
+   {month:'2026-10',location:'Bangkok Metropolitan Region Thailand'},
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:direct},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+ );
+ assert.equal(out.status,'HOLD_FOR_OPERATIONAL_DISCOVERY');
+ assert.equal(out.operational_ready,false);
+ assert.ok(out.executed_task_count>=3);
+ assert.ok(out.candidate_count>0);
+ assert.equal(out.operational_coverage.complete,false);
+ assert.ok(out.operational_coverage.missing_tasks.some(t=>t.source_tier==='FAN_EVENT'));
+ assert.ok(out.operational_coverage.missing_tasks.some(t=>t.source_tier==='CAMPAIGN_LEAD_TIME'));
+ assert.ok(out.blockers.includes('OPERATIONAL_TASK_COVERAGE_INCOMPLETE'));
+ assert.equal(out.audit_blocking,false);
+ assert.equal(out.production_writes,0);
+});
+
+test('invalid monthly date is rejected before any known-miss or provider calls',async()=>{
+ let calls=0;
+ await assert.rejects(Runner.runMonthlyUltraDeep({month:'2026-13'},{use_only_injected_providers:true,providers:{BING_RSS:async()=>{calls++;return [];}}}),/INVALID_SCAN_MONTH/);
+ assert.equal(calls,0);
+});
+test('execution proof rejects sparse, missing or truncated task results against expected count',()=>{
+ const good={status:'EVIDENCE_FOUND',attempts:[{provider:'BING_RSS',status:'EVIDENCE_FOUND'}]};
+ assert.equal(Runner.executionProof({results:[good]},2).complete,false);
+ assert.equal(Runner.executionProof({results:[good,,good]},3).complete,false);
+ assert.equal(Runner.executionProof({results:[good,null]},2).complete,false);
+ assert.equal(Runner.executionProof({results:[{...good,dropped_uninspected_row_count:1}]},1).complete,false);
+ assert.equal(Runner.executionProof({results:[good]},1).complete,true);
+});
+test('truncated named-source receipt cannot pass the source-universe gate',()=>{
+ const receipts=Runner.sourceUniverseReceipts({gap_tasks:[{source_id:'source-1'}]},{results:[{provider:'BING_RSS',status:'EVIDENCE_FOUND',candidate_truncated:true,attempts:[{provider:'BING_RSS',status:'EVIDENCE_FOUND'}]}]});
+ assert.equal(receipts[0].status,'TRUNCATED');
+ assert.equal(receipts[0].executed,false);
+});
+
+
+test('reference eligibility rejects impossible dates, invalid URLs and lookalike ticket domains',()=>{
+ const row={title:'ATLAS : RISING UP',event_date:'2026-10-18',source_url:'https://www.eventpop.me/e/999999/atlas'};
+ const options={month:'2026-10'};
+ assert.equal(Runner.referenceScopeDecision(row,options).eligible,true);
+ for(const date of ['2026-10-32','2026-02-30','2026-13-01','not-a-date'])
+  assert.equal(Runner.referenceScopeDecision({...row,event_date:date},{}).reason,'NO_STRUCTURED_DATE');
+ for(const source_url of ['not-a-url','http://eventpop.me/e/test','https://name:secret@eventpop.me/e/test','javascript:void(0)',''])
+  assert.equal(Runner.referenceScopeDecision({...row,source_url},options).reason,'MISSING_SOURCE');
+ for(const source_url of ['https://noteventpop.me/e/test','https://eventpop.me.example/e/test','https://notthaiticketmajor.com/concert/test','https://notticketmelon.com/a/b','https://notsongkick.com/concerts/test','https://notlivenationtero.co.th/show/test'])
+  assert.equal(Runner.referenceScopeDecision({...row,source_url},options).reason,'EVENT_IDENTITY_NOT_STRONG_ENOUGH');
+ assert.equal(Runner.referenceScopeDecision({...row,title:'Concert Bangkok',source_url:'https://example.com/concert'},options).eligible,true);
+});
+
+ test('named source proof requires both direct visit and indexed search and never hides truncation',()=>{
+ const plan={gap_tasks:[{source_id:'iqiyi-thailand-platform',direct_url:'https://x.com/iQIYI_Thailand'}]};
+ const search={provider:'SEARXNG',status:'EVIDENCE_FOUND'},visit={provider:'OFFICIAL_DIRECT',status:'NO_EVIDENCE'};
+ const receipt=attempts=>Runner.sourceUniverseReceipts(plan,{results:[{status:'EVIDENCE_FOUND',attempts} ]})[0];
+ assert.equal(receipt([search]).status,'DIRECT_SOURCE_NOT_VERIFIED');
+ assert.equal(receipt([visit]).executed,false);
+ assert.equal(receipt([search,{...visit,status:'PROVIDER_ERROR'}]).executed,false);
+ assert.equal(receipt([search,visit]).executed,true);
+ assert.equal(Runner.sourceUniverseReceipts(plan,{results:[{attempts:[search,visit],candidate_truncated:true} ]})[0].status,'TRUNCATED');
+ });

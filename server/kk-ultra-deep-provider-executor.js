@@ -1,13 +1,13 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_PROVIDER_EXECUTOR_V6';
+const VERSION='KK_ULTRA_DEEP_PROVIDER_EXECUTOR_V8';
 const ALLOWED_PROVIDERS=new Set(['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 const MAX_RESULTS=25;
 const DEFAULT_CONCURRENCY=4;
 const MAX_CONCURRENCY=8;
 function text(v){return String(v==null?'':v).trim();}
 function upper(v){return text(v).toUpperCase();}
-function https(v){try{const u=new URL(text(v));return u.protocol==='https:'?u.toString():'';}catch(_){return '';}}
+function https(v){try{const u=new URL(text(v));return u.protocol==='https:'&&!u.username&&!u.password?u.toString():'';}catch(_){return '';}}
 function queryVariants(task={}){
   const raw=[task.query,...(Array.isArray(task.query_variants)?task.query_variants:[])];
   const seen=new Set();const out=[];
@@ -37,23 +37,28 @@ function taskConcurrency(options={}){
 async function executeGapTask(task={},options={}){
   const providers=(Array.isArray(task.providers)?task.providers:[]).map(upper).filter(p=>ALLOWED_PROVIDERS.has(p));
   const attempts=[];
-  const exhaust=task.stop_condition==='EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS';
+  const namedReceipt=!!task.direct_url||task.source_id==='smart-iqiyi-thailand-platform';
+  const exhaust=namedReceipt||task.stop_condition==='EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS';
   const collected=[],seen=new Set();let firstProvider=null,dropped=0,uninspected=0;
   for(const provider of providers){
     const fn=options.providers&&options.providers[provider];
     if(typeof fn!=='function'){attempts.push({provider,status:'NOT_BOUND'});continue;}
-    for(const query of queryVariants(task)){
+    const variants=provider==='OFFICIAL_DIRECT'&&task.direct_url?[text(task.query)||null]:queryVariants(task);
+    for(const query of variants){
       const callTask=query===null?{...task,provider}:{...task,provider,query};
       try{
         const raw=await fn(callTask);
-        const rows=Array.isArray(raw)?raw:(Array.isArray(raw&&raw.candidates)?raw.candidates:[]);
-        if(exhaust)uninspected+=Math.max(0,rows.length-MAX_RESULTS);
+        const rows=Array.isArray(raw)?raw:(Array.isArray(raw&&raw.candidates)?raw.candidates:null);
+        if(!rows||rows.some(row=>!row||typeof row!=='object'||Array.isArray(row))){
+          const error=new Error('PROVIDER_RESPONSE_INVALID');error.code='PROVIDER_RESPONSE_INVALID';throw error;
+        }
+        uninspected+=Math.max(0,rows.length-MAX_RESULTS);
         const sourced=rows.slice(0,MAX_RESULTS).map(r=>normalizeCandidate(r,callTask)).filter(r=>r.source_url);
         const candidates=typeof options.acceptCandidate==='function'?sourced.filter(row=>options.acceptCandidate(row,callTask)===true):sourced;
         attempts.push({provider,status:candidates.length?'EVIDENCE_FOUND':'NO_EVIDENCE',count:candidates.length,query,
           ...(typeof options.acceptCandidate==='function'?{rejected_count:sourced.length-candidates.length}: {})});
         if(candidates.length){
-          if(!exhaust)return {version:VERSION,status:'EVIDENCE_FOUND',provider,source_tier:upper(task.source_tier),candidates,attempts,authoritative:false,verifier_required:true,production_writes:0};
+          if(!exhaust)return {version:VERSION,status:'EVIDENCE_FOUND',provider,source_tier:upper(task.source_tier),candidates,attempts,candidate_truncated:uninspected>0,dropped_unique_candidate_count:0,dropped_uninspected_row_count:uninspected,authoritative:false,verifier_required:true,production_writes:0};
           if(!firstProvider)firstProvider=provider;
           for(const row of candidates){
             const key=JSON.stringify([row.candidate_id,row.title,row.event_date,row.event_time,row.venue,row.artist,row.source_url]);
@@ -63,9 +68,12 @@ async function executeGapTask(task={},options={}){
         }
       }catch(error){attempts.push({provider,status:'PROVIDER_ERROR',error_class:text(error&&(error.code||error.name))||'ERROR',query});}
     }
+    // Inspect every bounded variant for the first indexed provider with
+    // evidence. Do not run all fallback providers after a usable receipt.
+    if(namedReceipt&&provider!=='OFFICIAL_DIRECT'&&attempts.some(a=>a.provider===provider&&a.status==='EVIDENCE_FOUND'))break;
   }
   if(exhaust)return {version:VERSION,status:collected.length?'EVIDENCE_FOUND':'GAP_UNRESOLVED',provider:firstProvider,source_tier:upper(task.source_tier),candidates:collected,attempts,candidate_truncated:dropped>0||uninspected>0,dropped_unique_candidate_count:dropped,dropped_uninspected_row_count:uninspected,authoritative:false,verifier_required:true,production_writes:0};
-  return {version:VERSION,status:'GAP_UNRESOLVED',provider:null,source_tier:upper(task.source_tier),candidates:[],attempts,authoritative:false,verifier_required:true,production_writes:0};
+  return {version:VERSION,status:'GAP_UNRESOLVED',provider:null,source_tier:upper(task.source_tier),candidates:[],attempts,candidate_truncated:uninspected>0,dropped_unique_candidate_count:0,dropped_uninspected_row_count:uninspected,authoritative:false,verifier_required:true,production_writes:0};
 }
 async function executeGapPlan(plan={},options={}){
   const tasks=Array.isArray(plan.gap_tasks)?plan.gap_tasks:[];
@@ -80,6 +88,6 @@ async function executeGapPlan(plan={},options={}){
     }
   }
   await Promise.all(Array.from({length:workerCount},()=>worker()));
-  return {version:VERSION,status:results.every(r=>r.status==='EVIDENCE_FOUND')?'GAPS_RESOLVED':'GAPS_REMAIN',results,authoritative:false,verifier_required:true,production_writes:0};
+  return {version:VERSION,status:results.length>0&&results.every(r=>r.status==='EVIDENCE_FOUND'&&!r.candidate_truncated)?'GAPS_RESOLVED':'GAPS_REMAIN',results,authoritative:false,verifier_required:true,production_writes:0};
 }
 module.exports={VERSION,ALLOWED_PROVIDERS,MAX_RESULTS,DEFAULT_CONCURRENCY,MAX_CONCURRENCY,queryVariants,normalizeCandidate,taskConcurrency,executeGapTask,executeGapPlan};

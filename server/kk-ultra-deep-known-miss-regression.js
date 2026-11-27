@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V12';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V15';
 
 const CORPUS=Object.freeze([
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
@@ -21,6 +21,13 @@ const CORPUS=Object.freeze([
   {case_id:'interstellar-live-20261028',title:'INTERSTELLAR LIVE CONCERT',aliases:['interstellar live concert bangkok'],search_queries:['interstellar live concert bangkok October 2026'],event_date:'2026-10-28',miss_class:'TICKETING_SOURCE_GAP'},
   {case_id:'pixxie-soundscape-20261030',title:'PiXXiE live at Bangkok Soundscape',aliases:['pixxie bangkok soundscape'],search_queries:['pixxie bangkok soundscape October 2026'],event_date:'2026-10-30',miss_class:'THAI_LIVE_SOURCE_GAP'},
   {case_id:'nct127-redline-20261031',title:'NCT 127 5TH TOUR NEO CITY - THE REDLINE',aliases:['nct 127 redline bangkok'],search_queries:['nct 127 redline bangkok October 2026'],event_date:'2026-10-31',miss_class:'INTERNATIONAL_CONCERT_SOURCE_GAP'},
+  {case_id:'the-mall-christmas-lighting-20261106',title:'THE MALL LIFESTORE CHRISTMAS TREE LIGHTING CEREMONY',aliases:['the mall lifestore christmas tree lighting','the mall lifestore mr men little miss christmas tree lighting','great happy new year christmas tree lighting ceremony'],search_queries:['site:mcardmall.com/th/promotions/8300 Christmas Tree Lighting Ceremony','The Mall Lifestore TeeTee Por PROXIE 6 November 2026','เดอะมอลล์ ไลฟ์สโตร์ ตี๋ตี๋ ป๋อ PROXIE 6 พฤศจิกายน 2569'],event_date:'2026-11-06',discovery_months:['2026-10'],miss_class:'MALL_ARTIST_ACTIVATION_DIRECT_SOURCE_GAP'},
+  {case_id:"m-universe-teeteepor-20261209",title:"MEET & GREET M UNIVERSE DAY WITH TEETEE-POR",aliases:["m universe day with teetee por","m universe teeteepor","meet greet m universe day teetee por"],search_queries:["site:mcardmall.com/en/promotions/8260 TeeTee Por December 9 2026","site:mcardmall.com/en/promotions/8188 M Universe Day 9 Dec","M CARD TeeTee Por Top Spender lucky fans ธันวาคม 2569"],event_date:"2026-12-09",discovery_months:["2026-11"],miss_class:"CROSS_MONTH_MALL_LUCKY_FAN_MISSED_CORE"},
+  {case_id:"mediheal-jimmy-sea-20261206",title:"MEDIHEAL Always Heals You with Jimmy-Sea",aliases:["mediheal always heals you jimmy sea","mediheal jimmy sea siam square","mediheal jimmysea lucky fan"],search_queries:["site:x.com/Mediheal_TH Jimmy Sea 6 December 2026","MEDIHEAL Always Heals You Jimmy Sea Siam Square Block I","MEDIHEAL JimmySea lucky fan ธันวาคม 2569"],event_date:"2026-12-06",discovery_months:["2026-11"],miss_class:"BRAND_POPUP_EVENT_DATE_MISSED"},
+  {case_id:"nine-nine-moment-20261219",title:"Nine 2026 9 Moment Tour Concert Bangkok Special",aliases:["nine 2026 9 moment tour concert bangkok special","nine 2026 9 moment","nine concert december 2026 bangkok"],search_queries:["site:event.thaiticketmajor.com/search/ Nine 2026 19 December","Nine 2026 9 Moment SiamPic Hall 19 Dec 2026","ThaiTicketMajor Nine 9 Moment 4 November 2026 11:09 sale"],event_date:"2026-12-19",discovery_months:["2026-11"],miss_class:"NEW_TICKETING_ANNOUNCEMENT_MISSED"},
+  {case_id:"suho-fancon-20261227",title:"2026 K-POP Chronicle Live SUHO Fan-Con in Bangkok",aliases:["suho fan con in bangkok december 2026","2026 k pop chronicle live suho fan con","suho exo fashion island fancon"],search_queries:["SUHO Fan Con in Bangkok Fashion Island 27 December 2026","2026 K-POP Chronicle Live SUHO ticketmelon December 27"],event_date:"2026-12-27",discovery_months:["2026-11"],miss_class:"KPOP_PROMOTER_NEW_FANCON_MISSED"},
+  {case_id:"illust-fusion-winter-20261212",title:"Illust Fusion EXPO WINTER 2026",aliases:["illust fusion expo winter 2026","ifexpo winter 2026"],search_queries:["site:if.enterdock.com/infoexpo 12 ธันวาคม 2569","Illust Fusion Expo Winter 12 Dec 2026 Paragon Hall"],event_date:"2026-12-12",discovery_months:["2026-11"],miss_class:"CREATIVE_COMMUNITY_EVENT_NOT_SCANNED"},
+  {case_id:"illust-fusion-winter-20261213",title:"Illust Fusion EXPO WINTER 2026",aliases:["illust fusion expo winter 2026","ifexpo winter 2026"],search_queries:["site:if.enterdock.com/infoexpo 13 ธันวาคม 2569","Illust Fusion Expo Winter 13 Dec 2026 Paragon Hall"],event_date:"2026-12-13",discovery_months:["2026-11"],miss_class:"MULTIDAY_CREATIVE_COMMUNITY_DATE_MISSED"},
   {case_id:'fortreasure-20261129',title:'FORTREASURE BEYOND THE HORIZON CONCERT',aliases:['fortreasure beyond the horizon','fort treasure beyond horizon','fortreasure concert','beyond the horizon concert fortfts','fortfts fortreasure'],search_queries:['FORTREASURE site:eventpop.me','FORTREASURE FortFTS Eventpop'],event_date:'2026-11-29'},
   {case_id:'sing-infinity-20261024',title:'SING INFINITY เพลงเพราะไม่รู้จบ',aliases:['sing infinity','the giving concert sing infinity','เพลงเพราะไม่รู้จบ'],search_queries:['SING INFINITY SiamPic Hall 24 October 2026','NuNew Tle FirstOne SING INFINITY'],event_date:'2026-10-24',miss_class:'PUBLIC_CHARITY_CONCERT_SOURCE_GAP'},
   {case_id:'love-at-first-trip-20261108',title:'Love at First Trip with TleFirstone',aliases:['love at first trip tlefirstone','saraan tle firstone trip','tlefirstone 8 nov 2026'],search_queries:['Saraan Love at First Trip TleFirstone 8 Nov 2026','TleFirstone Saraan November 2026'],event_date:'2026-11-08',miss_class:'BRAND_PURCHASE_CAMPAIGN_GAP'},
@@ -34,7 +41,16 @@ const CORPUS=Object.freeze([
   {case_id:'siam-halloween-20261030',title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',aliases:['siam halloween 2026 flex pmcu','สยามฮาโลวีน flex 2026'],search_queries:['Flex 104.5 PMCU Siam Halloween 30 October 2026 Siam Square'],event_date:'2026-10-30',discovery_months:['2026-11'],miss_class:'FREE_PUBLIC_FESTIVAL_RADIO_CROSSMONTH_GAP'},
   {case_id:'siam-halloween-20261031',title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',aliases:['siam halloween 2026 flex pmcu','สยามฮาโลวีน flex 2026'],search_queries:['Flex 104.5 PMCU Siam Halloween 31 October 2026 Siam Square'],event_date:'2026-10-31',discovery_months:['2026-11'],miss_class:'FREE_PUBLIC_FESTIVAL_RADIO_CROSSMONTH_GAP'},
   {case_id:'siam-halloween-20261101',title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',aliases:['siam halloween 2026 flex pmcu','สยามฮาโลวีน flex 2026'],search_queries:['Flex 104.5 PMCU Siam Halloween 1 November 2026 Siam Square'],event_date:'2026-11-01',discovery_months:['2026-10'],miss_class:'FREE_PUBLIC_FESTIVAL_RADIO_CROSSMONTH_GAP'},
-  {case_id:'jmnk-she-serve-20261121',title:'JMNK SHEเสิร์ฟ CONCERT',aliases:['jmnk she serve concert','jmnk concert november 21 2026'],search_queries:['JMNK SHEเสิร์ฟ Concert Pulse Hall 21 Nov 2026','JMNK Justmine Nika Eventpop ticket public sale Oct31'],event_date:'2026-11-21',discovery_months:['2026-10'],miss_class:'ARTIST_OFFICIAL_SALE_WINDOW_NEXTMONTH_GAP'}
+  {case_id:'jmnk-she-serve-20261121',title:'JMNK SHEเสิร์ฟ CONCERT',aliases:['jmnk she serve concert','jmnk concert november 21 2026'],search_queries:['JMNK SHEเสิร์ฟ Concert Pulse Hall 21 Nov 2026','JMNK Justmine Nika Eventpop ticket public sale Oct31'],event_date:'2026-11-21',discovery_months:['2026-10'],miss_class:'ARTIST_OFFICIAL_SALE_WINDOW_NEXTMONTH_GAP'},
+  {case_id:'khom-khlang-final-20261109',title:'KHOM KHLANG THE FINAL EPISODE',aliases:['khom khlang final episode','khomkhlang final episode','ข่มขลัง the final episode','puinoon bint khom khlang final'],search_queries:['Khom Khlang The Final Episode 9 November 2026 MGI Hall','STAR HUNTER Puinoon Bint KHOM KHLANG FINAL 28 October 2026 AllTicket','ข่มขลัง Final EP ปุยนุ่น บิ๊นท์ 9 พฤศจิกายน 2569'],event_date:'2026-11-09',discovery_months:['2026-10'],miss_class:'STAR_HUNTER_SERIES_FINALE_SOURCE_AND_ONSALE_CROSSMONTH_GAP'},
+  {case_id:'iqiyi-ijoy-th-20261105',title:'iQIYI iJOY TH 2027',aliases:['iqiyi ijoy th 2027','iqiyiijoyth2027','iqiyi fan zone 400','ijoy th 2027 iconsiam','iqiyi green carpet 1600','ijoy green carpet 1600 seats','iqiyi พรมเขียว 1600 ที่นั่ง'],search_queries:['iQIYI_Thailand iQIYI iJOY TH 2027 5 November ICONSIAM','iQIYIiJOYTH2027 FAN ZONE 400 registration October 2026','iQIYI Thailand iJOY Green Carpet 1600 seats register 5 November 2026 ICONSIAM','iQIYI Thailand iJOY artist showcase November 2026'],event_date:'2026-11-05',discovery_months:['2026-10'],miss_class:'PLATFORM_FAN_ZONE_GREEN_CARPET_MULTI_ENTITLEMENT_GAP'},
+  {case_id:'gmmtvnext-generation-happy-20261103',title:'GMMTVNEXT: GENERATION HAPPY',aliases:['gmmtvnext generation happy','gmmtv next generation happy','gmmtvnext 2026','gmmtv next union hall','งานเปิดตัวโปรเจกต์ gmmtvnext'],search_queries:['GMMTV NEXT GENERATION HAPPY 3 November 2026 Union Hall Union Mall','GMMTV register.gmm-tv.com October 28 2026 2000 seats','GMMTVNEXT 2026 artist launch press event'],event_date:'2026-11-03',discovery_months:['2026-10'],miss_class:'OFFICIAL_ANNOUNCED_OCT28_DISCOVERED_NOT_MATERIALIZED'},
+  {case_id:'love-of-siam-musical-20261211',title:'รักแห่งสยาม The Musical',aliases:['รักแห่งสยาม the musical','love of siam the musical','geminifourth love of siam 17 shows','รักแห่งสยาม เจมีไนน์ โฟร์ท'],search_queries:['GMMTV รักแห่งสยาม The Musical 11 25 December 2026 17 shows','GMMTV The Love of Siam The Musical 17 performances tickets sold out','ThaiTicketMajor Love of Siam Gala 9 December vs Dec11 25 shows'],event_date:'2026-12-11',discovery_months:['2026-10','2026-11'],miss_class:'OFFICIAL_17_SHOWS_OCT_DISCOVERED_CANDIDATE_NOT_CORE'},
+  {case_id:'blkgem-concert-20261206',title:'BLKGEM CONCERT',aliases:['blkgem concert bitec bangna','blkgem 6 december 2026'],search_queries:['Zipevent BLKGEM CONCERT Bhiraj Hall 2 3 BITEC 6 December 2026'],event_date:'2026-12-06',discovery_months:['2026-11'],miss_class:'SECONDARY_TICKET_PLATFORM_ZIPEVENT_DATE_FULL_MISS'},
+  {case_id:'ongredients-thomaskong-20261121',title:'Enter the true Ongredients with ThomasKong',aliases:['ongredients thomaskong eveandboy','eveandboy ongredients thomas kong','enter the true ongredients','EVEANDBOYxOngredientsxThomasKong'],search_queries:['EVEANDBOY Ongredients ThomasKong 21 November 2026 Siam Square One','Ongredients 40 Lucky Fans ThomasKong November 21','EnterthetrueOngredientsxTMK'],event_date:'2026-11-21',discovery_months:['2026-10'],miss_class:'RETAIL_PARTNER_BRAND_AMBASSADOR_LUCKY_FAN_GAP'},
+  {case_id:'beautrium-15th-20261106',title:'BEAUTRIUM 15TH ANNIVERSARY BEAUTY TOGETHER',aliases:['beautrium 15th anniversary','beautrium beauty together 100 artists','beautrium siam square fan zone 300'],search_queries:['BEAUTRIUM 15TH ANNIVERSARY 6 November 2026 Siam Square artist 300 fan zone','BEAUTRIUM BEAUTY TOGETHER 2026 performers'],event_date:'2026-11-06',discovery_months:['2026-10'],miss_class:'RETAIL_MALL_ARTIST_LINEUP_FANZONE_GAP'},
+  {case_id:'journal-fourth-20261110',title:'JOURNAL x FOURTH SIMPLY MAGNETIC',aliases:['journal fourth simply magnetic','journal perfume fourth lucky fan 40','journal x fourth look khunnoo'],search_queries:['journalperfume JOURNAL FOURTH SIMPLY MAGNETIC 10 November 2026 centralwOrld','JOURNAL Fourth lucky fans register October 2026'],event_date:'2026-11-10',discovery_months:['2026-10'],miss_class:'BRAND_LUCKY_FAN_OCT_REG_NOV_EVENT_GAP'},
+  {case_id:'drpong-zee-20261121',title:'Dr.PONG G89 Lucky Fans with Zee Pruk',aliases:['drpong zee pruk g89 lucky fan','drpong zee 21 november','drpongxzeepruk'],search_queries:['drpongofficial Zee Pruk 50 lucky fans 21 November 2026','Dr.PONG G89 October purchase November closed event'],event_date:'2026-11-21',discovery_months:['2026-10'],miss_class:'BRAND_PRIVATE_LUCKY_FAN_SOURCE_GAP'}
 ]);
 const FIXTURE_EVIDENCE=Object.freeze({
   'remaster-20261010':{title:'REMASTER CONCERT TIMESHOWBIZ',source_url:'https://www.paragonhall.com/en/events'},
@@ -47,6 +63,13 @@ const FIXTURE_EVIDENCE=Object.freeze({
   'scoopify-james-su-20261024':{title:'HOW TO BUY TICKETS SCOOPIFY YOGURT & YOU WITH JAMES SU',source_url:'https://x.com/SummerVibeTH'},
   'tle-firstone-20261022':{title:'EVERPINK A Touch of Love with TleFirstone',source_url:'https://x.com/everpink_th'},
   'ryo-teeteepor-20261007':{title:'RYO Strong Roots, Bright Stars with TeeTee & Por',source_url:'https://x.com/RYOHairThailand'},
+  'the-mall-christmas-lighting-20261106':{title:'THE MALL LIFESTORE × MR. MEN AND LITTLE MISS — CHRISTMAS TREE LIGHTING CEREMONY (TeeTee–Por × PROXIE)',source_url:'https://www.mcardmall.com/th/promotions/8300'},
+  "m-universe-teeteepor-20261209":{title:"MEET & GREET M UNIVERSE DAY WITH TEETEE-POR",source_url:"https://www.mcardmall.com/en/promotions/8260"},
+  "mediheal-jimmy-sea-20261206":{title:"MEDIHEAL Always Heals You with Jimmy-Sea",source_url:"https://www.sotwe.com/mediheal_th"},
+  "nine-nine-moment-20261219":{title:"Nine 2026 9 Moment Tour Concert Bangkok Special",source_url:"https://event.thaiticketmajor.com/search/"},
+  "suho-fancon-20261227":{title:"2026 K-POP Chronicle Live SUHO Fan-Con in Bangkok",source_url:"https://mgronline.com/entertainment/detail/9690000104251"},
+  "illust-fusion-winter-20261212":{title:"Illust Fusion EXPO WINTER 2026",source_url:"https://if.enterdock.com/infoexpo/"},
+  "illust-fusion-winter-20261213":{title:"Illust Fusion EXPO WINTER 2026",source_url:"https://if.enterdock.com/infoexpo/"},
   'fortreasure-20261129':{title:'FORTREASURE BEYOND THE HORIZON CONCERT',source_url:'https://www.eventpop.me/e/173408/fortreasure-beyond-the-horizon-concert'},
   'sing-infinity-20261024':{title:'SING INFINITY เพลงเพราะไม่รู้จบ',source_url:'https://spacebar.th/culture/the-giving-concert-3-generations-1-heart'},
   'love-at-first-trip-20261108':{title:'Love at First Trip with TleFirstone',source_url:'https://x.com/Saraanofficial'},
@@ -60,7 +83,16 @@ const FIXTURE_EVIDENCE=Object.freeze({
   'siam-halloween-20261030':{title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',source_url:'https://www.flexconnect.net/category/article/entertainment/'},
   'siam-halloween-20261031':{title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',source_url:'https://www.flexconnect.net/category/article/entertainment/'},
   'siam-halloween-20261101':{title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',source_url:'https://www.flexconnect.net/category/article/entertainment/'},
-  'jmnk-she-serve-20261121':{title:'JMNK SHEเสิร์ฟ CONCERT',source_url:'https://x.com/jmnkofficial'}
+  'jmnk-she-serve-20261121':{title:'JMNK SHEเสิร์ฟ CONCERT',source_url:'https://x.com/jmnkofficial'},
+  'khom-khlang-final-20261109':{title:'KHOM KHLANG THE FINAL EPISODE',source_url:'https://x.com/Khomkhlang_STH/status/2115002593600765972'},
+  'iqiyi-ijoy-th-20261105':{title:'iQIYI iJOY TH 2027',source_url:'https://x.com/iQIYI_Thailand'},
+  'gmmtvnext-generation-happy-20261103':{title:'GMMTVNEXT: GENERATION HAPPY',source_url:'https://x.com/GMMTV/status/2115006840991867310'},
+  'love-of-siam-musical-20261211':{title:'รักแห่งสยาม The Musical',source_url:'https://www.gmm-tv.com/news/4506/'},
+  'blkgem-concert-20261206':{title:'BLKGEM CONCERT',source_url:'https://www.zipeventapp.com/e/BLKGEM-CONCERT'},
+  'ongredients-thomaskong-20261121':{title:'Enter the true Ongredients with ThomasKong',source_url:'https://x.com/EVEANDBOY'},
+  'beautrium-15th-20261106':{title:'BEAUTRIUM 15TH ANNIVERSARY BEAUTY TOGETHER',source_url:'https://x.com/TheBeautrium'},
+  'journal-fourth-20261110':{title:'JOURNAL x FOURTH SIMPLY MAGNETIC',source_url:'https://x.com/journalperfume'},
+  'drpong-zee-20261121':{title:'Dr.PONG G89 Lucky Fans with Zee Pruk',source_url:'https://x.com/drpongofficial'}
 });
 
 function text(v){return String(v==null?'':v).trim();}
@@ -107,20 +139,33 @@ function sameCase(c,caseRow){
   return titleMatch && (!caseRow.event_date || !eventDate || eventDate===caseRow.event_date);
 }
 
+// URL shape is a necessary condition for live proof, never verification of its content.
+function parseEvidenceUrl(value){
+  if(typeof value!=='string'||!value.trim())return null;
+  try{
+    const url=new URL(value.trim());
+    return url.protocol==='https:'&&!url.username&&!url.password?url:null;
+  }catch(_){return null;}
+}
+function scopedCases(month){
+  const scanMonth=text(month);
+  return scanMonth?CORPUS.filter(c=>text(c.event_date).startsWith(scanMonth)||(Array.isArray(c.discovery_months)&&c.discovery_months.includes(scanMonth))):CORPUS;
+}
+
 function evaluate(candidates=[],classifications=[],options={}){
   const rows=Array.isArray(candidates)?candidates:[];
   const cls=new Map((Array.isArray(classifications)?classifications:[]).map(x=>[text(x&&x.case_id),x]));
   const scanMonth=text(options.month);
   const strictLive=options.strict_live===true;
-  const scoped=scanMonth?CORPUS.filter(c=>text(c.event_date).startsWith(scanMonth)||(Array.isArray(c.discovery_months)&&c.discovery_months.includes(scanMonth))):CORPUS;
+  const scoped=scopedCases(scanMonth);
   const results=scoped.map(caseRow=>{
     // A repeat show with the same franchise name but no confirmed event date is NOT live proof.
-    const matched=rows.find(c=>sameCase(c,caseRow)&&(!strictLive||(date(c&&c.event_date)===caseRow.event_date&&!!text(c.source_url||c.url))));
+    const matched=rows.find(c=>sameCase(c,caseRow)&&(!strictLive||(date(c&&c.event_date)===caseRow.event_date&&!!parseEvidenceUrl(c.source_url||c.url))));
     const receipt=cls.get(caseRow.case_id);
     const status=text(receipt&&receipt.status).toUpperCase();
     // SOURCE_UNAVAILABLE is a valid historical diagnostic disposition, never live FULL evidence.
     const classified=!!receipt && receipt.executed===true && (strictLive?
-      (['DISCOVERED','NOT_ELIGIBLE'].includes(status)&&!!text(receipt.source_url||receipt.evidence_url)):
+      (['DISCOVERED','NOT_ELIGIBLE'].includes(status)&&!!parseEvidenceUrl(receipt.source_url||receipt.evidence_url)):
       ['DISCOVERED','NOT_ELIGIBLE','SOURCE_UNAVAILABLE'].includes(status));
     const pass=!!matched||classified;
     return {
@@ -145,4 +190,4 @@ function evaluateFixtureRegression(){
   return {...result,proof_type:'DETERMINISTIC_HISTORICAL_FIXTURE'};
 }
 
-module.exports={VERSION,CORPUS,FIXTURE_EVIDENCE,norm,tokens,fuzzyAliasMatch,evaluate,evaluateFixtureRegression,sameCase};
+module.exports={VERSION,CORPUS,FIXTURE_EVIDENCE,norm,tokens,fuzzyAliasMatch,parseEvidenceUrl,scopedCases,evaluate,evaluateFixtureRegression,sameCase};

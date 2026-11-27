@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V16';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V17';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -25,15 +25,15 @@ function flattenCandidates(execution={}){
   }
   return out;
 }
-function executionProof(execution={}){
+function executionProof(execution={},expectedCount){
   const results=Array.isArray(execution.results)?execution.results:[];
-  const rows=results.map((result,index)=>{
+  const rows=Array.from(results,(result,index)=>{
     const attempts=Array.isArray(result&&result.attempts)?result.attempts:[];
     const executed=attempts.some(attemptExecuted);
-    const truncated=result.candidate_truncated===true||Number(result.dropped_unique_candidate_count)>0;
+    const truncated=!!result&&(result.candidate_truncated===true||Number(result.dropped_unique_candidate_count)>0||Number(result.dropped_uninspected_row_count)>0);
     return {index,executed,truncated,status:text(result&&result.status)||'MISSING'};
   });
-  return {complete:rows.length>0&&rows.every(x=>x.executed&&!x.truncated),task_count:rows.length,executed_count:rows.filter(x=>x.executed).length,truncated_task_count:rows.filter(x=>x.truncated).length,rows};
+  return {complete:rows.length>0&&(expectedCount===undefined||rows.length===expectedCount)&&rows.every(x=>x.executed&&!x.truncated),task_count:rows.length,executed_count:rows.filter(x=>x.executed).length,truncated_task_count:rows.filter(x=>x.truncated).length,rows};
 }
 function sourceUniverseReceipts(plan={},execution={}){
   const tasks=Array.isArray(plan.gap_tasks)?plan.gap_tasks:[];
@@ -43,11 +43,14 @@ function sourceUniverseReceipts(plan={},execution={}){
     const task=tasks[i];if(!task.source_id)continue;
     const result=results[i]||{};
     const attempts=Array.isArray(result.attempts)?result.attempts:[];
-    const executed=attempts.some(attemptExecuted);
+    const truncated=result.candidate_truncated===true||Number(result.dropped_unique_candidate_count)>0||Number(result.dropped_uninspected_row_count)>0;
+    const searched=attempts.some(attemptExecuted);
+    const directVerified=!task.direct_url||attempts.some(a=>text(a.provider).toUpperCase()==='OFFICIAL_DIRECT'&&['EVIDENCE_FOUND','NO_EVIDENCE'].includes(text(a.status).toUpperCase()));
+    const executed=searched&&directVerified&&!truncated;
     receipts.push({
       source_id:task.source_id,
       executed,
-      status:executed?(result.status==='EVIDENCE_FOUND'?'EVIDENCE_FOUND':'NO_EVIDENCE'):'NOT_BOUND',
+      status:truncated?'TRUNCATED':!directVerified?'DIRECT_SOURCE_NOT_VERIFIED':executed?(result.status==='EVIDENCE_FOUND'?'EVIDENCE_FOUND':'NO_EVIDENCE'):'NOT_BOUND',
       provider:result.provider||null
     });
   }
@@ -80,10 +83,10 @@ function buildReferencePlan(input={}){
     production_writes:0
   };
 }
-function buildKnownMissPlan(){
+function buildKnownMissPlan(month){
   return {
     version:'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V2',
-    gap_tasks:KnownMiss.CORPUS.map(c=>{
+    gap_tasks:KnownMiss.scopedCases(month).map(c=>{
       const phrases=[c.title,...(Array.isArray(c.aliases)?c.aliases:[])].map(text).filter(Boolean);
       const evidenceQueries=(Array.isArray(c.search_queries)?c.search_queries:[]).map(text).filter(Boolean);
       const queries=[...new Set([...evidenceQueries,...phrases.map(v=>v+' Bangkok Thailand')])];
@@ -104,41 +107,37 @@ const REFERENCE_EVENT_RE=/(concert|fan\s*-?\s*meet|fanmeet|fancon|fansign|showca
 const REFERENCE_NOISE_RE=/(\bcodes?\b|breathwork|masterclass|workshop|webinar|anniversary memories album|เกม|รหัสเกม)/i;
 const REFERENCE_FOREIGN_RE=/(hong\s+kong|singapore|kuala\s+lumpur|manila|jakarta|taipei|tokyo|osaka|seoul|ho\s+chi\s+minh|hanoi)/i;
 
+function hostMatches(host,domain){
+ return host===domain||host.endsWith('.'+domain);
+}
 function trustedEventPath(value){
- try{
-  const u=new URL(text(value));
-  const host=u.hostname.toLowerCase();
-  const path=u.pathname.toLowerCase();
-  if(host.endsWith('eventpop.me')) return /^\/e\//.test(path);
-  if(host.endsWith('thaiticketmajor.com')) return /^\/(concert|performance|event)\//.test(path);
-  if(host.endsWith('ticketmelon.com')) return path.split('/').filter(Boolean).length>=2;
-  if(host.endsWith('livenationtero.co.th')) return /^\/show\//.test(path)||/^\/[^/]*event\//.test(path)||path.includes('/event/');
-  if(host.endsWith('songkick.com')) return path.includes('/concerts/');
-  return false;
- }catch(_){return false;}
+ const u=KnownMiss.parseEvidenceUrl(value);
+ if(!u)return false;
+ const host=u.hostname.toLowerCase(),path=u.pathname.toLowerCase();
+ if(hostMatches(host,'eventpop.me')) return /^\/e\//.test(path);
+ if(hostMatches(host,'thaiticketmajor.com')) return /^\/(concert|performance|event)\//.test(path);
+ if(hostMatches(host,'ticketmelon.com')) return path.split('/').filter(Boolean).length>=2;
+ if(hostMatches(host,'livenationtero.co.th')) return /^\/show\//.test(path)||/^\/[^/]*event\//.test(path)||path.includes('/event/');
+ if(hostMatches(host,'songkick.com')) return path.includes('/concerts/');
+ return false;
 }
 
 function referenceScopeDecision(row={},context={}){
  const title=text(row.title||row.event_name);
  const eventDate=text(row.event_date);
  const month=text(context.month);
- if(!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) return {eligible:false,reason:'NO_STRUCTURED_DATE'};
+ const parsedDate=new Date(eventDate+'T00:00:00Z');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)||!Number.isFinite(parsedDate.getTime())||parsedDate.toISOString().slice(0,10)!==eventDate) return {eligible:false,reason:'NO_STRUCTURED_DATE'};
  if(month&&!eventDate.startsWith(month+'-')) return {eligible:false,reason:'OUTSIDE_TARGET_MONTH'};
+ const url=KnownMiss.parseEvidenceUrl(row.source_url);
+ if(!url)return {eligible:false,reason:'MISSING_SOURCE'};
  if(REFERENCE_NOISE_RE.test(title)) return {eligible:false,reason:'NON_RENTAL_EVENT_NOISE'};
  if(/^\s*home\s*(?:[-|:–—]\s*.*)?$/i.test(title)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
- try{
-  const u=new URL(text(row.source_url));
-  const host=u.hostname.toLowerCase();
-  const path=(u.pathname||'/').toLowerCase();
-  if(host.endsWith('eventpop.me')&&/^\/g(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
-  if(/\/(search|category|categories)(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
- }catch(_){}
- try{
-  const u=new URL(text(row.source_url));
-  const path=(u.pathname||'/').replace(/\/+$/,'')||'/';
-  if(path==='/'&&!trustedEventPath(row.source_url)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
- }catch(_){}
- if(REFERENCE_FOREIGN_RE.test(title)||/\.hk$/i.test((()=>{try{return new URL(text(row.source_url)).hostname}catch(_){return''}})())) return {eligible:false,reason:'OUTSIDE_BANGKOK_SCOPE'};
+ const host=url.hostname.toLowerCase(),path=(url.pathname||'/').toLowerCase();
+ if(hostMatches(host,'eventpop.me')&&/^\/g(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
+ if(/\/(search|category|categories)(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
+ if((path.replace(/\/+$/,'')||'/')==='/'&&!trustedEventPath(row.source_url)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
+ if(REFERENCE_FOREIGN_RE.test(title)||/\.hk$/i.test(host)) return {eligible:false,reason:'OUTSIDE_BANGKOK_SCOPE'};
  if(!REFERENCE_EVENT_RE.test(title)&&!trustedEventPath(row.source_url)) return {eligible:false,reason:'EVENT_IDENTITY_NOT_STRONG_ENOUGH'};
  return {eligible:true,reason:'ELIGIBLE_REFERENCE'};
 }
@@ -167,7 +166,7 @@ function scopeProbeCandidates(rows=[],context={}){
   const decision=referenceScopeDecision(row,context);
   const exactCase=KnownMiss.CORPUS.find(c=>c.event_date===text(row.event_date)&&KnownMiss.sameCase(row,c));
   const inScope=exactCase&&(exactCase.event_date.startsWith(context.month+'-')||(exactCase.discovery_months||[]).includes(context.month));
-  let sourced=false,foreignHost=false;try{const url=new URL(text(row.source_url));sourced=url.protocol==='https:';foreignHost=/\.hk$/i.test(url.hostname);}catch(_){}
+  const url=KnownMiss.parseEvidenceUrl(row.source_url),sourced=!!url,foreignHost=!!url&&/\.hk$/i.test(url.hostname);
   // A known brand/cross-month identity may lack generic concert keywords. Its
   // actual source and exact date are still mandatory; corpus fields are not evidence.
   const foreign=foreignHost||REFERENCE_FOREIGN_RE.test(text(row.title)+' '+text(row.venue));
@@ -219,7 +218,7 @@ async function providerPreflight(providers={},input={}){
    if(REFERENCE_EVENT_RE.test(title)||/(lucky\s*fan|meet\s*(?:&|and)?\s*greet|private\s+(?:session|talk)|brand\s+event|artist\s+(?:event|appearance)|ลัคกี้แฟน|กิจกรรมศิลปิน|ตารางงานศิลปิน)/i.test(title))return true;
    try{
      const host=new URL(text(row.source_url)).hostname.toLowerCase();
-     const trusted=['eventpop.me','thaiticketmajor.com','ticketmelon.com','livenationtero.co.th','songkick.com'].some(domain=>host===domain||host.endsWith('.'+domain));
+     const trusted=['eventpop.me','thaiticketmajor.com','ticketmelon.com','livenationtero.co.th','songkick.com'].some(domain=>hostMatches(host,domain));
      return trusted&&trustedEventPath(row.source_url);
    }catch(_){return false;}
  }});
@@ -268,17 +267,30 @@ async function runOperationalDiscovery(input={},options={}){
   const detailFollowup=detailFollowupProof(publicProviders);
   proof.candidate_count=candidates.length;
   proof.has_evidence=candidates.length>0;
-  const minimumExecuted=Math.min(3,proof.task_count);
-  const operationalReady=proof.has_evidence&&proof.executed_count>=minimumExecuted;
+  const minimumExecuted=Math.min(3,plan.gap_tasks.length);
+  // A small number of successful searches is not proof that every planned
+  // operational intent ran. Preserve candidates for inspection but fail closed
+  // on missing/truncated task receipts; the separate exhaustive audit stays nonblocking.
+  const missingTasks=plan.gap_tasks.flatMap((task,index)=>{
+    const row=proof.rows[index];
+    return row&&row.executed&&!row.truncated?[]:[{
+      task_index:index,source_id:task.source_id||null,source_tier:task.source_tier,
+      reason:row&&row.truncated?'TRUNCATED':'EXECUTION_UNPROVEN'
+    }];
+  });
+  const coverageComplete=plan.gap_tasks.length>0&&proof.task_count===plan.gap_tasks.length&&proof.complete&&missingTasks.length===0;
+  const operationalReady=proof.has_evidence&&coverageComplete;
   const blockers=[
     ...(!proof.has_evidence?['OPERATIONAL_DISCOVERY_EMPTY']:[]),
-    ...(proof.executed_count<minimumExecuted?['OPERATIONAL_PROVIDER_EVIDENCE_INSUFFICIENT']:[])
+    ...(proof.executed_count<minimumExecuted?['OPERATIONAL_PROVIDER_EVIDENCE_INSUFFICIENT']:[]),
+    ...(!coverageComplete?['OPERATIONAL_TASK_COVERAGE_INCOMPLETE']:[])
   ];
   return {
     version:VERSION,
     mode:'SMART_OPERATIONAL',
     status:operationalReady?'READY_FOR_VERIFIER':'HOLD_FOR_OPERATIONAL_DISCOVERY',
     operational_ready:operationalReady,
+    operational_coverage:{complete:coverageComplete,planned_task_count:plan.gap_tasks.length,missing_tasks:missingTasks},
     audit_required:true,
     audit_blocking:false,
     month:plan.range.month,
@@ -299,13 +311,16 @@ async function runOperationalDiscovery(input={},options={}){
 }
 
 async function runMonthlyUltraDeep(input={},options={}){
+  // Reject invalid date inputs before any known-miss probe or provider call.
+  const plan=MonthlyPlan.build(input);
   const publicProviders=options.use_only_injected_providers===true?{}:PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
   const binding=providerBindingState(providers);
   // Execute the bounded historical probes first. Live HTML search providers may
   // soft-throttle after a large sweep; putting the small regression corpus first
   // prevents broad discovery traffic from starving the recall gate.
-  const knownMissPlan=buildKnownMissPlan();
+  // The live gate is month-scoped; do not spend provider calls on unrelated historical months.
+  const knownMissPlan=buildKnownMissPlan(plan.range.month);
   const knownCases=new Map(KnownMiss.CORPUS.map(row=>['knownmiss:'+row.case_id,row]));
   const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers,
     acceptCandidate:(row,task)=>{
@@ -314,7 +329,6 @@ async function runMonthlyUltraDeep(input={},options={}){
     }});
   const knownMissCandidates=flattenCandidates(knownMissExecution);
 
-  const plan=MonthlyPlan.build(input);
   const referencePlan=buildReferencePlan({month:plan.range.month,location:plan.location});
   // Main discovery and the independent reference sweep are read-only and independent after
   // the known-miss probe. Run them concurrently and use the executor's bounded max concurrency
@@ -326,14 +340,14 @@ async function runMonthlyUltraDeep(input={},options={}){
   const receipts=sourceUniverseReceipts(plan,execution);
   const universe=SourceRegistry.buildUniverseProof(receipts);
   const candidates=flattenCandidates(execution);
-  const discoveryProof=executionProof(execution);
+  const discoveryProof=executionProof(execution,plan.gap_tasks.length);
   discoveryProof.candidate_count=candidates.length;
   discoveryProof.has_evidence=candidates.length>0;
   discoveryProof.complete=discoveryProof.complete && discoveryProof.has_evidence;
 
   const referenceCandidates=flattenCandidates(referenceExecution);
   const scopedReferenceCandidates=scopeReferenceCandidates(referenceCandidates,{month:plan.range.month,location:plan.location});
-  const referenceProof=executionProof(referenceExecution);
+  const referenceProof=executionProof(referenceExecution,referencePlan.gap_tasks.length);
   referenceProof.candidate_count=referenceCandidates.length;
   referenceProof.has_evidence=referenceCandidates.length>0;
   referenceProof.complete=referenceProof.complete && referenceProof.has_evidence;
@@ -347,7 +361,7 @@ async function runMonthlyUltraDeep(input={},options={}){
   // Preflight is intentionally evaluated only after the established evidence
   // sequence, so it can gate completion without changing known-miss/discovery/
   // reference ordering or hiding their diagnostics.
-  const preflight=await providerPreflight(providers,input);
+  const preflight=await providerPreflight(providers,{...input,month:plan.range.month});
   binding.preflight=preflight;
 
   // A known miss is recovered if any governed live discovery path finds it.

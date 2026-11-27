@@ -1,6 +1,6 @@
 'use strict';
 const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
-const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V11';
+const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V12';
 const TIER_TERMS={
  OFFICIAL:['concert fanmeeting fancon showcase mini concert festival Bangkok','คอนเสิร์ต แฟนมีต แฟนคอน โชว์เคส มินิคอนเสิร์ต กรุงเทพ ปริมณฑล','free concert radio station Flex1045 PMCU Siam Halloween multi-day October November Bangkok','ฟรีคอนเสิร์ต สยามฮาโลวีน PMCU Flex 104.5 เทศกาล 30 ตุลาคม 1 พฤศจิกายน ศิลปิน'],
  TICKETING:['Bangkok ticket concert fanmeeting showcase festival','บัตร งานศิลปิน กรุงเทพ ปริมณฑล','KAZZ MARKET activity TutorYim fanmeeting one day trip ticket updated date','LOOKE GELBOYS AllTicket fanmeet onsale event date Thailand'],
@@ -30,8 +30,15 @@ function queryVariantsForTerm(term,range,location,learned=[]){
  return [...new Set([compact+' '+labels.en+' '+location,compact+' '+labels.th+' กรุงเทพ ปริมณฑล',compact+' Bangkok',compact+' Nonthaburi',compact+' Pathum Thani',compact+' Samut Prakan',compact,...learned.map(text)])].filter(Boolean);
 }
 function monthRange(input={}){
- const raw=text(input.month);let y,m;
- if(/^\d{4}-\d{2}$/.test(raw)){[y,m]=raw.split('-').map(Number);}else{const base=/^\d{4}-\d{2}-\d{2}$/.test(text(input.current_date))?new Date(text(input.current_date)+'T00:00:00Z'):new Date();y=base.getUTCFullYear();m=base.getUTCMonth()+2;if(m===13){m=1;y++;}}
+ const raw=text(input.month),date=text(input.current_date);let y,m;
+ if(raw){
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(raw)||Number(raw.slice(0,4))<1000)throw new RangeError('INVALID_SCAN_MONTH');
+  [y,m]=raw.split('-').map(Number);
+ }else{
+  const base=date?new Date(date+'T00:00:00Z'):new Date();
+  if(date&&(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(base.getTime())||base.toISOString().slice(0,10)!==date))throw new RangeError('INVALID_SCAN_CURRENT_DATE');
+  y=base.getUTCFullYear();m=base.getUTCMonth()+2;if(m===13){m=1;y++;}
+ }
  const last=new Date(Date.UTC(y,m,0)).getUTCDate(),mm=String(m).padStart(2,'0');return {month:y+'-'+mm,start_date:y+'-'+mm+'-01',end_date:y+'-'+mm+'-'+String(last).padStart(2,'0')};
 }
 function leadTimeEnd(range){const [y,m]=range.month.split('-').map(Number),ny=m===12?y+1:y,nm=m===12?1:m+1,last=new Date(Date.UTC(ny,nm,0)).getUTCDate();return ny+'-'+String(nm).padStart(2,'0')+'-'+String(last).padStart(2,'0');}
@@ -42,18 +49,24 @@ function build(input={}){
   gap_tasks.push({source_tier:'FANDOM_GRAPH',source_id:'fandom-'+fandom.toLowerCase().replace(/[^a-z0-9ก-๙]+/gi,'-').slice(0,60),query:fandom+' fanmeeting fancon fansign brand event birthday Bangkok '+range.month,query_variants:[fandom+' เช่ามือถือ กรุงเทพ '+range.month,fandom+' lucky fan meet greet กรุงเทพ '+range.month,fandom+' added show sold out Bangkok '+range.month],providers:['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','EXA'],stop_condition:'EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS',evidence_required:true,date_window:{start:range.start_date,end:range.end_date}});
  }
   const universe=SourceRegistry.buildUniversePlan({month:range.month,location});
- for(const task of universe.tasks)gap_tasks.push({source_tier:task.source_tier,source_id:task.source_id,query:task.query,providers:task.providers,stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:task.required,date_window:{start:range.start_date,end:range.end_date}});
+ for(const task of universe.tasks)gap_tasks.push({source_tier:task.source_tier,source_id:task.source_id,query:task.query,query_variants:task.query_variants,providers:task.providers,...(task.direct_url?{direct_url:task.direct_url}:{}),stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:task.required,date_window:{start:range.start_date,end:range.end_date}});
  return {version:VERSION,mode:'ULTRA_DEEP_MONTH_LONG_TAIL',range,location,gap_tasks,source_universe_version:universe.version,source_universe_task_count:universe.tasks.length,required_tiers:Object.keys(TIER_TERMS),learned_query_count:learned.length,hot_fandom_query_count:hotFandoms.length,production_writes:0,authoritative:false,verifier_required:true};
 }
+// Critical commercial intents must be independent tasks: a first usable hit
+// for a generic tier must not suppress lucky-fan/BL-GL/campaign sub-intents.
+// Keep noncritical tiers at one task; the exhaustive audit remains separate.
+const OPERATIONAL_EXPANDED_TIERS=Object.freeze(['ARTIST_AGENCY','MALL_COMMUNITY','FAN_EVENT','CEREMONY','PRESS_BRAND','CAMPAIGN_LEAD_TIME','VISUAL_SCHEDULE']);
 function buildOperational(input={}){
  const range=monthRange(input),location=text(input.location)||'Bangkok Metropolitan Region Thailand',learned=Array.isArray(input.learned_query_terms)?input.learned_query_terms:[],hotFandoms=(Array.isArray(input.hot_fandom_terms)?input.hot_fandom_terms:[]).map(text).filter(Boolean).slice(0,6),gap_tasks=[];
  for(const source_tier of OPERATIONAL_TIERS){
-  const term=(TIER_TERMS[source_tier]||[])[0];if(!term)continue;
+  const terms=TIER_TERMS[source_tier]||[];
+  const selected=OPERATIONAL_EXPANDED_TIERS.includes(source_tier)?terms:terms.slice(0,1);
+  for(const [termIndex,term] of selected.entries()){
   const qs=queryVariantsForTerm(term,range,location,learned);
   const liveNationEligible=['OFFICIAL','TICKETING','VENUE','ARTIST_AGENCY','ORGANIZER_PROMOTER','PUBLIC_CALENDAR'].includes(source_tier);
   gap_tasks.push({
    source_tier,
-   source_id:'smart-'+source_tier.toLowerCase().replace(/_/g,'-'),
+   source_id:'smart-'+source_tier.toLowerCase().replace(/_/g,'-')+(termIndex?'-intent-'+(termIndex+1):''),
    query:qs[0],
    query_variants:qs.slice(1,4),
    providers:[...(liveNationEligible?['LIVENATION_PUBLIC']:[]),'BING_RSS','OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA'],
@@ -62,7 +75,18 @@ function buildOperational(input={}){
    date_window:{start:range.start_date,end:source_tier==='CAMPAIGN_LEAD_TIME'?leadTimeEnd(range):range.end_date},
    campaign_lead_time:source_tier==='CAMPAIGN_LEAD_TIME'
   });
+  }
  }
+ // Explicit bounded source-specific lane: cross-month registration can
+ // precede a future event. Direct access is required for the exhaustive
+ // audit; daily operation requires indexed coverage without certifying it.
+ const labels=SourceRegistry.monthLabels(range.month),next=SourceRegistry.monthLabels(leadTimeEnd(range).slice(0,7));
+ gap_tasks.push({source_tier:'ARTIST_AGENCY',source_id:'smart-iqiyi-thailand-platform',
+  query:'site:x.com/iQIYI_Thailand iJOY FAN ZONE registration '+labels.en,
+  query_variants:['site:x.com/iQIYI_Thailand iJOY ลงทะเบียน แฟนโซน '+labels.th,'site:x.com/iQIYI_Thailand iJOY FAN ZONE '+next.en,'iQIYI Thailand artist showcase ICONSIAM '+next.en],
+  providers:['BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA'],
+  stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:true,campaign_lead_time:true,
+  date_window:{start:range.start_date,end:leadTimeEnd(range)}});
  for(const fandom of hotFandoms){
   gap_tasks.push({
    source_tier:'FANDOM_GRAPH',source_id:'smart-fandom-'+fandom.toLowerCase().replace(/[^a-z0-9ก-๙]+/gi,'-').slice(0,50),
@@ -73,7 +97,7 @@ function buildOperational(input={}){
   });
  }
  return {
-  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V3',
+  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V4',
   mode:'SMART_OPERATIONAL',
   range,location,gap_tasks,
   operational_tiers:[...OPERATIONAL_TIERS],hot_fandom_query_count:hotFandoms.length,
@@ -83,4 +107,4 @@ function buildOperational(input={}){
   verifier_required:true
  };
 }
-module.exports={VERSION,TIER_TERMS,OPERATIONAL_TIERS,monthRange,leadTimeEnd,queryVariantsForTerm,build,buildOperational};
+module.exports={VERSION,TIER_TERMS,OPERATIONAL_TIERS,OPERATIONAL_EXPANDED_TIERS,monthRange,leadTimeEnd,queryVariantsForTerm,build,buildOperational};

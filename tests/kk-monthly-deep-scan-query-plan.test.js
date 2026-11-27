@@ -31,13 +31,76 @@ test('monthly discovery includes bounded broad fallbacks when exact month querie
  assert.equal(new Set(all).size,all.length);
 });
 
-test('smart operational query plan stays intentionally small and leaves exhaustive coverage to audit',()=>{
+test('smart operational query plan bounds noncritical tiers and leaves exhaustive coverage to audit',()=>{
  const r=P.buildOperational({month:'2026-10',location:'Bangkok Metropolitan Region Thailand'});
  assert.equal(r.mode,'SMART_OPERATIONAL');
- assert.equal(r.gap_tasks.length,16);
+ const expected=1+P.OPERATIONAL_TIERS.reduce((n,t)=>n+(P.OPERATIONAL_EXPANDED_TIERS.includes(t)?P.TIER_TERMS[t].length:1),0);
+ assert.equal(r.gap_tasks.length,expected);
+ assert.equal(new Set(r.gap_tasks.map(t=>t.source_id)).size,expected);
  assert.equal(r.operational_tiers.length,16);
  assert.equal(r.audit_required,true);
  assert.ok(r.gap_tasks.every(x=>x.source_id.startsWith('smart-')));
  assert.ok(r.gap_tasks.every(x=>x.query_variants.length<=3));
  assert.ok(r.gap_tasks.some(x=>x.providers.includes('LIVENATION_PUBLIC')));
+});
+
+test('named source universe fallbacks survive monthly execution-plan assembly for December missing cases',()=>{
+ const p=P.build({month:'2026-12',location:'Bangkok Thailand'});
+ const ids=['mcard-future-event-spend-winner-cycle','mediheal-th-artist-lucky-fans','ttm-recent-asia-artist-fancon','illust-fusion-official-events'];
+ for(const id of ids){
+  const task=p.gap_tasks.find(t=>t.source_id===id);
+  assert.ok(task,id);
+  assert.ok(Array.isArray(task.query_variants)&&task.query_variants.length>=2,id);
+  assert.match([task.query,...task.query_variants].join(' | '),/ธันวาคม 2569/,id);
+  assert.equal(task.required,true,id);
+ }
+ const mcard=p.gap_tasks.find(t=>t.source_id===ids[0]);
+ assert.ok(mcard.query_variants.some(q=>/สะสมยอด/.test(q)));
+ const illust=p.gap_tasks.find(t=>t.source_id===ids[3]);
+ assert.ok(illust.query_variants.some(q=>/WINTER/.test(q)));
+ assert.equal(p.production_writes,0);
+ assert.equal(p.verifier_required,true);
+});
+
+test('issue 879 direct named-source variants survive monthly plan assembly',()=>{
+ const p=P.build({month:'2026-12'});
+ for(const id of ['twelveplus-th','dentiste-th','mflow-theseries','ngernnn-artist','theconcert-ticketing','aksra-theatre-king-power','thai-summit-tower-events','smooth-life-tower-events']){
+  const task=p.gap_tasks.find(x=>x.source_id===id);
+  assert.ok(task,id);assert.equal(task.required,true,id);
+  assert.ok(task.query_variants.some(q=>q.includes('ธันวาคม 2569')),id);
+  assert.equal(task.stop_condition,'EXECUTE_AND_RECORD_RECEIPT',id);
+ }
+ assert.equal(p.production_writes,0);
+});
+
+test('critical operational sub-intents are independent tasks and cannot be skipped by a generic hit',()=>{
+ const p=P.buildOperational({month:'2026-12'});
+ for(const tier of P.OPERATIONAL_EXPANDED_TIERS){
+  const tasks=p.gap_tasks.filter(x=>x.source_tier===tier);
+  assert.equal(tasks.length,P.TIER_TERMS[tier].length+(tier==='ARTIST_AGENCY'?1:0),tier);
+  for(const term of P.TIER_TERMS[tier])assert.ok(tasks.some(x=>x.query.startsWith(term+' ')),term);
+ }
+ assert.equal(p.gap_tasks.filter(x=>x.source_tier==='PRESS_BRAND').length,8);
+ assert.ok(p.gap_tasks.filter(x=>x.source_tier==='CAMPAIGN_LEAD_TIME').every(x=>x.date_window.end==='2027-01-31'));
+ assert.equal(p.audit_required,true);
+ assert.equal(p.production_writes,0);
+ assert.ok(p.gap_tasks.every(x=>!x.providers.includes('EXA')));
+});
+
+test('invalid explicit scan month fails closed instead of scanning a different month',()=>{
+ for(const month of ['2026-00','2026-13','2026-2','nonsense'])assert.throws(()=>P.monthRange({month}),/INVALID_SCAN_MONTH/);
+});
+test('invalid reference date fails closed and December rollover is exact',()=>{
+ for(const current_date of ['2026-02-30','2026-13-01','invalid'])assert.throws(()=>P.monthRange({current_date}),/INVALID_SCAN_CURRENT_DATE/);
+ assert.deepEqual(P.monthRange({current_date:'2026-12-31'}),{month:'2027-01',start_date:'2027-01-01',end_date:'2027-01-31'});
+});
+
+test('named official sources propagate direct URLs and daily iQIYI keeps bounded cross-month search',()=>{
+ const audit=P.build({month:'2026-12'}),daily=P.buildOperational({month:'2026-12'});
+ for(const [id,url] of [['iqiyi-thailand-platform','https://x.com/iQIYI_Thailand'],['iconsiam-hall','https://www.iconsiamhall.com/en/event-calendar/event-list']]){
+  const rows=audit.gap_tasks.filter(x=>x.source_id===id);assert.equal(rows.length,1);assert.equal(rows[0].direct_url,url);assert.equal(rows[0].providers[0],'OFFICIAL_DIRECT');assert.equal(rows[0].required,true);
+ }
+ const lane=daily.gap_tasks.find(x=>x.source_id==='smart-iqiyi-thailand-platform');
+ assert.equal(lane.date_window.end,'2027-01-31');assert.equal(lane.required,true);assert.equal(lane.query_variants.length,3);assert.equal(lane.providers.includes('EXA'),false);
+ assert.ok(lane.query_variants.some(q=>q.includes('January 2027')));assert.equal(lane.direct_url,undefined);
 });

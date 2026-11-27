@@ -52,3 +52,122 @@ test('radio free music festivals and mall public plaza sources are mandatory',()
   assert.ok(a.some(x=>x.source_id===id&&x.required===true),id);
  }
 });
+
+test('M Card / The Mall fan-zone and lighting sources are mandatory, not generic mall-category coverage',()=>{
+ const plan=R.buildUniversePlan({month:'2026-11',location:'Bangkok Thailand'});
+ const ids=['mcard-the-mall-artist-events','the-mall-lifestore-plaza-artist-activations'];
+ for(const id of ids){
+  const source=plan.tasks.find(t=>t.source_id===id);
+  assert.ok(source,id);
+  assert.equal(source.required,true);
+  assert.equal(source.domain,'mcardmall.com');
+  const queries=[source.query,...source.query_variants].join(' | ');
+  assert.match(queries,/Christmas Tree Lighting Ceremony/i);
+  assert.match(queries,/พิธีเปิดไฟต้นคริสต์มาส/);
+  assert.match(queries,/fan zone/i);
+ }
+ const receipts=R.allSources().map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ receipts.find(x=>x.source_id==='mcard-the-mall-artist-events').executed=false;
+ receipts.find(x=>x.source_id==='mcard-the-mall-artist-events').status='NOT_BOUND';
+ const proof=R.buildUniverseProof(receipts);
+ assert.equal(proof.complete,false);
+ assert.equal(proof.by_tier.BRAND_SPONSOR.complete,false);
+ assert.ok(proof.missing_required_sources.includes('mcard-the-mall-artist-events'));
+});
+
+test('December cross-month fan events require named M Card, Mediheal, TTM and creative-calendar source receipts',()=>{
+ const plan=R.buildUniversePlan({month:'2026-12',location:'Bangkok Thailand'});
+ const ids=['mcard-future-event-spend-winner-cycle','mediheal-th-artist-lucky-fans','ttm-recent-asia-artist-fancon','illust-fusion-official-events'];
+ for(const id of ids){
+  const row=plan.tasks.find(r=>r.source_id===id);
+  assert.ok(row,id);
+  assert.equal(row.required,true,id);
+  assert.equal(row.evidence_required,true,id);
+  const queries=[row.query,...row.query_variants].join(' | ');
+  assert.match(queries,/December 2026|ธันวาคม 257?0|ธันวาคม 2569/i,id);
+ }
+ assert.match([plan.tasks.find(r=>r.source_id==='mcard-future-event-spend-winner-cycle').query,...plan.tasks.find(r=>r.source_id==='mcard-future-event-spend-winner-cycle').query_variants].join(' '),/top spender|สะสมยอด/i);
+ assert.match([plan.tasks.find(r=>r.source_id==='illust-fusion-official-events').query,...plan.tasks.find(r=>r.source_id==='illust-fusion-official-events').query_variants].join(' '),/WINTER/i);
+ const receipts=R.allSources().map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ for(const id of ids){
+  const receipt=receipts.find(r=>r.source_id===id);
+  receipt.executed=false;
+  receipt.status='NOT_BOUND';
+ }
+ const proof=R.buildUniverseProof(receipts);
+ assert.equal(proof.complete,false);
+ for(const id of ids)assert.ok(proof.missing_required_sources.includes(id),id);
+ for(const tier of ['BRAND_SPONSOR','TICKETING','PUBLIC_CALENDAR'])assert.equal(proof.by_tier[tier].complete,false,tier);
+});
+
+test('issue 879 named missed-source lanes require independent coverage receipts',()=>{
+ const ids=['twelveplus-th','dentiste-th','mflow-theseries','ngernnn-artist','theconcert-ticketing','aksra-theatre-king-power','thai-summit-tower-events','smooth-life-tower-events'];
+ for(const month of ['2026-11','2026-12','2027-01']){
+  const p=R.buildUniversePlan({month});
+  const labels=R.monthLabels(month);
+  assert.equal(new Set(p.tasks.map(x=>x.source_id)).size,p.tasks.length);
+  for(const id of ids){
+   const task=p.tasks.find(x=>x.source_id===id);
+   assert.ok(task,id);assert.equal(task.required,true,id);
+   assert.ok(task.query.includes(labels.en),id);
+   assert.ok(task.query_variants.some(q=>q.includes(labels.th)),id);
+   assert.ok(task.query_variants.some(q=>!q.includes(labels.en)&&!q.includes(labels.th)),id);
+  }
+ }
+ const receipts=R.allSources().map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ for(const id of ids){
+  const proof=R.buildUniverseProof(receipts.filter(x=>x.source_id!==id));
+  assert.equal(proof.complete,false,id);
+  assert.ok(proof.missing_required_sources.includes(id),id);
+ }
+});
+
+test('Mall Bangkapi outdoor plaza remains explicitly discoverable without increasing the query budget',()=>{
+ const plan=R.buildUniversePlan({month:'2027-01',location:'Bangkok Thailand'});
+ const venue=plan.tasks.find(t=>t.source_id==='the-mall-lifestore-plaza-artist-activations');
+ const brand=plan.tasks.find(t=>t.source_id==='mcard-the-mall-artist-events');
+ assert.equal(venue.source_tier,'VENUE');
+ assert.equal(brand.source_tier,'BRAND_SPONSOR');
+ assert.equal(venue.required,true);
+ assert.equal(brand.required,true);
+ assert.ok(venue.query_variants.some(q=>q.includes('Bangkapi outdoor plaza')&&q.includes('บางกะปิ ลานกลางแจ้ง')&&q.includes('January 2027')&&q.includes('มกราคม 2570')));
+ assert.equal(venue.query_variants.length,brand.query_variants.length);
+ const receipts=R.allSources().map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ for(const task of [venue,brand]){
+  const proof=R.buildUniverseProof(receipts.filter(x=>x.source_id!==task.source_id));
+  assert.equal(proof.complete,false);
+  assert.equal(proof.by_tier[task.source_tier].complete,false);
+  assert.ok(proof.missing_required_sources.includes(task.source_id));
+ }
+});
+
+test('duplicate required source receipts fail closed independent of order and apparent success',()=>{
+ const good=R.allSources().map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ const id='mcard-the-mall-artist-events';
+ for(const duplicate of [{source_id:id,status:'NOT_BOUND',executed:false},{source_id:id,status:'EVIDENCE_FOUND',executed:true}]){
+  for(const receipts of [[duplicate,...good],[...good,duplicate]]){
+   const proof=R.buildUniverseProof(receipts);
+   assert.equal(proof.complete,false);
+   assert.equal(proof.by_tier.BRAND_SPONSOR.complete,false);
+   assert.ok(proof.missing_required_sources.includes(id));
+   assert.equal(proof.sources.find(x=>x.source_id===id).status,'DUPLICATE_RECEIPT');
+  }
+ }
+ assert.equal(R.buildUniverseProof(good).complete,true);
+});
+
+
+test('Star Hunter, MGI Hall and iQIYI each require separate source coverage',()=>{
+ const plan=R.buildUniversePlan({month:'2027-01'});
+ const receipts=R.allSources().map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ for(const [id,tier] of [['star-hunter-gl-final-episodes','ARTIST_AGENCY'],['mgi-hall-bravo-bkk','VENUE'],['iqiyi-thailand-platform','ARTIST_AGENCY']]){
+  const task=plan.tasks.find(t=>t.source_id===id);
+  assert.ok(task,id); assert.equal(task.source_tier,tier); assert.equal(task.required,true); assert.equal(task.evidence_required,true);
+  assert.match(task.query,/January 2027/); assert.ok(task.query_variants.some(q=>q.includes('มกราคม 2570')));
+  const proof=R.buildUniverseProof(receipts.filter(x=>x.source_id!==id));
+  assert.equal(proof.complete,false); assert.equal(proof.by_tier[tier].complete,false); assert.ok(proof.missing_required_sources.includes(id));
+ }
+ assert.equal(new Set(plan.tasks.map(t=>t.source_id)).size,plan.tasks.length);
+ assert.equal(R.buildUniverseProof(receipts).complete,true);
+ assert.equal(plan.production_writes,0);
+});

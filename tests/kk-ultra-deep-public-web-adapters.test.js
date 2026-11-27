@@ -351,3 +351,53 @@ test('createProviders binds Live Nation as credential-free unknown-url evidence'
  const two=await p.LIVENATION_PUBLIC({query:'Young K Bangkok',date_window:{start:'2026-10-01'}});
  assert.equal(one.length,1);assert.equal(two.length,1);assert.equal(calls,1);
 });
+
+test('configured JSON search adapters reject malformed successful HTTP payloads',async()=>{
+ for(const payload of [{error:'unavailable'},{results:null},{results:[null]}]){
+  await assert.rejects(A.searxng({query:'event'},{searxng_endpoint:'https://search.example/',fetchFn:async()=>response(JSON.stringify(payload))}),/SEARXNG_INVALID_RESULTS/);
+ }
+ for(const payload of [{},{documents:null},{documents:[null]}]){
+  await assert.rejects(A.fetchLiveNationRows({fetchFn:async()=>response(JSON.stringify(payload))}),/LIVENATION_INVALID_DOCUMENTS/);
+ }
+ await assert.rejects(A.ddgsTrafilatura({query:'event'},{ddgs_runner:async()=>({error:'offline'})}),/DDGS_INVALID_RESULTS/);
+});
+test('optional JSON and DDGS search obey explicit site scope and reject lookalike hosts',async()=>{
+ const rows=[{title:'Event',url:'https://eventpop.me/e/1'},{title:'Other',url:'https://eventpop.me.invalid.test/e/2'}];
+ const query='event site:eventpop.me';
+ const json=await A.searxng({query},{searxng_endpoint:'https://search.example/',fetchFn:async()=>response(JSON.stringify({results:rows}))});
+ const ddgs=await A.ddgsTrafilatura({query},{ddgs_runner:async()=>rows});
+ const live=await A.liveNationPublic({query},{livenation_loader:async()=>[{title:'Event',event_date:'2026-12-01',source_url:'https://www.livenationtero.co.th/show/1/event'}]});
+ assert.deepEqual(json.map(r=>r.source_url),['https://eventpop.me/e/1']);
+ assert.deepEqual(ddgs.map(r=>r.source_url),['https://eventpop.me/e/1']);
+ assert.deepEqual(live,[]);
+});
+test('public feed uses observed item title not query and reports failed configured reads',async()=>{
+ const xml='<rss><channel><item><title>Actual Fanmeeting</title><link>https://example.com/a</link></item><item><link>https://example.com/b</link></item></channel></rss>';
+ const rows=await A.rssOrPublicFeed({query:'Unobserved title 1 Dec 2026',feed_urls:['https://feed.example/rss']},{fetchFn:async()=>response(xml)});
+ assert.deepEqual(rows.map(r=>r.title),['Actual Fanmeeting',null]);
+ await assert.rejects(A.rssOrPublicFeed({feed_urls:['https://feed.example/rss']},{fetchFn:async()=>response('error',503)}),/PUBLIC_FEED_ALL_READS_FAILED/);
+ await assert.rejects(A.officialDirect({source_url:'https://example.com/event'},{fetchFn:async()=>response('error',503)}),/OFFICIAL_DIRECT_ALL_READS_FAILED/);
+});
+test('HTML and RSS parsers preserve one bounded real overflow row for executor accounting',()=>{
+ const links=Array.from({length:30},(_,i)=>'<a class="result__a" href="https://example.com/e/'+i+'">Event '+i+'</a>').join('');
+ const xml='<rss><channel>'+Array.from({length:30},(_,i)=>'<item><title>Event '+i+'</title><link>https://example.com/e/'+i+'</link></item>').join('')+'</channel></rss>';
+ assert.equal(A.parseDuckDuckGoHtml(links).length,26);
+ assert.equal(A.parseRssItems(xml).length,26);
+});
+test('DDGS process cannot disguise empty or malformed stdout as a successful empty search',async()=>{
+ for(const output of ['', '{}', '[null]']){
+  await assert.rejects(A.execFileJson('synthetic',[],{execFileImpl:(cmd,args,opts,cb)=>cb(null,output,'')}),/DDGS_INVALID_JSON/);
+ }
+ assert.deepEqual(await A.execFileJson('synthetic',[],{execFileImpl:(cmd,args,opts,cb)=>cb(null,'[]','')}),[]);
+});
+
+test('required direct source rejects wrong redirect, login, malformed URL and failed canonical read despite good seeds',async()=>{
+ const task={direct_url:'https://official.example/calendar',seed_urls:['https://mirror.example/event'],required:true};
+ let calls=[];const html=(body,status=200,headers={})=>new Response(body,{status,headers:{'content-type':'text/html',...headers}});
+ for(const answer of [()=>html('denied',403),()=>html('<title>Log in</title>'),()=>html('',302,{location:'https://mirror.example/event'}),()=>html('',302,{location:'/login'})]){
+  calls=[];await assert.rejects(A.officialDirect(task,{fetchFn:async url=>{calls.push(url);return answer();}}));assert.deepEqual(calls,[task.direct_url]);
+ }
+ await assert.rejects(A.officialDirect({...task,direct_url:'http://official.example/'},{fetchFn:async()=>{throw Error('unexpected fetch');}}),/OFFICIAL_DIRECT_INVALID_URL/);
+ assert.deepEqual(await A.officialDirect(task,{fetchFn:async()=>html('<title>Organizer Calendar</title>')}),[]);
+ const rows=await A.officialDirect(task,{fetchFn:async()=>html('<title>Real Event</title><dt>Event Date</dt><dd>20 December 2026</dd>')});assert.equal(rows[0].event_date,'2026-12-20');
+});
