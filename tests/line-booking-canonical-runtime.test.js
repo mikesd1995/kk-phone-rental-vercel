@@ -272,6 +272,22 @@ test('Web Package admission rejects nonfinite prices and malformed or fractional
   assert.equal(c.kkAssertWebPackageBookable_(event,template).price,'790.50');
 });
 
+test('shared API numeric parser rejects nonfinite and nonscalar payment or price inputs before writes',()=>{
+  const {context:c}=fixture();
+  for(const field of ['amount_received','standard_price','override_price','sort_order_override']){
+    for(const value of [Infinity,-Infinity,'Infinity','1e999',NaN,'bad',-1,'-0.5',true,false,[],[1],{}]){
+      assert.throws(()=>c.kkApiNumber_(value,field,true),/must be a non-negative number/);
+    }
+    for(const value of ['',null,undefined]){
+      assert.equal(c.kkApiNumber_(value,field,true),'');
+      assert.equal(c.kkApiNumber_(value,field,false),0);
+    }
+    for(const [value,expected] of [[0,0],[790,790],['1090',1090],['790.50',790.5]]){
+      assert.equal(c.kkApiNumber_(value,field,false),expected);
+    }
+  }
+});
+
 test('booking price formula honors locked quote before historical price lookup without writing live formulas',()=>{
   const {context:c}=fixture();
   const formula=c.kkFormulaBookingPrice_(47);

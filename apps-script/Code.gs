@@ -1999,8 +1999,11 @@ function kkApiBoolOrBlank_(value) {
 
 function kkApiNumber_(value, fieldName, allowBlank) {
   if ((value === '' || value === null || typeof value === 'undefined') && allowBlank) return '';
-  const n = Number(value || 0);
-  if (isNaN(n) || n < 0) throw new Error(fieldName + ' must be a non-negative number');
+  // Only scalar amounts/order values are valid. Keep historical blank defaults.
+  if (value !== null && value !== undefined && typeof value !== 'number' && typeof value !== 'string')
+    throw new Error(fieldName + ' must be a non-negative number');
+  const n = Number(value === null || value === undefined || value === '' ? 0 : value);
+  if (!Number.isFinite(n) || n < 0) throw new Error(fieldName + ' must be a non-negative number');
   return n;
 }
 
