@@ -1,0 +1,53 @@
+name: KK X Marketing Visibility Regression (Zero Install)
+
+# Draft-PR source verification only. No external services, secrets, paid
+# inference, write permissions, ads, booking mutation or X publication.
+on:
+  pull_request:
+    paths:
+      - 'server/kk-x-posting-eligibility.js'
+      - 'server/kk-x-posting-plan.js'
+      - 'server/kk-x-visibility-recovery.js'
+      - 'scripts/kk-x-posting-plan-chat-bridge.js'
+      - 'tests/kk-x-posting-eligibility.test.js'
+      - 'tests/kk-x-posting-plan.test.js'
+      - 'tests/kk-x-posting-plan-chat-bridge.test.js'
+      - 'tests/kk-x-visibility-recovery.test.js'
+      - '.github/workflows/kk-x-visibility-regression-zero-install.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kk-x-visibility-regression-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verified-x-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact PR source without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Check exact SHA and zero-install environment
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          node --version
+          test -z "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          test -z "${VERCEL_TOKEN:-}"
+          test -z "${OPENAI_API_KEY:-}"
+      - name: Test verified Booking and Storefront gates, X post log, 06:00 day boundary
+        run: |
+          node --test \
+            tests/kk-x-posting-eligibility.test.js \
+            tests/kk-x-posting-plan.test.js \
+            tests/kk-x-posting-plan-chat-bridge.test.js \
+            tests/kk-x-visibility-recovery.test.js
